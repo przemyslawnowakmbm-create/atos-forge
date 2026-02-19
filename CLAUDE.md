@@ -37,6 +37,16 @@ When a plan overflows context, use the assessor + splitter pipeline:
 Strategies: module (by module boundaries), concern (schema→impl→test→config), file (by symbols).
 Each sub-plan includes graph_context and session_context loading instructions.
 
+## Execution Pipeline
+The execute-phase workflow automatically:
+1. Assesses each plan for context overflow (forge-assess/assessor.js)
+2. Splits overflowing plans into sub-plans (forge-assess/splitter.js)
+3. Builds a dependency-aware execution DAG
+4. Executes in waves (parallel within wave, sequential across waves)
+5. After each wave: updates graph, takes snapshot, diffs, re-assesses remaining plans
+
+Assessment happens both before execution AND between waves (plans may shrink after code changes).
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots
