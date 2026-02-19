@@ -35,7 +35,12 @@ When a plan overflows context, use the assessor + splitter pipeline:
   node forge-assess/splitter.js --test --root .         — Run pipeline self-test
 
 Strategies: module (by module boundaries), concern (schema→impl→test→config), file (by symbols).
+Cascading fallback: if a group still exceeds budget, it subdivides further (concern→file→symbol).
 Each sub-plan includes graph_context and session_context loading instructions.
+
+Configuration in .forge/config.json or .planning/config.json (execution section):
+  context_budget (default 200000), assessment_threshold (default 0.80),
+  safety_margin (default 0.20), auto_split, max_fix_loops, overhead_per_subtask.
 
 ## Execution Pipeline
 The execute-phase workflow automatically:
