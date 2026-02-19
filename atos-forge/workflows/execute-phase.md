@@ -120,6 +120,98 @@ node "$TOOLS" ledger log-decision "Pre-execution risk: ${RISK_LEVEL} (consumers=
 ```
 </step>
 
+<step name="assess_and_split_plans">
+**Assess each plan for context fit and split if needed.**
+
+For each incomplete plan from `discover_and_group_plans`:
+
+```bash
+ASSESSOR="$HOME/.claude/atos-forge/forge-assess/assessor.js"
+if [ -f "$ASSESSOR" ]; then
+  ASSESSMENT=$(node "$ASSESSOR" "${PLAN_PATH}" --root "$(pwd)" 2>/dev/null)
+fi
+```
+
+Parse each assessment for: `needs_split`, `strategy`, `metrics.overflow_ratio`, `metrics.total_estimated`, `metrics.context_limit`.
+
+**If `needs_split` is true for any plan:**
+
+Run the splitter:
+```bash
+SPLITTER="$HOME/.claude/atos-forge/forge-assess/splitter.js"
+SPLIT_RESULT=$(node "$SPLITTER" "${PLAN_PATH}" --root "$(pwd)" --format json 2>/dev/null)
+```
+
+Parse split result for: `sub_plans[]` (each with `subtask`, `name`, `files`, `depends_on`, `context_budget`, `graph_context`, `session_context`, `action`, `verify`, `done`, `meta`).
+
+Replace the original plan in the execution DAG with its sub-plans. Sub-plans inherit the parent's wave but add internal ordering via `depends_on`.
+
+**Rebuild wave grouping:**
+
+After all assessments, rebuild the execution DAG:
+- Plans that fit → keep as-is in their original wave
+- Split plans → sub-plans ordered by `depends_on`, interface-producing sub-plans in earlier position
+- Sub-plans marked `parallelizable: true` → same wave position
+- Sub-plans with dependencies → later wave position
+
+**Display execution summary:**
+
+```
+╔═══════════════════════════════════════════════════════════╗
+║              EXECUTION PLAN — Phase {X}                   ║
+╠═══════════════════════════════════════════════════════════╣
+{For each plan:}
+║  Plan {N}: {objective}                                    ║
+║    Assessment: OK ({utilization}% context utilization)     ║
+{OR if split:}
+║  Plan {N}: {objective}                                    ║
+║    Assessment: SPLIT ({overflow_ratio}% — exceeds context) ║
+║    → Sub-plan {N}a: {name} ({budget_pct}%)                ║
+║    → Sub-plan {N}b: {name} ({budget_pct}%)                ║
+║    → Sub-plan {N}c: {name} ({budget_pct}%)                ║
+╠═══════════════════════════════════════════════════════════╣
+║  Execution: Wave 1: [{ids}] → Wave 2: [{ids}] → ...      ║
+╚═══════════════════════════════════════════════════════════╝
+```
+
+Calculate `utilization` as: `(metrics.total_estimated / metrics.context_limit * 100)`.
+Calculate `budget_pct` for sub-plans as: estimated file tokens / context_budget * 100.
+
+**Ledger:** Log assessment results:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+# For each assessed plan:
+node "$TOOLS" ledger log-decision "Plan ${PLAN_ID} assessed: ${STATUS} (${UTILIZATION}% context)" --rationale "${REASON}" 2>/dev/null
+# For each split:
+node "$TOOLS" ledger log-decision "Plan ${PLAN_ID} split into ${SUBTASK_COUNT} sub-plans (${STRATEGY})" --rationale "${SPLIT_REASON}" 2>/dev/null
+```
+
+**Interactive mode (not YOLO):**
+
+Check config mode:
+```bash
+MODE=$(node ~/.claude/atos-forge/bin/forge-tools.cjs config-get mode 2>/dev/null || echo "interactive")
+```
+
+If `MODE` is "interactive": Use AskUserQuestion:
+- header: "Execute"
+- question: "Proceed with this execution plan?"
+- options:
+  - "Execute" — Run all waves as planned
+  - "Review splits" — Show detailed sub-plan breakdown before proceeding
+  - "Abort" — Cancel execution
+
+If "Review splits": Display each sub-plan's full XML (from splitter output), then re-ask execute/abort.
+If "Abort": Exit workflow.
+
+**If YOLO mode or "Execute" selected:** Continue to `execute_waves`.
+
+**If assessor not available (file doesn't exist):** Skip assessment, continue with original plans. Display:
+```
+◇ No assessor available — executing plans without context assessment
+```
+</step>
+
 <step name="execute_waves">
 Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`, sequential if `false`.
 
@@ -226,7 +318,119 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    node "$TOOLS" ledger log-discovery "${DISCOVERY_TEXT}" --source "forge-executor-${PLAN_ID}" 2>/dev/null
    ```
 
-5. **Handle failures:**
+   **Sub-plan handling:** When executing a sub-plan from the splitter (has `parent_plan` and `subtask` fields):
+   - Pass the sub-plan's `<graph_context>` instructions to the executor so it loads relevant graph data
+   - Pass the sub-plan's `<session_context>` instructions so it loads relevant ledger entries
+   - Use the sub-plan's `<files>` as the scope (not the parent plan's full file list)
+   - Use the sub-plan's `<action>`, `<verify>`, `<done>` instead of the parent plan's tasks
+   - After sub-plan completes: run its `<verify>` checks before proceeding to dependent sub-plans
+
+   Modify the executor spawn for sub-plans:
+   ```
+   Task(
+     subagent_type="forge-executor",
+     model="{executor_model}",
+     prompt="
+       <objective>
+       Execute sub-plan {subtask} of plan {parent_plan} in phase {phase_number}-{phase_name}.
+       This is an auto-split task — only modify files in scope.
+       Commit each change atomically. Create SUMMARY.md. Update STATE.md.
+       </objective>
+
+       <execution_context>
+       @~/.claude/atos-forge/workflows/execute-plan.md
+       @~/.claude/atos-forge/templates/summary.md
+       @~/.claude/atos-forge/references/checkpoints.md
+       @~/.claude/atos-forge/references/tdd.md
+       </execution_context>
+
+       <sub_plan>
+       {Full sub-plan XML from splitter — includes files, action, verify, done}
+       </sub_plan>
+
+       <context_loading>
+       Graph context: {sub_plan.graph_context instructions}
+       Session context: {sub_plan.session_context instructions}
+       </context_loading>
+
+       <files_to_read>
+       Read these files at execution start:
+       - Parent plan: {phase_dir}/{parent_plan_file} (for overall context)
+       - State: .planning/STATE.md
+       - Config: .planning/config.json (if exists)
+       - Ledger: .forge/session/ledger.md (if exists — load per session_context instructions)
+       </files_to_read>
+
+       <success_criteria>
+       - [ ] All actions from sub-plan executed
+       - [ ] Each change committed individually
+       - [ ] Verification checks pass: {sub_plan.verify}
+       - [ ] SUMMARY.md created
+       - [ ] STATE.md updated
+       </success_criteria>
+     "
+   )
+   ```
+
+5. **After-wave graph update and diff:**
+
+   After each wave completes (before proceeding to next wave), update the graph incrementally and show structural changes:
+
+   ```bash
+   if [ "$GRAPH_EXISTS" = "true" ]; then
+     UPDATER_PATH="$HOME/.claude/atos-forge/forge-graph/updater.js"
+     TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+
+     # Update graph with changes from this wave
+     if [ -f "$UPDATER_PATH" ]; then
+       node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1
+     fi
+
+     # Save snapshot after this wave
+     if [ -f "$TOOLS_PATH" ]; then
+       node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
+     fi
+
+     # Show graph diff (structural changes from this wave)
+     DIFF_OUTPUT=$(node "$TOOLS_PATH" graph snapshot-diff 2>/dev/null || echo "")
+     if [ -n "$DIFF_OUTPUT" ]; then
+       echo "◆ Graph changes after Wave ${WAVE_NUM}:"
+       echo "$DIFF_OUTPUT"
+     fi
+   fi
+   ```
+
+   **Ledger:** Log wave graph state:
+   ```bash
+   TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+   node "$TOOLS" ledger log-decision "Wave ${WAVE_NUM} graph updated — snapshot saved" --rationale "Post-wave incremental update" 2>/dev/null
+   ```
+
+6. **Re-assess remaining plans (if splits occurred):**
+
+   If any plans were split in `assess_and_split_plans`, re-assess remaining unexecuted plans after each wave. Context requirements may have changed due to:
+   - New files created by this wave
+   - Interface changes affecting downstream consumers
+   - Module boundary shifts
+
+   ```bash
+   ASSESSOR="$HOME/.claude/atos-forge/forge-assess/assessor.js"
+   if [ -f "$ASSESSOR" ] && [ "$HAS_SPLITS" = "true" ]; then
+     for REMAINING_PLAN in "${REMAINING_PLANS[@]}"; do
+       REASSESS=$(node "$ASSESSOR" "$REMAINING_PLAN" --root "$(pwd)" 2>/dev/null)
+       # If a previously-OK plan now overflows (due to new files), warn
+       # If a split plan's remaining sub-plans now fit in fewer chunks, note
+     done
+   fi
+   ```
+
+   If re-assessment reveals new overflows, log a warning but do NOT re-split mid-execution — continue with the original plan. The warning alerts the user to potential issues.
+
+   ```bash
+   node "$TOOLS" ledger log-warning "Re-assessment: plan ${PLAN_ID} now at ${NEW_RATIO}% context (was ${OLD_RATIO}%)" --severity medium --source "execute-phase" 2>/dev/null
+   ```
+
+7. **Handle failures:**
 
    **Known Claude Code bug (classifyHandoffIfNeeded):** If an agent reports "failed" with error containing `classifyHandoffIfNeeded is not defined`, this is a Claude Code runtime bug — not a A-Forge or agent issue. The error fires in the completion handler AFTER all tool calls finish. In this case: run the same spot-checks as step 4 (SUMMARY.md exists, git commits present, no Self-Check: FAILED). If spot-checks PASS → treat as **successful**. If spot-checks FAIL → treat as real failure below.
 
@@ -238,9 +442,9 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    node "$TOOLS" ledger log-error "${FAILURE_DESCRIPTION}" --fix "${FIX_IF_ANY}" 2>/dev/null
    ```
 
-6. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
+8. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
 
-7. **Proceed to next wave.**
+9. **Proceed to next wave.**
 </step>
 
 <step name="checkpoint_handling">
@@ -297,9 +501,9 @@ node "$TOOLS" ledger log-decision "User response to checkpoint: ${USER_RESPONSE}
 </step>
 
 <step name="update_graph">
-**Post-execution graph update + snapshot (if code graph exists):**
+**Final graph update + full diff (if code graph exists):**
 
-After all waves complete (before verification), refresh the code graph and save a snapshot:
+After all waves complete (before verification), do a final graph refresh. Per-wave updates already happened in `execute_waves` step 5, but this ensures completeness.
 
 ```bash
 if [ "$GRAPH_EXISTS" = "true" ]; then
@@ -307,21 +511,39 @@ if [ "$GRAPH_EXISTS" = "true" ]; then
   TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
   if [ -f "$UPDATER_PATH" ]; then
     node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1
-    echo "◆ Code graph updated"
+    echo "◆ Code graph updated (final)"
   fi
   if [ -f "$TOOLS_PATH" ]; then
     node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
-    echo "◆ Graph snapshot saved"
+    echo "◆ Final graph snapshot saved"
   fi
 fi
 ```
 
-The updater runs synchronously (not background) so the snapshot captures the updated state. Combined time is typically under 5 seconds.
+**Show full graph diff (entire phase vs pre-execution baseline):**
 
-**Ledger:** Log graph update completion:
+Compare the final snapshot against the pre-execution snapshot (saved before wave 1):
+
+```bash
+if [ "$GRAPH_EXISTS" = "true" ]; then
+  TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+  FULL_DIFF=$(node "$TOOLS_PATH" graph snapshot-diff 2>/dev/null || echo "")
+  if [ -n "$FULL_DIFF" ]; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo " Graph Diff — Phase ${PHASE_NUMBER} (all waves)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "$FULL_DIFF"
+    echo ""
+  fi
+fi
+```
+
+**Ledger:** Log final graph state:
 ```bash
 TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
 node "$TOOLS" ledger update-state "{\"status\":\"graph updated, proceeding to verification\"}" 2>/dev/null
+node "$TOOLS" ledger log-decision "Phase ${PHASE_NUMBER} graph final update complete" --rationale "Full diff captured in snapshot" 2>/dev/null
 ```
 </step>
 
