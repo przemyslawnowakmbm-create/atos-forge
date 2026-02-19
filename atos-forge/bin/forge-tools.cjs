@@ -108,6 +108,13 @@
  *     --stopped-at "..."
  *     [--resume-file path]
  *
+ * Graph Commands:
+ *   graph init [--root <path>]         Build code graph + install hooks
+ *   graph status                       Graph freshness, stats, hotspots
+ *   graph impact <file> [--depth N]    Impact analysis for a file
+ *   graph impact-phase <phase>         Impact analysis for all files in a phase's plans
+ *   graph context <f1> [f2] ...        Get task context for files (JSON)
+ *
  * Compound Commands (workflow-specific initialization):
  *   init execute-phase <phase>         All context for execute-phase workflow
  *   init plan-phase <phase>            All context for plan-phase workflow
@@ -4237,6 +4244,282 @@ function getMilestoneInfo(cwd) {
   }
 }
 
+// ─── Graph Integration ────────────────────────────────────────────────────────
+
+function getForgeGraphDir() {
+  // Resolve forge-graph/ relative to this file's location (sibling directory)
+  const toolsDir = path.dirname(__filename);
+  const forgeRoot = path.dirname(path.dirname(toolsDir));
+  return path.join(forgeRoot, 'forge-graph');
+}
+
+function graphDbExists(cwd) {
+  return pathExistsInternal(cwd, '.forge/graph.db');
+}
+
+function graphDbPath(cwd) {
+  return path.join(cwd, '.forge', 'graph.db');
+}
+
+/**
+ * Get a graph query summary (status, freshness, stats).
+ * Returns null if graph doesn't exist.
+ */
+function getGraphStatus(cwd) {
+  if (!graphDbExists(cwd)) return null;
+  try {
+    const graphDir = getForgeGraphDir();
+    const queryPath = path.join(graphDir, 'query.js');
+    const out = execSync(`node "${queryPath}" meta --json --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
+    });
+    return JSON.parse(out);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Run graph context-for-task on a list of files.
+ * Returns null if graph doesn't exist or on error.
+ */
+function getGraphContextForFiles(cwd, filePaths) {
+  if (!graphDbExists(cwd) || !filePaths || filePaths.length === 0) return null;
+  try {
+    const graphDir = getForgeGraphDir();
+    const queryPath = path.join(graphDir, 'query.js');
+    const fileArgs = filePaths.map(f => `"${f}"`).join(' ');
+    const out = execSync(`node "${queryPath}" context-for-task ${fileArgs} --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000,
+    });
+    return JSON.parse(out);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Run impact analysis on a single file.
+ * Returns null if graph doesn't exist or on error.
+ */
+function getGraphImpact(cwd, filePath, depth) {
+  if (!graphDbExists(cwd)) return null;
+  try {
+    const graphDir = getForgeGraphDir();
+    const queryPath = path.join(graphDir, 'query.js');
+    const depthArg = depth ? `--depth ${depth}` : '';
+    const out = execSync(`node "${queryPath}" impact "${filePath}" ${depthArg} --json --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
+    });
+    return JSON.parse(out);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Collect all files_modified from plans in a phase.
+ */
+function collectPhaseFiles(cwd, phaseNumber) {
+  try {
+    const out = execSync(`node "${path.join(path.dirname(__filename), 'forge-tools.cjs')}" phase-plan-index "${phaseNumber}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
+    });
+    const index = JSON.parse(out);
+    const files = new Set();
+    for (const plan of (index.plans || [])) {
+      for (const f of (plan.files_modified || [])) {
+        files.add(f);
+      }
+    }
+    return [...files];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * graph init — build full graph + install hooks.
+ */
+function cmdGraphInit(cwd, args, raw) {
+  const graphDir = getForgeGraphDir();
+  const builderPath = path.join(graphDir, 'builder.js');
+  const hooksPath = path.join(graphDir, 'install-hooks.js');
+  const rootArg = args.includes('--root') ? args[args.indexOf('--root') + 1] : cwd;
+
+  // Ensure .forge directory exists
+  const forgeDir = path.join(cwd, '.forge');
+  if (!fs.existsSync(forgeDir)) {
+    fs.mkdirSync(forgeDir, { recursive: true });
+  }
+
+  const startTime = Date.now();
+  let buildOutput;
+  try {
+    buildOutput = execSync(`node "${builderPath}" "${rootArg}" --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 300000,
+    });
+  } catch (e) {
+    error(`Graph build failed: ${e.stderr || e.message}`);
+  }
+
+  // Install git hooks
+  let hooksInstalled = false;
+  try {
+    execSync(`node "${hooksPath}" "${cwd}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
+    });
+    hooksInstalled = true;
+  } catch {
+    // Non-fatal — hooks are optional
+  }
+
+  // Run capability detection
+  let capabilitiesDetected = 0;
+  try {
+    const capPath = path.join(graphDir, 'capability-detector.js');
+    execSync(`node "${capPath}" detect --root "${rootArg}" --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 60000,
+    });
+    capabilitiesDetected = 1; // success flag
+  } catch {}
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  // Read stats from the freshly built graph
+  const meta = getGraphStatus(cwd) || {};
+
+  const result = {
+    success: true,
+    build_time: `${elapsed}s`,
+    total_files: meta.file_count || meta.total_files || '0',
+    total_symbols: meta.symbol_count || meta.total_symbols || '0',
+    module_count: meta.module_count || '0',
+    dependency_count: meta.dependency_count || '0',
+    hooks_installed: hooksInstalled,
+    capabilities_detected: capabilitiesDetected > 0,
+    db_path: graphDbPath(cwd),
+  };
+
+  output(result, raw);
+}
+
+/**
+ * graph status — show graph freshness and key stats.
+ */
+function cmdGraphStatus(cwd, raw) {
+  if (!graphDbExists(cwd)) {
+    output({
+      graph_exists: false,
+      message: 'No code graph found. Run /forge:init to build one.',
+    }, raw);
+    return;
+  }
+
+  const graphDir = getForgeGraphDir();
+  const queryPath = path.join(graphDir, 'query.js');
+
+  let meta = null, hotspots = null, modules = null, capabilities = null;
+
+  try {
+    const metaOut = execSync(`node "${queryPath}" meta --json --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
+    });
+    meta = JSON.parse(metaOut);
+  } catch {}
+
+  try {
+    const hotspotsOut = execSync(`node "${queryPath}" hotspots --top 5 --json --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
+    });
+    hotspots = JSON.parse(hotspotsOut);
+  } catch {}
+
+  try {
+    const modsOut = execSync(`node "${queryPath}" modules --json --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
+    });
+    modules = JSON.parse(modsOut);
+  } catch {}
+
+  try {
+    const capsOut = execSync(`node "${queryPath}" capabilities --json --db "${graphDbPath(cwd)}"`, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
+    });
+    capabilities = JSON.parse(capsOut);
+  } catch {}
+
+  output({
+    graph_exists: true,
+    meta,
+    hotspots: hotspots || [],
+    modules: modules || [],
+    capabilities: capabilities || [],
+  }, raw);
+}
+
+/**
+ * graph impact — impact analysis for a file or a phase.
+ */
+function cmdGraphImpact(cwd, args, raw) {
+  if (!graphDbExists(cwd)) {
+    error('No code graph found. Run /forge:init first.');
+  }
+
+  const graphDir = getForgeGraphDir();
+  const queryPath = path.join(graphDir, 'query.js');
+  const depthArg = args.includes('--depth') ? args[args.indexOf('--depth') + 1] : '2';
+
+  // Check if targeting a phase
+  const phaseIdx = args.indexOf('--phase');
+  if (phaseIdx !== -1) {
+    const phaseNum = args[phaseIdx + 1];
+    const files = collectPhaseFiles(cwd, phaseNum);
+    if (files.length === 0) {
+      error(`No files found in phase ${phaseNum} plans.`);
+    }
+
+    // Get context-for-task which includes aggregate risk
+    const context = getGraphContextForFiles(cwd, files);
+    output(context || { error: 'Failed to analyze phase files' }, raw);
+    return;
+  }
+
+  // Single file impact
+  const file = args.find(a => !a.startsWith('--') && a !== 'impact');
+  if (!file) {
+    error('Usage: graph impact <file> [--depth N] or graph impact --phase <N>');
+  }
+
+  const impact = getGraphImpact(cwd, file, parseInt(depthArg));
+  if (!impact) {
+    error(`Impact analysis failed for: ${file}`);
+  }
+  output(impact, raw);
+}
+
+/**
+ * graph context — get task context for files.
+ */
+function cmdGraphContext(cwd, args, raw) {
+  if (!graphDbExists(cwd)) {
+    error('No code graph found. Run /forge:init first.');
+  }
+
+  const files = args.filter(a => !a.startsWith('--') && a !== 'context');
+  if (files.length === 0) {
+    error('Usage: graph context <file1> [file2] ...');
+  }
+
+  const context = getGraphContextForFiles(cwd, files);
+  if (!context) {
+    error('Context generation failed.');
+  }
+  output(context, raw);
+}
+
+// ─── Compound Init Commands ───────────────────────────────────────────────────
+
 function cmdInitExecutePhase(cwd, phase, includes, raw) {
   if (!phase) {
     error('phase required for init execute-phase');
@@ -4304,6 +4587,21 @@ function cmdInitExecutePhase(cwd, phase, includes, raw) {
   }
   if (includes.has('roadmap')) {
     result.roadmap_content = safeReadFile(path.join(cwd, '.planning', 'ROADMAP.md'));
+  }
+
+  // Include graph context if graph exists
+  result.graph_available = graphDbExists(cwd);
+  if (result.graph_available && phaseInfo?.plans?.length > 0) {
+    const phaseFiles = collectPhaseFiles(cwd, phase);
+    if (phaseFiles.length > 0) {
+      const graphCtx = getGraphContextForFiles(cwd, phaseFiles);
+      if (graphCtx) {
+        result.graph_risk = graphCtx.risk || null;
+        result.graph_boundaries = graphCtx.moduleBoundaries || [];
+        result.graph_capabilities = graphCtx.capabilities || {};
+        result.graph_consumer_count = graphCtx.summary?.consumerCount || 0;
+      }
+    }
   }
 
   output(result, raw);
@@ -4400,6 +4698,15 @@ function cmdInitPlanPhase(cwd, phase, includes, raw) {
         result.uat_content = safeReadFile(path.join(phaseDirFull, uatFile));
       }
     } catch {}
+  }
+
+  // Include graph context if graph exists and phase has plans with files_modified
+  result.graph_available = graphDbExists(cwd);
+  if (result.graph_available && includes.has('graph') && phaseInfo?.plans?.length > 0) {
+    const phaseFiles = collectPhaseFiles(cwd, phase);
+    if (phaseFiles.length > 0) {
+      result.graph_context = getGraphContextForFiles(cwd, phaseFiles);
+    }
   }
 
   output(result, raw);
@@ -5315,6 +5622,22 @@ async function main() {
         limit: limitIdx !== -1 ? parseInt(args[limitIdx + 1], 10) : 10,
         freshness: freshnessIdx !== -1 ? args[freshnessIdx + 1] : null,
       }, raw);
+      break;
+    }
+
+    case 'graph': {
+      const subcommand = args[1];
+      if (subcommand === 'init') {
+        cmdGraphInit(cwd, args.slice(2), raw);
+      } else if (subcommand === 'status') {
+        cmdGraphStatus(cwd, raw);
+      } else if (subcommand === 'impact') {
+        cmdGraphImpact(cwd, args.slice(2), raw);
+      } else if (subcommand === 'context') {
+        cmdGraphContext(cwd, args.slice(2), raw);
+      } else {
+        error('Unknown graph subcommand. Available: init, status, impact, context');
+      }
       break;
     }
 

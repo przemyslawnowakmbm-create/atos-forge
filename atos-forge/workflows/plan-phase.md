@@ -167,6 +167,49 @@ UAT_CONTENT=$(echo "$INIT" | jq -r '.uat_content // empty')
 CONTEXT_CONTENT=$(echo "$INIT" | jq -r '.context_content // empty')
 ```
 
+## 7.5. Load Code Graph Context (if available)
+
+Check `graph_available` from INIT JSON. If true:
+
+```bash
+GRAPH_AVAILABLE=$(echo "$INIT" | jq -r '.graph_available // false')
+```
+
+**If `graph_available` is true:**
+
+Load graph context for files in this phase's plans (if plans exist already — e.g., re-planning):
+
+```bash
+GRAPH_CONTEXT=""
+if [ "$GRAPH_AVAILABLE" = "true" ]; then
+  # Get risk assessment and module boundaries for files this phase will touch
+  GRAPH_RAW=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph status 2>/dev/null || echo "{}")
+  GRAPH_RISK=$(echo "$INIT" | jq -r '.graph_risk // empty')
+  GRAPH_BOUNDARIES=$(echo "$INIT" | jq -r '.graph_boundaries // empty')
+  GRAPH_CAPS=$(echo "$INIT" | jq -r '.graph_capabilities // empty')
+  GRAPH_CONSUMERS=$(echo "$INIT" | jq -r '.graph_consumer_count // 0')
+
+  if [ -n "$GRAPH_RISK" ] || [ -n "$GRAPH_BOUNDARIES" ]; then
+    GRAPH_CONTEXT="<code_graph_intelligence>
+Risk Level: ${GRAPH_RISK}
+Consumer Count: ${GRAPH_CONSUMERS}
+Module Boundaries Crossed: ${GRAPH_BOUNDARIES}
+Capability Requirements: ${GRAPH_CAPS}
+
+CONSTRAINTS from code graph:
+- If risk is HIGH/CRITICAL: plan smaller incremental changes, add rollback steps
+- If module boundaries are crossed: document the cross-module contract in the plan
+- Required capabilities indicate domain expertise needed for execution
+</code_graph_intelligence>"
+  fi
+fi
+```
+
+**If `graph_available` is false:** Display a one-line note:
+```
+◇ No code graph — run /forge:init for dependency-aware planning
+```
+
 ## 8. Spawn forge-planner Agent
 
 Display banner:
@@ -200,6 +243,8 @@ IMPORTANT: If context exists below, it contains USER DECISIONS from /forge:discu
 
 **Research:** {research_content}
 **Gap Closure (if --gaps):** {verification_content} {uat_content}
+
+{graph_context}
 </planning_context>
 
 <downstream_consumer>

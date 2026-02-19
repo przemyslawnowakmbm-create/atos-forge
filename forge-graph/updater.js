@@ -6,33 +6,13 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 
-const { GraphBuilder, discoverFiles, resolveImport, estimateComplexity } = require('./builder');
+const {
+  GraphBuilder, discoverFiles, resolveImport, estimateComplexity,
+  ParserManager, extractFromAST, extractWithRegex,
+  LANGUAGE_EXTENSIONS, TEST_PATTERNS, CONFIG_PATTERNS,
+} = require('./builder');
 const { detectModules, classifyFile } = require('./module-detector');
 const { detectCapabilities } = require('./capability-detector');
-
-// ============================================================
-// Configuration
-// ============================================================
-
-const LANGUAGE_EXTENSIONS = {
-  '.ts': 'typescript', '.tsx': 'typescript',
-  '.js': 'javascript', '.jsx': 'javascript',
-  '.mjs': 'javascript', '.cjs': 'javascript',
-  '.py': 'python', '.java': 'java', '.go': 'go',
-};
-
-const TEST_PATTERNS = [
-  /\.test\./i, /\.spec\./i, /\.e2e\./i, /__tests__\//i,
-  /test\//i, /tests\//i, /testing\//i, /_test\.go$/i,
-  /test_.*\.py$/i, /.*_test\.py$/i,
-];
-
-const CONFIG_PATTERNS = [
-  /\.config\./i, /tsconfig/i, /eslint/i, /prettier/i,
-  /webpack/i, /vite\.config/i, /jest\.config/i, /next\.config/i,
-  /docker/i, /\.env/i, /Dockerfile/i, /Makefile/i,
-  /package\.json$/i, /\.ya?ml$/i, /\.toml$/i,
-];
 
 // ============================================================
 // Incremental Updater
@@ -43,6 +23,7 @@ class GraphUpdater {
     this.repoRoot = path.resolve(repoRoot);
     this.dbPath = dbPath || path.join(this.repoRoot, '.forge', 'graph.db');
     this.db = null;
+    this.parserMgr = new ParserManager();
     this.stats = { added: 0, modified: 0, deleted: 0, unchanged: 0 };
   }
 
@@ -64,14 +45,18 @@ class GraphUpdater {
       return { stats: this.stats, rebuildRequired: true };
     }
 
-    // Open existing database
+    // Open existing database with WAL and busy timeout
     const Database = require('better-sqlite3');
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
+    this.db.pragma('busy_timeout = 5000');
+
+    // Initialize tree-sitter parsers
+    this.parserMgr.init();
 
     // Determine what changed
-    const lastBuildCommit = this.getLastBuildCommit();
+    const lastBuildCommit = this.getMetaValue('last_commit') || this.getMetaValue('last_build_commit');
     const diffBase = since || lastBuildCommit;
 
     if (!diffBase) {
@@ -96,7 +81,7 @@ class GraphUpdater {
 
     console.log(`  Changes: +${changes.added.length} ~${changes.modified.length} -${changes.deleted.length}`);
 
-    // Check if too many changes warrant a full rebuild (>30% of files)
+    // Check if too many changes warrant a full rebuild (>30% of files AND >50 total)
     const existingFileCount = this.db.prepare('SELECT COUNT(*) as cnt FROM files').get().cnt;
     if (totalChanges > existingFileCount * 0.3 && totalChanges > 50) {
       console.log(`  Large changeset (${totalChanges} files, ${Math.round(totalChanges / Math.max(existingFileCount, 1) * 100)}%). Running full rebuild...\n`);
@@ -106,12 +91,26 @@ class GraphUpdater {
       return { stats: this.stats, rebuildRequired: true };
     }
 
+    // Capture deleted files' module names before deleting
+    const deletedModules = new Set();
+    for (const fp of changes.deleted) {
+      const row = this.db.prepare('SELECT module FROM files WHERE path = ?').get(fp);
+      if (row) deletedModules.add(row.module);
+    }
+
     // Process changes incrementally
+    const allChanged = [...changes.added, ...changes.modified, ...changes.deleted];
     this.processDeleted(changes.deleted);
     this.processAddedOrModified([...changes.added, ...changes.modified]);
 
+    // Cascade consumer_count updates for affected interfaces
+    this.cascadeConsumerUpdates([...changes.added, ...changes.modified, ...changes.deleted]);
+
+    // Targeted change_frequency updates for changed files
+    this.updateChangeFrequency([...changes.added, ...changes.modified]);
+
     // Refresh module stats for affected modules
-    this.refreshModuleStats(changes);
+    this.refreshModuleStats(changes, deletedModules);
 
     // Update metadata
     this.updateMeta();
@@ -125,31 +124,9 @@ class GraphUpdater {
     return { stats: this.stats, rebuildRequired: false };
   }
 
-  /**
-   * Get the commit hash from the last successful build.
-   */
-  getLastBuildCommit() {
-    try {
-      const row = this.db.prepare("SELECT value FROM graph_meta WHERE key = 'last_commit'").get();
-      return row ? row.value : null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Get the current HEAD commit hash.
-   */
-  getCurrentCommit() {
-    try {
-      return execSync('git rev-parse HEAD', {
-        cwd: this.repoRoot, encoding: 'utf8', timeout: 5000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim();
-    } catch {
-      return null;
-    }
-  }
+  // ============================================================
+  // Git Diff
+  // ============================================================
 
   /**
    * Get lists of added, modified, and deleted files since a given ref.
@@ -159,34 +136,44 @@ class GraphUpdater {
 
     try {
       const output = execSync(
-        `git diff --name-status ${sinceRef}..HEAD -- .`,
+        `git diff --name-status --diff-filter=ACDMR ${sinceRef}..HEAD -- .`,
         { cwd: this.repoRoot, encoding: 'utf8', timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] }
       );
 
       for (const line of output.split('\n').filter(Boolean)) {
         const parts = line.split('\t');
-        const status = parts[0][0]; // A, M, D, R (rename)
-        const filePath = parts[parts.length - 1]; // Use last part for renames
+        const status = parts[0][0]; // A, M, D, R, C
+        const filePath = parts[parts.length - 1]; // Use last part for renames/copies
+        const ext = path.extname(filePath).toLowerCase();
 
         // Only track source files
-        const ext = path.extname(filePath).toLowerCase();
         if (!LANGUAGE_EXTENSIONS[ext]) continue;
 
         switch (status) {
-          case 'A': result.added.push(filePath); break;
-          case 'M': result.modified.push(filePath); break;
-          case 'D': result.deleted.push(filePath); break;
-          case 'R':
-            // Rename: old path deleted, new path added
-            const oldPath = parts[1];
-            result.deleted.push(oldPath);
+          case 'A':
+          case 'C': // Copy: treat new copy as added
             result.added.push(filePath);
             break;
+          case 'M':
+            result.modified.push(filePath);
+            break;
+          case 'D':
+            result.deleted.push(filePath);
+            break;
+          case 'R': {
+            // Rename: old path deleted, new path added
+            const oldPath = parts[1];
+            const oldExt = path.extname(oldPath).toLowerCase();
+            if (LANGUAGE_EXTENSIONS[oldExt]) {
+              result.deleted.push(oldPath);
+            }
+            result.added.push(filePath);
+            break;
+          }
         }
       }
     } catch (err) {
       console.warn(`  [warn] Could not get git diff: ${err.message}`);
-      // Fall back to checking file modification times
       return this.getChangedByMtime();
     }
 
@@ -200,18 +187,15 @@ class GraphUpdater {
     const result = { added: [], modified: [], deleted: [] };
     const currentFiles = new Set(discoverFiles(this.repoRoot));
 
-    // Get all files from database
     const dbFiles = new Map();
     for (const row of this.db.prepare('SELECT path, last_modified FROM files').all()) {
       dbFiles.set(row.path, row.last_modified);
     }
 
-    // Find added and modified
     for (const fp of currentFiles) {
       if (!dbFiles.has(fp)) {
         result.added.push(fp);
       } else {
-        // Check mtime
         try {
           const fullPath = path.join(this.repoRoot, fp);
           const stat = fs.statSync(fullPath);
@@ -225,7 +209,6 @@ class GraphUpdater {
       }
     }
 
-    // Find deleted
     for (const fp of dbFiles.keys()) {
       if (!currentFiles.has(fp)) {
         result.deleted.push(fp);
@@ -235,9 +218,10 @@ class GraphUpdater {
     return result;
   }
 
-  /**
-   * Remove deleted files and their associated data.
-   */
+  // ============================================================
+  // Process Deleted Files
+  // ============================================================
+
   processDeleted(deletedFiles) {
     if (deletedFiles.length === 0) return;
 
@@ -264,9 +248,10 @@ class GraphUpdater {
     console.log(`  Deleted ${deletedFiles.length} file(s) from graph`);
   }
 
-  /**
-   * Add or update files in the graph.
-   */
+  // ============================================================
+  // Process Added / Modified Files
+  // ============================================================
+
   processAddedOrModified(filePaths) {
     if (filePaths.length === 0) return;
 
@@ -277,10 +262,6 @@ class GraphUpdater {
 
     // Detect modules for file assignment
     const { modules, fileModuleMap } = detectModules(this.repoRoot, allFiles);
-
-    // Initialize tree-sitter via a temporary builder (for parser access)
-    const builder = new GraphBuilder(this.repoRoot, this.dbPath);
-    builder.parserMgr.init();
 
     // Prepare statements
     const insertFile = this.db.prepare(`
@@ -303,6 +284,8 @@ class GraphUpdater {
       VALUES (?, ?, ?, ?, ?)
     `);
 
+    const existingPaths = new Set(allFilePaths);
+
     const updateAll = this.db.transaction((files) => {
       for (const filePath of files) {
         const ext = path.extname(filePath).toLowerCase();
@@ -324,30 +307,24 @@ class GraphUpdater {
         const moduleName = fileModuleMap.get(filePath) || '<root>';
         const lastModified = this.getFileLastModified(filePath);
 
-        // Parse symbols and imports
-        let symbols = [];
-        let imports = [];
-
-        const parser = builder.parserMgr.getParser(language, filePath);
+        // Parse symbols and imports — prefer tree-sitter, fall back to regex
+        let extracted;
+        const parser = this.parserMgr.getParser(language, filePath);
         if (parser) {
           try {
             const tree = parser.parse(source);
-            const { extractFromAST } = require('./builder');
-            // We can't import extractFromAST directly since it's not exported
-            // Use regex fallback instead for incremental updates
-            const { symbols: s, imports: i } = this.extractWithRegex(source, language);
-            symbols = s;
-            imports = i;
+            extracted = extractFromAST(tree, language, source);
+            // If AST returned no symbols, fall back to regex
+            if (extracted.symbols.length === 0 && source.trim().length > 0) {
+              extracted = extractWithRegex(source, language);
+            }
           } catch {
-            const { symbols: s, imports: i } = this.extractWithRegex(source, language);
-            symbols = s;
-            imports = i;
+            extracted = extractWithRegex(source, language);
           }
         } else {
-          const { symbols: s, imports: i } = this.extractWithRegex(source, language);
-          symbols = s;
-          imports = i;
+          extracted = extractWithRegex(source, language);
         }
+        const { symbols, imports } = extracted;
 
         // Write file record
         insertFile.run(filePath, moduleName, language, loc, complexity, lastModified, isTest ? 1 : 0, isConfig ? 1 : 0);
@@ -382,88 +359,160 @@ class GraphUpdater {
             insertDep.run(filePath, resolved, imp.name, imp.type);
           }
         }
+
+        // Track stats
+        if (existingPaths.has(filePath)) this.stats.modified++;
+        else this.stats.added++;
       }
     });
 
     updateAll(filePaths);
-
-    // Count added vs modified
-    const existingPaths = new Set(allFilePaths);
-    for (const fp of filePaths) {
-      if (existingPaths.has(fp)) this.stats.modified++;
-      else this.stats.added++;
-    }
-
     console.log(`  Processed ${filePaths.length} file(s) (${this.stats.added} new, ${this.stats.modified} updated)`);
   }
 
-  /**
-   * Regex-based extraction (same as builder.js fallback).
-   */
-  extractWithRegex(source, language) {
-    const symbols = [];
-    const imports = [];
-    const lines = source.split('\n');
+  // ============================================================
+  // Consumer Cascade
+  // ============================================================
 
-    if (language === 'javascript' || language === 'typescript') {
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const exportFunc = line.match(/^export\s+(?:async\s+)?function\s+(\w+)/);
-        if (exportFunc) symbols.push({ name: exportFunc[1], kind: 'function', line_start: i + 1, line_end: i + 1, exported: true, signature: null });
-        const exportClass = line.match(/^export\s+(?:abstract\s+)?class\s+(\w+)/);
-        if (exportClass) symbols.push({ name: exportClass[1], kind: 'class', line_start: i + 1, line_end: i + 1, exported: true, signature: null });
-        const exportConst = line.match(/^export\s+const\s+(\w+)/);
-        if (exportConst) symbols.push({ name: exportConst[1], kind: 'const', line_start: i + 1, line_end: i + 1, exported: true, signature: null });
-        const exportInterface = line.match(/^export\s+interface\s+(\w+)/);
-        if (exportInterface) symbols.push({ name: exportInterface[1], kind: 'interface', line_start: i + 1, line_end: i + 1, exported: true, signature: null });
-        const exportType = line.match(/^export\s+type\s+(\w+)/);
-        if (exportType) symbols.push({ name: exportType[1], kind: 'type', line_start: i + 1, line_end: i + 1, exported: true, signature: null });
-        const funcDecl = line.match(/^(?:async\s+)?function\s+(\w+)/);
-        if (funcDecl && !line.startsWith('export')) symbols.push({ name: funcDecl[1], kind: 'function', line_start: i + 1, line_end: i + 1, exported: false, signature: null });
-        const importMatch = line.match(/import\s+.*?from\s+['"]([^'"]+)['"]/);
-        if (importMatch) {
-          const importType = line.includes('* as') ? 'namespace' : line.includes('{') ? 'named' : 'default';
-          imports.push({ name: importMatch[1], type: importType });
+  /**
+   * Recompute consumer_count for interfaces affected by changed files.
+   * Affected = interfaces in changed files + interfaces in files they import + interfaces in files that import them.
+   */
+  cascadeConsumerUpdates(changedFiles) {
+    if (changedFiles.length === 0) return;
+
+    const affectedFiles = new Set(changedFiles);
+
+    // Files that changed files import (target_file from deps where source is changed)
+    const importedByChanged = this.db.prepare(
+      `SELECT DISTINCT target_file FROM dependencies WHERE source_file IN (${changedFiles.map(() => '?').join(',')})`
+    );
+    for (const row of importedByChanged.all(...changedFiles)) {
+      affectedFiles.add(row.target_file);
+    }
+
+    // Files that import changed files (source_file from deps where target is changed)
+    const importersOfChanged = this.db.prepare(
+      `SELECT DISTINCT source_file FROM dependencies WHERE target_file IN (${changedFiles.map(() => '?').join(',')})`
+    );
+    for (const row of importersOfChanged.all(...changedFiles)) {
+      affectedFiles.add(row.source_file);
+    }
+
+    // For each affected file, recompute consumer_count on all its interfaces
+    const getInterfaces = this.db.prepare('SELECT id, name, file FROM interfaces WHERE file = ?');
+    const countConsumers = this.db.prepare(
+      'SELECT COUNT(DISTINCT source_file) as cnt FROM dependencies WHERE target_file = ?'
+    );
+    const updateConsumerCount = this.db.prepare('UPDATE interfaces SET consumer_count = ? WHERE id = ?');
+
+    const cascade = this.db.transaction(() => {
+      let updated = 0;
+      for (const fp of affectedFiles) {
+        const consumerCount = countConsumers.get(fp);
+        if (!consumerCount) continue;
+        const ifaces = getInterfaces.all(fp);
+        for (const iface of ifaces) {
+          updateConsumerCount.run(consumerCount.cnt, iface.id);
+          updated++;
         }
-        const requireMatch = line.match(/require\s*\(\s*['"]([^'"]+)['"]\s*\)/);
-        if (requireMatch) imports.push({ name: requireMatch[1], type: 'require' });
       }
-    } else if (language === 'python') {
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const funcMatch = line.match(/^(?:async\s+)?def\s+(\w+)/);
-        if (funcMatch) symbols.push({ name: funcMatch[1], kind: 'function', line_start: i + 1, line_end: i + 1, exported: !funcMatch[1].startsWith('_'), signature: null });
-        const classMatch = line.match(/^class\s+(\w+)/);
-        if (classMatch) symbols.push({ name: classMatch[1], kind: 'class', line_start: i + 1, line_end: i + 1, exported: !classMatch[1].startsWith('_'), signature: null });
-        const importMatch = line.match(/^(?:from\s+(\S+)\s+import|import\s+(\S+))/);
-        if (importMatch) imports.push({ name: importMatch[1] || importMatch[2], type: line.startsWith('from') ? 'named' : 'namespace' });
+      if (updated > 0) {
+        console.log(`  Cascaded consumer_count for ${updated} interface(s) across ${affectedFiles.size} file(s)`);
       }
-    }
+    });
 
-    return { symbols, imports };
+    cascade();
   }
 
-  /**
-   * Get last modified date for a single file from git.
-   */
-  getFileLastModified(filePath) {
-    try {
-      const output = execSync(
-        `git log -1 --format=%aI -- "${filePath}"`,
-        { cwd: this.repoRoot, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
-      );
-      return output.trim().split('T')[0] || null;
-    } catch {
-      return null;
-    }
-  }
+  // ============================================================
+  // Targeted Change Frequency
+  // ============================================================
 
   /**
-   * Refresh module stats and capabilities for affected modules.
+   * Update change_frequency for specific files (not the whole repo).
+   * Per file: git log --since for 7d/30d/90d + last_changed + top_changers.
    */
-  refreshModuleStats(changes) {
+  updateChangeFrequency(changedFiles) {
+    if (changedFiles.length === 0) return;
+
+    const insertFreq = this.db.prepare(`
+      INSERT OR REPLACE INTO change_frequency (file, changes_7d, changes_30d, changes_90d, last_changed, top_changers)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    const now = new Date();
+    const periods = [
+      { key: 'changes_7d', days: 7 },
+      { key: 'changes_30d', days: 30 },
+      { key: 'changes_90d', days: 90 },
+    ];
+
+    const updateFreq = this.db.transaction(() => {
+      for (const filePath of changedFiles) {
+        const freq = { changes_7d: 0, changes_30d: 0, changes_90d: 0, last_changed: null, top_changers: [] };
+
+        // Count changes per period
+        for (const { key, days } of periods) {
+          const since = new Date(now - days * 86400000).toISOString().split('T')[0];
+          try {
+            const output = execSync(
+              `git log --since="${since}" --oneline -- "${filePath}"`,
+              { cwd: this.repoRoot, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
+            );
+            freq[key] = output.split('\n').filter(Boolean).length;
+          } catch {
+            // git not available or file not tracked
+          }
+        }
+
+        // Get last_changed and top_changers
+        try {
+          const output = execSync(
+            `git log --pretty=format:"%an|||%ai" -20 -- "${filePath}"`,
+            { cwd: this.repoRoot, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
+          );
+          const lines = output.split('\n').filter(Boolean);
+          const authorCounts = {};
+          for (const line of lines) {
+            const parts = line.split('|||');
+            if (parts.length < 2) continue;
+            const author = parts[0];
+            const date = parts[1].split(' ')[0];
+            if (!freq.last_changed) freq.last_changed = date;
+            authorCounts[author] = (authorCounts[author] || 0) + 1;
+          }
+          // Sort authors by commit count descending, take top 5
+          freq.top_changers = Object.entries(authorCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(e => e[0]);
+        } catch {
+          // git not available or file not tracked
+        }
+
+        insertFreq.run(
+          filePath,
+          freq.changes_7d,
+          freq.changes_30d,
+          freq.changes_90d,
+          freq.last_changed,
+          JSON.stringify(freq.top_changers)
+        );
+      }
+    });
+
+    updateFreq();
+    console.log(`  Updated change_frequency for ${changedFiles.length} file(s)`);
+  }
+
+  // ============================================================
+  // Module Stats Refresh
+  // ============================================================
+
+  refreshModuleStats(changes, deletedModules) {
     // Find affected modules
-    const affectedModules = new Set();
+    const affectedModules = new Set(deletedModules || []);
     const allAffected = [...changes.added, ...changes.modified, ...changes.deleted];
 
     for (const fp of allAffected) {
@@ -492,7 +541,6 @@ class GraphUpdater {
 
     const refresh = this.db.transaction(() => {
       for (const modName of affectedModules) {
-        // Get module info
         const modRow = this.db.prepare('SELECT root_path FROM modules WHERE name = ?').get(modName);
         if (!modRow) continue;
 
@@ -525,7 +573,7 @@ class GraphUpdater {
         deleteModCaps.run(modName);
         const modSymbols = this.db.prepare('SELECT name, file FROM symbols WHERE file IN (SELECT path FROM files WHERE module = ?) AND exported = 1').all(modName);
         const modImports = this.db.prepare('SELECT source_file, import_name FROM dependencies WHERE source_file IN (SELECT path FROM files WHERE module = ?)').all(modName);
-        const caps = detectCapabilities(modName, files, modSymbols, modImports);
+        const caps = detectCapabilities(modName, files, modSymbols, modImports, { repoRoot: this.repoRoot });
         for (const cap of caps) {
           insertCap.run(modName, cap.capability, cap.confidence, cap.evidence);
         }
@@ -552,23 +600,60 @@ class GraphUpdater {
     refresh();
   }
 
-  /**
-   * Update build metadata.
-   */
+  // ============================================================
+  // Metadata
+  // ============================================================
+
+  getMetaValue(key) {
+    try {
+      const row = this.db.prepare('SELECT value FROM graph_meta WHERE key = ?').get(key);
+      return row ? row.value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  getCurrentCommit() {
+    try {
+      return execSync('git rev-parse HEAD', {
+        cwd: this.repoRoot, encoding: 'utf8', timeout: 5000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).trim();
+    } catch {
+      return null;
+    }
+  }
+
+  getFileLastModified(filePath) {
+    try {
+      const output = execSync(
+        `git log -1 --format=%aI -- "${filePath}"`,
+        { cwd: this.repoRoot, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
+      );
+      return output.trim().split('T')[0] || null;
+    } catch {
+      return null;
+    }
+  }
+
   updateMeta() {
     const currentCommit = this.getCurrentCommit();
     const insertMeta = this.db.prepare('INSERT OR REPLACE INTO graph_meta (key, value) VALUES (?, ?)');
 
     const updateMetaTx = this.db.transaction(() => {
+      insertMeta.run('last_build_time', new Date().toISOString());
       insertMeta.run('updated_at', new Date().toISOString());
       if (currentCommit) {
         insertMeta.run('last_commit', currentCommit);
+        insertMeta.run('last_build_commit', currentCommit);
       }
       // Update counts
       const fileCount = this.db.prepare('SELECT COUNT(*) as cnt FROM files').get().cnt;
       const symbolCount = this.db.prepare('SELECT COUNT(*) as cnt FROM symbols').get().cnt;
       const depCount = this.db.prepare('SELECT COUNT(*) as cnt FROM dependencies').get().cnt;
       const modCount = this.db.prepare('SELECT COUNT(*) as cnt FROM modules').get().cnt;
+      insertMeta.run('total_files', String(fileCount));
+      insertMeta.run('total_symbols', String(symbolCount));
       insertMeta.run('file_count', String(fileCount));
       insertMeta.run('symbol_count', String(symbolCount));
       insertMeta.run('dependency_count', String(depCount));

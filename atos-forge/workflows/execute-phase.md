@@ -71,6 +71,48 @@ Report:
 ```
 </step>
 
+<step name="graph_impact_check">
+**Pre-execution impact analysis (if code graph exists):**
+
+```bash
+GRAPH_STATUS=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph status 2>/dev/null || echo '{"graph_exists":false}')
+GRAPH_EXISTS=$(echo "$GRAPH_STATUS" | jq -r '.graph_exists')
+```
+
+**If `GRAPH_EXISTS` is true:**
+
+Run impact analysis on all files in the phase:
+```bash
+IMPACT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph impact --phase "${PHASE_NUMBER}" 2>/dev/null || echo '{}')
+RISK_LEVEL=$(echo "$IMPACT" | jq -r '.risk.level // "UNKNOWN"')
+RISK_REASONS=$(echo "$IMPACT" | jq -r '.risk.reasons // [] | join("; ")')
+CONSUMER_COUNT=$(echo "$IMPACT" | jq -r '.summary.consumerCount // 0')
+BOUNDARY_COUNT=$(echo "$IMPACT" | jq -r '.summary.boundariesCrossed // 0')
+```
+
+Display impact summary:
+```
+◆ Code Graph Impact: Risk={RISK_LEVEL}, Consumers={CONSUMER_COUNT}, Boundaries={BOUNDARY_COUNT}
+{if RISK_REASONS: "  Reasons: {RISK_REASONS}"}
+```
+
+**If `RISK_LEVEL` is "HIGH" or "CRITICAL":**
+
+Use AskUserQuestion:
+- header: "High risk"
+- question: "Code graph shows {RISK_LEVEL} risk: {RISK_REASONS}. This phase affects {CONSUMER_COUNT} downstream consumers across {BOUNDARY_COUNT} module boundaries. Proceed with execution?"
+- options:
+  - "Proceed" — Execute despite high risk
+  - "Review impact first" — Run `/forge:impact {PHASE_NUMBER}` for full analysis before deciding
+
+If "Review impact first": Display `/forge:impact {PHASE_NUMBER}` and exit workflow.
+
+**If `GRAPH_EXISTS` is false:** Display note:
+```
+◇ No code graph — run /forge:init for pre-execution impact analysis
+```
+</step>
+
 <step name="execute_waves">
 Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`, sequential if `false`.
 
@@ -214,6 +256,24 @@ When executor returns a checkpoint AND `AUTO_CFG` is `"true"`:
 **Why fresh agent, not resume:** Resume relies on internal serialization that breaks with parallel tool calls. Fresh agents with explicit state are more reliable.
 
 **Checkpoints in parallel waves:** Agent pauses and returns while other parallel agents may complete. Present checkpoint, spawn continuation, wait for all before next wave.
+</step>
+
+<step name="update_graph">
+**Post-execution graph update (if code graph exists):**
+
+After all waves complete (before verification), refresh the code graph to reflect changes:
+
+```bash
+if [ "$GRAPH_EXISTS" = "true" ]; then
+  UPDATER_PATH="$HOME/.claude/atos-forge/forge-graph/updater.js"
+  if [ -f "$UPDATER_PATH" ]; then
+    node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1 &
+    echo "◆ Code graph update triggered (background)"
+  fi
+fi
+```
+
+This runs in the background so it doesn't block the workflow. The graph will be fresh for the verification step.
 </step>
 
 <step name="aggregate_results">

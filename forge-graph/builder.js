@@ -1013,7 +1013,7 @@ class GraphBuilder {
       modInfo.stability = stability;
 
       // Detect capabilities
-      modInfo.capabilities = detectCapabilities(modName, modFiles, modSymbols, modImports);
+      modInfo.capabilities = detectCapabilities(modName, modFiles, modSymbols, modImports, { repoRoot: this.repoRoot });
     }
 
     // Compute module-level dependencies
@@ -1183,4 +1183,8 @@ if (require.main === module) {
   builder.build();
 }
 
-module.exports = { GraphBuilder, discoverFiles, resolveImport, estimateComplexity };
+module.exports = {
+  GraphBuilder, discoverFiles, resolveImport, estimateComplexity,
+  ParserManager, extractFromAST, extractWithRegex,
+  LANGUAGE_EXTENSIONS, TEST_PATTERNS, CONFIG_PATTERNS,
+};

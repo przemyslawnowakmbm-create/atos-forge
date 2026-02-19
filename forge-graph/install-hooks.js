@@ -141,4 +141,3 @@ if (require.main === module) {
 }
 
 module.exports = { install, uninstall };
-// test
