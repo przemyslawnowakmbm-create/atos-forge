@@ -1,14 +1,15 @@
 {
-  "name": "get-shit-done-cc",
+  "name": "atos-forge",
   "version": "1.20.4",
-  "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode and Gemini by TÂCHES.",
+  "description": "Atos Forge (A-Forge) — An enterprise-grade, AI-powered spec-driven development system with dynamic agent creation, ephemeral container execution, and code graph intelligence.",
+  "private": true,
   "bin": {
-    "get-shit-done-cc": "bin/install.js"
+    "atos-forge": "bin/install.js"
   },
   "files": [
     "bin",
     "commands",
-    "get-shit-done",
+    "atos-forge",
     "agents",
     "hooks/dist",
     "scripts"
@@ -23,15 +24,15 @@
     "gemini",
     "gemini-cli"
   ],
-  "author": "TÂCHES",
+  "author": "Atos Forge Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/glittercowboy/get-shit-done.git"
+    "url": "git+https://github.com/przemyslawnowakmbm-create/atos-forge.git"
   },
-  "homepage": "https://github.com/glittercowboy/get-shit-done",
+  "homepage": "https://github.com/przemyslawnowakmbm-create/atos-forge",
   "bugs": {
-    "url": "https://github.com/glittercowboy/get-shit-done/issues"
+    "url": "https://github.com/przemyslawnowakmbm-create/atos-forge/issues"
   },
   "engines": {
     "node": ">=16.7.0"
@@ -42,7 +43,6 @@
   },
   "scripts": {
     "build:hooks": "node scripts/build-hooks.js",
-    "prepublishOnly": "npm run build:hooks",
-    "test": "node --test get-shit-done/bin/gsd-tools.test.js"
+    "test": "node --test atos-forge/bin/forge-tools.test.cjs"
   }
 }
