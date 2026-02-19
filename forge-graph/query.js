@@ -2295,16 +2295,23 @@ function run() {
 // Convenience Wrappers (Programmatic API)
 // ============================================================
 
+function resolveDbPath(pathArg) {
+  if (!pathArg) return path.join(process.cwd(), '.forge', 'graph.db');
+  if (pathArg.endsWith('.db') || pathArg.includes('graph.db')) return pathArg;
+  // Treat as repo root — construct .forge/graph.db path
+  return path.join(pathArg, '.forge', 'graph.db');
+}
+
 function createQuery(dbPathOrOpts) {
-  let dbPath;
+  let raw;
   if (typeof dbPathOrOpts === 'string') {
-    dbPath = dbPathOrOpts;
+    raw = dbPathOrOpts;
   } else if (dbPathOrOpts && dbPathOrOpts.db) {
-    dbPath = dbPathOrOpts.db;
+    raw = dbPathOrOpts.db;
   } else {
-    dbPath = path.join(process.cwd(), '.forge', 'graph.db');
+    raw = null;
   }
-  return new GraphQuery(dbPath);
+  return new GraphQuery(resolveDbPath(raw));
 }
 
 function withQuery(dbPath, fn) {
