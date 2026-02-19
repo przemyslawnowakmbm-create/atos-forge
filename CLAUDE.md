@@ -28,6 +28,15 @@ If .forge/session/ledger.md exists, ALWAYS read it at the start of your first re
 
 Trust the ledger over summarized conversation history when they conflict.
 
+## Task Assessment & Splitting
+When a plan overflows context, use the assessor + splitter pipeline:
+  node forge-assess/assessor.js <plan-file> --root .    — Detect overflow, recommend strategy
+  node forge-assess/splitter.js <plan-file> --root .    — Split into context-fitting sub-plans
+  node forge-assess/splitter.js --test --root .         — Run pipeline self-test
+
+Strategies: module (by module boundaries), concern (schema→impl→test→config), file (by symbols).
+Each sub-plan includes graph_context and session_context loading instructions.
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots
