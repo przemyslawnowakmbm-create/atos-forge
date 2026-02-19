@@ -4518,6 +4518,94 @@ function cmdGraphContext(cwd, args, raw) {
   output(context, raw);
 }
 
+/**
+ * graph visualize — generate interactive HTML dashboard.
+ */
+function cmdGraphVisualize(cwd, args, raw) {
+  if (!graphDbExists(cwd)) {
+    error('No code graph found. Run /forge:init first.');
+  }
+
+  const graphDir = getForgeGraphDir();
+  const dashboardScript = path.join(graphDir, 'dashboard-generator.js');
+
+  if (!pathExistsInternal(path.dirname(dashboardScript), path.basename(dashboardScript))) {
+    error('Dashboard generator not found at: ' + dashboardScript);
+  }
+
+  // Parse args
+  let outputArg = '';
+  const outputIdx = args.indexOf('--output');
+  if (outputIdx >= 0 && args[outputIdx + 1]) {
+    outputArg = '--output "' + args[outputIdx + 1] + '"';
+  } else {
+    outputArg = '--output "' + path.join(cwd, '.forge', 'dashboard.html') + '"';
+  }
+
+  const openArg = args.includes('--open') ? '--open' : '';
+  const noOpen = args.includes('--no-open');
+
+  try {
+    const cmdLine = 'node "' + dashboardScript + '" --root "' + cwd + '" --db "' + graphDbPath(cwd) + '" ' + outputArg + (!noOpen && !openArg ? '' : ' ' + openArg);
+    execSync(cmdLine, { cwd, encoding: 'utf-8', stdio: 'inherit', timeout: 60000 });
+
+    const dashFile = (outputIdx >= 0 && args[outputIdx + 1])
+      ? args[outputIdx + 1]
+      : path.join(cwd, '.forge', 'dashboard.html');
+
+    output({
+      success: true,
+      dashboard_path: dashFile,
+      opened: args.includes('--open'),
+    }, raw);
+  } catch (e) {
+    error('Dashboard generation failed: ' + (e.message || ''));
+  }
+}
+
+/**
+ * graph snapshot — save or list snapshots.
+ */
+function cmdGraphSnapshot(cwd, args, raw) {
+  if (!graphDbExists(cwd)) {
+    error('No code graph found. Run /forge:init first.');
+  }
+
+  const graphDir = getForgeGraphDir();
+  const { saveSnapshot, listSnapshots } = require(path.join(graphDir, 'snapshot'));
+
+  const subAction = args[0]; // 'save', 'list', or undefined (default: save)
+
+  if (subAction === 'list') {
+    const snapshots = listSnapshots(cwd);
+    output({ count: snapshots.length, snapshots }, raw);
+  } else {
+    // Default: save
+    const result = saveSnapshot(cwd, graphDbPath(cwd));
+    output({
+      success: true,
+      snapshot_path: result.path,
+      timestamp: result.timestamp,
+      commit: result.commit,
+    }, raw);
+  }
+}
+
+/**
+ * graph snapshot-diff — diff current state against latest snapshot.
+ */
+function cmdGraphSnapshotDiff(cwd, args, raw) {
+  if (!graphDbExists(cwd)) {
+    error('No code graph found. Run /forge:init first.');
+  }
+
+  const graphDir = getForgeGraphDir();
+  const { diffAgainstLatest } = require(path.join(graphDir, 'snapshot'));
+
+  const diff = diffAgainstLatest(cwd, graphDbPath(cwd));
+  output(diff, raw);
+}
+
 // ─── Compound Init Commands ───────────────────────────────────────────────────
 
 function cmdInitExecutePhase(cwd, phase, includes, raw) {
@@ -5635,8 +5723,14 @@ async function main() {
         cmdGraphImpact(cwd, args.slice(2), raw);
       } else if (subcommand === 'context') {
         cmdGraphContext(cwd, args.slice(2), raw);
+      } else if (subcommand === 'visualize') {
+        cmdGraphVisualize(cwd, args.slice(2), raw);
+      } else if (subcommand === 'snapshot') {
+        cmdGraphSnapshot(cwd, args.slice(2), raw);
+      } else if (subcommand === 'snapshot-diff') {
+        cmdGraphSnapshotDiff(cwd, args.slice(2), raw);
       } else {
-        error('Unknown graph subcommand. Available: init, status, impact, context');
+        error('Unknown graph subcommand. Available: init, status, impact, context, visualize, snapshot, snapshot-diff');
       }
       break;
     }

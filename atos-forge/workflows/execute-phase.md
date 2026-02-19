@@ -259,21 +259,26 @@ When executor returns a checkpoint AND `AUTO_CFG` is `"true"`:
 </step>
 
 <step name="update_graph">
-**Post-execution graph update (if code graph exists):**
+**Post-execution graph update + snapshot (if code graph exists):**
 
-After all waves complete (before verification), refresh the code graph to reflect changes:
+After all waves complete (before verification), refresh the code graph and save a snapshot:
 
 ```bash
 if [ "$GRAPH_EXISTS" = "true" ]; then
   UPDATER_PATH="$HOME/.claude/atos-forge/forge-graph/updater.js"
+  TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
   if [ -f "$UPDATER_PATH" ]; then
-    node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1 &
-    echo "◆ Code graph update triggered (background)"
+    node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1
+    echo "◆ Code graph updated"
+  fi
+  if [ -f "$TOOLS_PATH" ]; then
+    node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
+    echo "◆ Graph snapshot saved"
   fi
 fi
 ```
 
-This runs in the background so it doesn't block the workflow. The graph will be fresh for the verification step.
+The updater runs synchronously (not background) so the snapshot captures the updated state. Combined time is typically under 5 seconds.
 </step>
 
 <step name="aggregate_results">
