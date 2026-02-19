@@ -247,3 +247,4 @@ function classifyFile(filePath, moduleRootPath) {
 }
 
 module.exports = { detectModules, classifyFile, IGNORE_DIRS };
+// noop
