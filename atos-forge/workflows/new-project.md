@@ -58,6 +58,15 @@ Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `co
 git init
 ```
 
+**Archive existing ledger (if any):**
+
+If a previous session ledger exists, archive it before starting fresh:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger reset "pre-new-project" 2>/dev/null
+```
+This preserves the old ledger in `.forge/session/archive/` and creates a fresh one. User preferences carry forward.
+
 ## 2. Brownfield Offer
 
 **If auto mode:** Skip to Step 4 (assume greenfield, synthesize PROJECT.md from provided document).

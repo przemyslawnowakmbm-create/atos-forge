@@ -4253,6 +4253,30 @@ function getForgeGraphDir() {
   return path.join(forgeRoot, 'forge-graph');
 }
 
+function getForgeSessionDir() {
+  const toolsDir = path.dirname(__filename);
+  const forgeRoot = path.dirname(path.dirname(toolsDir));
+  return path.join(forgeRoot, 'forge-session');
+}
+
+function getLedger(cwd) {
+  try {
+    return require(path.join(getForgeSessionDir(), 'ledger'));
+  } catch {
+    return null;
+  }
+}
+
+// Convenience: fire-and-forget ledger write (never throw)
+function ledgerLog(cwd, method, data) {
+  try {
+    const ledger = getLedger(cwd);
+    if (ledger && typeof ledger[method] === 'function') {
+      ledger[method](cwd, data);
+    }
+  } catch { /* ledger writes must never break commands */ }
+}
+
 function graphDbExists(cwd) {
   return pathExistsInternal(cwd, '.forge/graph.db');
 }
@@ -4692,6 +4716,28 @@ function cmdInitExecutePhase(cwd, phase, includes, raw) {
     }
   }
 
+  // Log to session ledger
+  ledgerLog(cwd, 'updateState', {
+    active_phase: result.phase_number,
+    active_command: 'forge:execute-phase ' + result.phase_number,
+    phase_name: result.phase_name,
+    status: 'initializing execution',
+  });
+
+  // Include ledger state in result so orchestrator has context
+  try {
+    const ledger = getLedger(cwd);
+    if (ledger) {
+      const state = ledger.readState(cwd);
+      if (state.exists) {
+        result.ledger_available = true;
+        result.ledger_decisions = state.decision_count;
+        result.ledger_warnings = state.warning_count;
+        result.ledger_preferences = state.preference_count;
+      }
+    }
+  } catch { /* ignore */ }
+
   output(result, raw);
 }
 
@@ -4796,6 +4842,28 @@ function cmdInitPlanPhase(cwd, phase, includes, raw) {
       result.graph_context = getGraphContextForFiles(cwd, phaseFiles);
     }
   }
+
+  // Log to session ledger
+  ledgerLog(cwd, 'updateState', {
+    active_phase: result.phase_number,
+    active_command: 'forge:plan-phase ' + result.phase_number,
+    phase_name: result.phase_name,
+    status: 'initializing planning',
+  });
+
+  // Include ledger state in result
+  try {
+    const ledger = getLedger(cwd);
+    if (ledger) {
+      const state = ledger.readState(cwd);
+      if (state.exists) {
+        result.ledger_available = true;
+        result.ledger_decisions = state.decision_count;
+        result.ledger_warnings = state.warning_count;
+        result.ledger_preferences = state.preference_count;
+      }
+    }
+  } catch { /* ignore */ }
 
   output(result, raw);
 }
@@ -5731,6 +5799,83 @@ async function main() {
         cmdGraphSnapshotDiff(cwd, args.slice(2), raw);
       } else {
         error('Unknown graph subcommand. Available: init, status, impact, context, visualize, snapshot, snapshot-diff');
+      }
+      break;
+    }
+
+    case 'ledger': {
+      const sub = args[1];
+      const ledger = getLedger(cwd);
+      if (!ledger) { error('Session ledger module not found.'); break; }
+
+      if (sub === 'read') {
+        const content = ledger.read(cwd);
+        if (raw) { output({ content: content || '' }, raw); }
+        else { console.log(content || 'No ledger found.'); }
+      } else if (sub === 'state') {
+        output(ledger.readState(cwd), raw);
+      } else if (sub === 'compact') {
+        output(ledger.compact(cwd), raw);
+      } else if (sub === 'archive') {
+        const label = args[2] && !args[2].startsWith('--') ? args[2] : undefined;
+        output(ledger.archive(cwd, label) || { message: 'No ledger to archive' }, raw);
+      } else if (sub === 'reset') {
+        const label = args[2] && !args[2].startsWith('--') ? args[2] : undefined;
+        const result = ledger.archiveAndReset(cwd, label);
+        output({ archived: result, message: 'Ledger reset' }, raw);
+      } else if (sub === 'log-decision') {
+        // CLI: ledger log-decision "decision text" --rationale "why" --rejected "alt1" --rejected "alt2"
+        const decision = args[2];
+        if (!decision) { error('Usage: ledger log-decision "text" [--rationale "why"] [--rejected "alt"]'); }
+        const rationale = args.includes('--rationale') ? args[args.indexOf('--rationale') + 1] : undefined;
+        const rejected = [];
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === '--rejected' && args[i + 1]) rejected.push(args[i + 1]);
+        }
+        ledger.logDecision(cwd, { decision, rationale, rejected_alternatives: rejected.length ? rejected : undefined });
+        output({ logged: true }, raw);
+      } else if (sub === 'log-warning') {
+        const warning = args[2];
+        if (!warning) { error('Usage: ledger log-warning "text" [--severity high] [--source agent-id]'); }
+        const severity = args.includes('--severity') ? args[args.indexOf('--severity') + 1] : 'medium';
+        const source = args.includes('--source') ? args[args.indexOf('--source') + 1] : undefined;
+        ledger.logWarning(cwd, { warning, severity, source });
+        output({ logged: true }, raw);
+      } else if (sub === 'log-discovery') {
+        const discovery = args[2];
+        if (!discovery) { error('Usage: ledger log-discovery "text" [--source agent-id]'); }
+        const source = args.includes('--source') ? args[args.indexOf('--source') + 1] : undefined;
+        ledger.logDiscovery(cwd, { discovery, source });
+        output({ logged: true }, raw);
+      } else if (sub === 'log-preference') {
+        const preference = args[2];
+        if (!preference) { error('Usage: ledger log-preference "text"'); }
+        ledger.logUserPreference(cwd, { preference });
+        output({ logged: true }, raw);
+      } else if (sub === 'log-error') {
+        const errorText = args[2];
+        if (!errorText) { error('Usage: ledger log-error "text" [--fix "fix text"] [--auto-fixed]'); }
+        const fix = args.includes('--fix') ? args[args.indexOf('--fix') + 1] : undefined;
+        const autoFixed = args.includes('--auto-fixed');
+        ledger.logError(cwd, { error: errorText, fix_applied: fix, auto_fixed: autoFixed });
+        output({ logged: true }, raw);
+      } else if (sub === 'log-rejected') {
+        const approach = args[2];
+        if (!approach) { error('Usage: ledger log-rejected "approach" --reason "why" [--better "alt"]'); }
+        const reason = args.includes('--reason') ? args[args.indexOf('--reason') + 1] : 'no reason given';
+        const better = args.includes('--better') ? args[args.indexOf('--better') + 1] : undefined;
+        ledger.logRejected(cwd, { approach, reason, better_alternative: better });
+        output({ logged: true }, raw);
+      } else if (sub === 'update-state') {
+        // Takes JSON from args[2] or stdin
+        const stateJson = args[2];
+        if (!stateJson) { error('Usage: ledger update-state \'{"active_phase":3}\''); }
+        try {
+          ledger.updateState(cwd, JSON.parse(stateJson));
+          output({ updated: true }, raw);
+        } catch (e) { error('Invalid JSON: ' + e.message); }
+      } else {
+        error('Unknown ledger subcommand. Available: read, state, compact, archive, reset, log-decision, log-warning, log-discovery, log-preference, log-error, log-rejected, update-state');
       }
       break;
     }

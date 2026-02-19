@@ -252,6 +252,12 @@ Append to Gaps section (structured YAML for plan-phase --gaps):
 Update Summary counts.
 Update frontmatter.updated timestamp.
 
+**Ledger:** On issue detection, log the warning:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger log-warning "UAT issue: ${TEST_NAME} — ${USER_RESPONSE}" --severity "${SEVERITY}" --source "verify-work" 2>/dev/null
+```
+
 If more tests remain → Update Current Test, go to `present_test`
 If no more tests → Go to `complete_session`
 </step>
@@ -293,6 +299,12 @@ Clear Current Test section:
 Commit the UAT file:
 ```bash
 node ~/.claude/atos-forge/bin/forge-tools.cjs commit "test({phase_num}): complete UAT - {passed} passed, {issues} issues" --files ".planning/phases/XX-name/{phase_num}-UAT.md"
+```
+
+**Ledger:** Log UAT completion:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger log-decision "UAT complete: ${PASSED} passed, ${ISSUES} issues, ${SKIPPED} skipped" --rationale "Phase ${PHASE_NUM} verification" 2>/dev/null
 ```
 
 Present summary:

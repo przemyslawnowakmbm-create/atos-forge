@@ -6,6 +6,7 @@ Create executable phase prompts (PLAN.md files) for a roadmap phase with integra
 Read all files referenced by the invoking prompt's execution_context before starting.
 
 @~/.claude/atos-forge/references/ui-brand.md
+@~/.claude/atos-forge/references/session-continuity.md
 </required_reading>
 
 <process>
@@ -280,6 +281,15 @@ Task(
 - **`## CHECKPOINT REACHED`:** Present to user, get response, spawn continuation (step 12)
 - **`## PLANNING INCONCLUSIVE`:** Show attempts, offer: Add context / Retry / Manual
 
+**Ledger:** After handling planner return, log the outcome:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+# On PLANNING COMPLETE:
+node "$TOOLS" ledger log-decision "Plans created for phase ${PHASE_NUMBER}" --rationale "${PLAN_COUNT} plans across ${WAVE_COUNT} waves" 2>/dev/null
+# On INCONCLUSIVE:
+node "$TOOLS" ledger log-warning "Planning inconclusive for phase ${PHASE_NUMBER}" --severity medium 2>/dev/null
+```
+
 ## 10. Spawn forge-plan-checker Agent
 
 Display banner:
@@ -335,6 +345,15 @@ Task(
 - **`## VERIFICATION PASSED`:** Display confirmation, proceed to step 13.
 - **`## ISSUES FOUND`:** Display issues, check iteration count, proceed to step 12.
 
+**Ledger:** Log verification result:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+# On VERIFICATION PASSED:
+node "$TOOLS" ledger log-decision "Plan verification passed for phase ${PHASE_NUMBER}" --rationale "All plans meet quality criteria" 2>/dev/null
+# On ISSUES FOUND:
+node "$TOOLS" ledger log-warning "Plan verification found issues — entering revision loop" --severity medium 2>/dev/null
+```
+
 ## 12. Revision Loop (Max 3 Iterations)
 
 Track `iteration_count` (starts at 1 after initial plan + check).
@@ -385,6 +404,15 @@ After planner returns -> spawn checker again (step 10), increment iteration_coun
 Display: `Max iterations reached. {N} issues remain:` + issue list
 
 Offer: 1) Force proceed, 2) Provide guidance and retry, 3) Abandon
+
+**Ledger:** Log the user's choice at max iterations:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+# If force proceed:
+node "$TOOLS" ledger log-decision "Force proceeded past ${ISSUE_COUNT} plan issues (max iterations)" --rationale "User chose to continue" 2>/dev/null
+# If abandon:
+node "$TOOLS" ledger log-rejected "Plan revision loop for phase ${PHASE_NUMBER}" --reason "Max iterations reached with ${ISSUE_COUNT} unresolved issues" 2>/dev/null
+```
 
 ## 13. Present Final Status
 

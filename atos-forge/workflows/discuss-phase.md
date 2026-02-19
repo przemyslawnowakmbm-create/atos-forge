@@ -409,6 +409,15 @@ node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs(${padded_phase}): cap
 ```
 
 Confirm: "Committed: docs(${padded_phase}): capture phase context"
+
+**Ledger:** Log decisions captured during discussion. For each decision in CONTEXT.md:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+# Log each major decision from the discussion
+node "$TOOLS" ledger log-decision "${DECISION_TEXT}" --rationale "${RATIONALE_FROM_DISCUSSION}" 2>/dev/null
+# Log any user preferences expressed
+node "$TOOLS" ledger log-preference "${PREFERENCE_TEXT}" 2>/dev/null
+```
 </step>
 
 <step name="update_state">

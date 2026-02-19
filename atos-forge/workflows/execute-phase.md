@@ -8,6 +8,7 @@ Orchestrator coordinates, not executes. Each subagent loads the full execute-pla
 
 <required_reading>
 Read STATE.md before any operation to load project context.
+If `.forge/session/ledger.md` exists, read it to restore session context (decisions, warnings, preferences).
 </required_reading>
 
 <process>
@@ -107,6 +108,12 @@ Use AskUserQuestion:
 
 If "Review impact first": Display `/forge:impact {PHASE_NUMBER}` and exit workflow.
 
+**Ledger:** Log the risk assessment result:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger log-decision "Pre-execution risk: ${RISK_LEVEL} (consumers=${CONSUMER_COUNT}, boundaries=${BOUNDARY_COUNT})" --rationale "${RISK_REASONS}" 2>/dev/null
+```
+
 **If `GRAPH_EXISTS` is false:** Display note:
 ```
 ◇ No code graph — run /forge:init for pre-execution impact analysis
@@ -203,11 +210,33 @@ Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`
    - Bad: "Wave 2 complete. Proceeding to Wave 3."
    - Good: "Terrain system complete — 3 biome types, height-based texturing, physics collision meshes. Vehicle physics (Wave 3) can now reference ground surfaces."
 
+   **Ledger:** After each wave completes, log progress:
+   ```bash
+   TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+   node "$TOOLS" ledger update-state "{\"current_wave\":\"${WAVE_NUM} of ${TOTAL_WAVES}\",\"agents_complete\":${COMPLETED},\"agents_running\":0,\"agents_queued\":${REMAINING}}" 2>/dev/null
+   # For each completed plan in the wave:
+   node "$TOOLS" ledger log-decision "Wave ${WAVE_NUM} complete: ${PLAN_IDS}" --rationale "${SUMMARY_ONELINER}" 2>/dev/null
+   ```
+
+   **Ledger:** If any agent reports learnings or warnings from SUMMARY.md, log them:
+   ```bash
+   # From SUMMARY.md issues section:
+   node "$TOOLS" ledger log-warning "${ISSUE_TEXT}" --severity medium --source "forge-executor-${PLAN_ID}" 2>/dev/null
+   # From SUMMARY.md discoveries:
+   node "$TOOLS" ledger log-discovery "${DISCOVERY_TEXT}" --source "forge-executor-${PLAN_ID}" 2>/dev/null
+   ```
+
 5. **Handle failures:**
 
    **Known Claude Code bug (classifyHandoffIfNeeded):** If an agent reports "failed" with error containing `classifyHandoffIfNeeded is not defined`, this is a Claude Code runtime bug — not a A-Forge or agent issue. The error fires in the completion handler AFTER all tool calls finish. In this case: run the same spot-checks as step 4 (SUMMARY.md exists, git commits present, no Self-Check: FAILED). If spot-checks PASS → treat as **successful**. If spot-checks FAIL → treat as real failure below.
 
    For real failures: report which plan failed → ask "Continue?" or "Stop?" → if continue, dependent plans may also fail. If stop, partial completion report.
+
+   **Ledger:** Log failures:
+   ```bash
+   TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+   node "$TOOLS" ledger log-error "${FAILURE_DESCRIPTION}" --fix "${FIX_IF_ANY}" 2>/dev/null
+   ```
 
 6. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
 
@@ -256,6 +285,15 @@ When executor returns a checkpoint AND `AUTO_CFG` is `"true"`:
 **Why fresh agent, not resume:** Resume relies on internal serialization that breaks with parallel tool calls. Fresh agents with explicit state are more reliable.
 
 **Checkpoints in parallel waves:** Agent pauses and returns while other parallel agents may complete. Present checkpoint, spawn continuation, wait for all before next wave.
+
+**Ledger:** Log checkpoints and user responses:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+# When checkpoint is hit:
+node "$TOOLS" ledger log-decision "Checkpoint: ${CHECKPOINT_TYPE} in plan ${PLAN_ID}" --rationale "${CHECKPOINT_DETAILS}" 2>/dev/null
+# When user responds:
+node "$TOOLS" ledger log-decision "User response to checkpoint: ${USER_RESPONSE}" 2>/dev/null
+```
 </step>
 
 <step name="update_graph">
@@ -279,6 +317,12 @@ fi
 ```
 
 The updater runs synchronously (not background) so the snapshot captures the updated state. Combined time is typically under 5 seconds.
+
+**Ledger:** Log graph update completion:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger update-state "{\"status\":\"graph updated, proceeding to verification\"}" 2>/dev/null
+```
 </step>
 
 <step name="aggregate_results">
@@ -419,6 +463,17 @@ Also: `/forge:verify-work {X}` — manual testing first
 ```
 
 Gap closure cycle: `/forge:plan-phase {X} --gaps` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/forge:execute-phase {X} --gaps-only` → verifier re-runs.
+
+**Ledger:** Log verification outcome:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+# On passed:
+node "$TOOLS" ledger log-decision "Phase ${PHASE_NUMBER} verification passed" --rationale "All must-haves verified" 2>/dev/null
+# On gaps_found:
+node "$TOOLS" ledger log-warning "Phase ${PHASE_NUMBER} verification found gaps — ${GAP_COUNT} must-haves missing" --severity high 2>/dev/null
+# On human_needed:
+node "$TOOLS" ledger log-decision "Phase ${PHASE_NUMBER} automated checks passed, awaiting human verification" 2>/dev/null
+```
 </step>
 
 <step name="update_roadmap">
@@ -439,6 +494,13 @@ Extract from result: `next_phase`, `next_phase_name`, `is_last_phase`.
 
 ```bash
 node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md .planning/phases/{phase_dir}/*-VERIFICATION.md
+```
+
+**Ledger:** Archive ledger on phase completion:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger archive "phase-${PHASE_NUMBER}" 2>/dev/null
+node "$TOOLS" ledger update-state "{\"active_phase\":\"${NEXT_PHASE}\",\"status\":\"phase ${PHASE_NUMBER} complete\"}" 2>/dev/null
 ```
 </step>
 
