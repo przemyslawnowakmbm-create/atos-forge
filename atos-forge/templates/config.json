@@ -32,5 +32,15 @@
   "safety": {
     "always_confirm_destructive": true,
     "always_confirm_external_services": true
+  },
+  "execution": {
+    "context_budget": 200000,
+    "assessment_threshold": 0.80,
+    "auto_split": true,
+    "max_fix_loops": 3,
+    "safety_margin": 0.20,
+    "overhead_per_subtask": 5000,
+    "min_action_budget": 15000,
+    "chars_per_token": 4
   }
 }

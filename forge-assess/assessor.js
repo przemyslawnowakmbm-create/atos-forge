@@ -19,11 +19,46 @@ const MIN_ACTION_BUDGET = 15000;    // Minimum tokens for the agent to think + a
 const MODULE_SPLIT_MIN_MODULES = 2;     // Need ≥2 modules to split by module
 const FILE_SPLIT_MIN_SYMBOLS = 50;      // Large file threshold for symbol-level split
 const CONCERN_TYPE_PATTERNS = {
-  schema:   /\.(types?|schema|interfaces?|models?|d)\.(ts|js|py|go|java)$|\.graphql$|\.proto$|\/(types?|schema|interfaces?|models?)\.(ts|js|py|go|java)$/,
-  test:     /\.(test|spec|_test)\.(ts|js|py|go|java)$|__tests__\//,
+  schema:   /\.(types?|schema|interfaces?|models?|d)\.(ts|tsx|js|jsx|cjs|mjs|py|go|java)$|\.graphql$|\.proto$|\/(types?|schema|interfaces?|models?)\.(ts|tsx|js|jsx|cjs|mjs|py|go|java)$/,
+  test:     /\.(test|spec|_test)\.(ts|tsx|js|jsx|cjs|mjs|py|go|java)$|__tests__\//,
   config:   /\.(config|rc|env|ya?ml|json|toml)$|Dockerfile|docker-compose|\.github\//,
   migration: /migrat|seed|fixture/i,
 };
+
+// ============================================================
+// Configuration
+// ============================================================
+
+const CONFIG_DEFAULTS = {
+  context_budget: CONTEXT_LIMIT,
+  safety_margin: SAFETY_MARGIN,
+  assessment_threshold: 0.80,
+  auto_split: true,
+  max_fix_loops: 3,
+  overhead_per_subtask: OVERHEAD_PER_SUBTASK,
+  min_action_budget: MIN_ACTION_BUDGET,
+  chars_per_token: CHARS_PER_TOKEN,
+};
+
+function loadForgeConfig(cwd) {
+  const root = cwd || process.cwd();
+  // Try .forge/config.json first (runtime override), then .planning/config.json (project config)
+  const candidates = [
+    path.join(root, '.forge', 'config.json'),
+    path.join(root, '.planning', 'config.json'),
+  ];
+  for (const configPath of candidates) {
+    try {
+      const raw = fs.readFileSync(configPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      const exec = parsed.execution || {};
+      if (Object.keys(exec).length > 0) {
+        return { ...CONFIG_DEFAULTS, ...exec };
+      }
+    } catch { /* try next */ }
+  }
+  return { ...CONFIG_DEFAULTS };
+}
 
 // ============================================================
 // Token Estimation
@@ -164,7 +199,10 @@ function determineStrategy(plan, fileAnalysis, graphData) {
 
 function assessPlan(planPath, cwd, opts = {}) {
   const plan = parsePlan(planPath);
-  const contextLimit = opts.context_limit || USABLE_CONTEXT;
+  const config = loadForgeConfig(cwd);
+  const usableContext = Math.floor(config.context_budget * (1 - config.safety_margin));
+  const contextLimit = opts.context_limit || usableContext;
+  const threshold = opts.assessment_threshold || config.assessment_threshold;
 
   // Token estimation
   const planTokens = estimateTokens(plan.raw);
@@ -224,7 +262,8 @@ function assessPlan(planPath, cwd, opts = {}) {
     concernGroups[concern].push(f);
   }
 
-  const needsSplit = totalEstimated > contextLimit;
+  const overflowRatio = totalEstimated / contextLimit;
+  const needsSplit = overflowRatio > threshold;
 
   if (!needsSplit) {
     return {
@@ -234,10 +273,11 @@ function assessPlan(planPath, cwd, opts = {}) {
         file_tokens: fileTokens,
         graph_context_estimate: graphContextEstimate,
         session_context_estimate: sessionContextEstimate,
-        overhead: OVERHEAD_PER_SUBTASK,
+        overhead: config.overhead_per_subtask,
         total_estimated: totalEstimated,
         context_limit: contextLimit,
-        overflow_ratio: totalEstimated / contextLimit,
+        overflow_ratio: overflowRatio,
+        assessment_threshold: threshold,
       },
       plan,
       file_details: fileDetails,
@@ -249,7 +289,7 @@ function assessPlan(planPath, cwd, opts = {}) {
   const { strategy, reason } = determineStrategy(plan, fileAnalysis, graphData);
 
   // Estimate sub-task count
-  const tokensPerSubtask = contextLimit - OVERHEAD_PER_SUBTASK - MIN_ACTION_BUDGET;
+  const tokensPerSubtask = contextLimit - config.overhead_per_subtask - config.min_action_budget;
   const suggestedCount = Math.max(2, Math.ceil(totalEstimated / tokensPerSubtask));
 
   // Build file groups based on strategy
@@ -297,10 +337,11 @@ function assessPlan(planPath, cwd, opts = {}) {
       file_tokens: fileTokens,
       graph_context_estimate: graphContextEstimate,
       session_context_estimate: sessionContextEstimate,
-      overhead: OVERHEAD_PER_SUBTASK,
+      overhead: config.overhead_per_subtask,
       total_estimated: totalEstimated,
       context_limit: contextLimit,
-      overflow_ratio: totalEstimated / contextLimit,
+      overflow_ratio: overflowRatio,
+      assessment_threshold: threshold,
     },
     plan,
     file_details: fileDetails,
@@ -379,6 +420,8 @@ module.exports = {
   estimateFileTokens,
   classifyFile,
   buildDependencyOrder,
+  loadForgeConfig,
+  CONFIG_DEFAULTS,
   USABLE_CONTEXT,
   CONTEXT_LIMIT,
   SAFETY_MARGIN,

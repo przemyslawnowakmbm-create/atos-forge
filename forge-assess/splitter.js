@@ -9,8 +9,8 @@ const path = require('path');
 // ============================================================
 
 const assessorPath = path.join(__dirname, 'assessor');
-const { parsePlan, estimateTokens, classifyFile, buildDependencyOrder,
-        USABLE_CONTEXT, OVERHEAD_PER_SUBTASK, MIN_ACTION_BUDGET } = require(assessorPath);
+const { parsePlan, estimateTokens, estimateFileTokens, classifyFile, buildDependencyOrder,
+        loadForgeConfig, USABLE_CONTEXT, OVERHEAD_PER_SUBTASK, MIN_ACTION_BUDGET } = require(assessorPath);
 
 // ============================================================
 // Constants
@@ -608,14 +608,14 @@ function extractDone(plan, group) {
 /**
  * Build a single sub-plan in the output format.
  */
-function buildSubPlan(group, plan, index, total, dependsOn, cwd) {
+function buildSubPlan(group, plan, index, total, dependsOn, cwd, contextBudget) {
   const gq = getGraphQuery(cwd);
 
   try {
     const modules = [...new Set(group.files.map(f => gq ? getFileModule(gq, f) : null).filter(Boolean))];
     const graphContext = inferGraphContext(gq, group.files, plan.all_files);
     const sessionContext = inferSessionContext(group.files, modules, cwd);
-    const budget = calculateBudget(group, USABLE_CONTEXT);
+    const budget = calculateBudget(group, contextBudget || USABLE_CONTEXT);
     const parentPlan = path.basename(plan.path, '.md');
 
     return {
@@ -693,6 +693,72 @@ function formatSubPlanJSON(subPlan) {
 }
 
 // ============================================================
+// Cascading Split — Subdivide Oversized Groups
+// ============================================================
+
+/**
+ * Estimate total tokens a group would consume in context.
+ */
+function estimateGroupTokens(group, cwd) {
+  let tokens = 0;
+  for (const f of group.files) {
+    const absPath = path.isAbsolute(f) ? f : path.join(cwd, f);
+    tokens += estimateFileTokens(absPath);
+  }
+  tokens += group.files.length * 1500; // graph context per file
+  tokens += OVERHEAD_PER_SUBTASK;
+  return tokens;
+}
+
+/**
+ * Subdivide an oversized group into smaller groups that fit in context.
+ * Cascade: multi-file group → individual files → symbol-level (via splitByFile).
+ */
+function subdivideGroup(group, plan, recommendation, cwd, usableContext) {
+  // Single file: try symbol-level split via splitByFile
+  if (group.files.length <= 1) {
+    const miniPlan = { ...plan, all_files: group.files };
+    const miniRec = { ...recommendation, file_groups: [group] };
+    const symbolGroups = splitByFile(miniPlan, miniRec, cwd);
+    // If splitByFile produced multiple groups, use them; otherwise keep as-is with warning
+    if (symbolGroups.length > 1) return symbolGroups;
+    group._overflow_warning = `Single file ${group.files[0]} exceeds context budget — cannot subdivide further`;
+    return [group];
+  }
+
+  // Multiple files: split each file into its own group
+  const fileGroups = group.files.map(f => ({
+    label: path.basename(f),
+    files: [f],
+    module: group.module,
+    concern: group.concern || classifyFile(f),
+    is_interface_producer: INTERFACE_PATTERNS.test(f),
+  }));
+
+  // Check each individual file group
+  const result = [];
+  for (const fg of fileGroups) {
+    const tokens = estimateGroupTokens(fg, cwd);
+    if (tokens <= usableContext) {
+      result.push(fg);
+    } else {
+      // Single file still too large: symbol-level split via splitByFile
+      const miniPlan = { ...plan, all_files: fg.files };
+      const miniRec = { ...recommendation, file_groups: [fg] };
+      const symbolGroups = splitByFile(miniPlan, miniRec, cwd);
+      if (symbolGroups.length > 1) {
+        result.push(...symbolGroups);
+      } else {
+        fg._overflow_warning = `File ${fg.files[0]} exceeds context budget — at minimum granularity`;
+        result.push(fg);
+      }
+    }
+  }
+
+  return result;
+}
+
+// ============================================================
 // Main Split Function
 // ============================================================
 
@@ -708,6 +774,8 @@ function formatSubPlanJSON(subPlan) {
 function splitPlan(plan, recommendation, cwd, opts = {}) {
   const strategy = recommendation.strategy;
   const format = opts.format || 'xml';
+  const config = loadForgeConfig(cwd);
+  const usableContext = Math.floor(config.context_budget * (1 - config.safety_margin));
 
   // Select splitting strategy
   let groups;
@@ -725,6 +793,32 @@ function splitPlan(plan, recommendation, cwd, opts = {}) {
       groups = splitByConcern(plan, recommendation, cwd);
   }
 
+  // Cascading split: subdivide groups that still exceed context budget
+  let cascaded = false;
+  const finalGroups = [];
+  for (const group of groups) {
+    const tokens = estimateGroupTokens(group, cwd);
+    if (tokens <= usableContext) {
+      finalGroups.push(group);
+    } else {
+      cascaded = true;
+      const subGroups = subdivideGroup(group, plan, recommendation, cwd, usableContext);
+      finalGroups.push(...subGroups);
+    }
+  }
+
+  // Re-sort after cascading to maintain correct dependency ordering
+  if (cascaded) {
+    const gq = getGraphQuery(cwd);
+    try {
+      groups = topoSortGroups(finalGroups, gq, plan.all_files);
+    } finally {
+      safeClose(gq);
+    }
+  } else {
+    groups = finalGroups;
+  }
+
   // Detect parallelizable groups
   const parallelSets = detectParallelizable(groups);
 
@@ -735,11 +829,16 @@ function splitPlan(plan, recommendation, cwd, opts = {}) {
     const dependsOnIndices = group._depends_on_indices || [];
     const dependsOn = dependsOnIndices.map(d => `${d + 1}/${groups.length}`);
 
-    const subPlan = buildSubPlan(group, plan, i, groups.length, dependsOn, cwd);
+    const subPlan = buildSubPlan(group, plan, i, groups.length, dependsOn, cwd, usableContext);
 
     // Mark parallelizable
     if (parallelSets.some(set => set.includes(i))) {
       subPlan._meta.parallelizable = true;
+    }
+
+    // Propagate overflow warnings
+    if (group._overflow_warning) {
+      subPlan._meta.overflow_warning = group._overflow_warning;
     }
 
     subPlans.push(subPlan);
@@ -750,16 +849,18 @@ function splitPlan(plan, recommendation, cwd, opts = {}) {
 
   // Summary
   const summary = {
-    strategy,
-    reason: recommendation.reason,
+    strategy: cascaded ? `${strategy}+cascade` : strategy,
+    reason: recommendation.reason + (cascaded ? ' (with cascading subdivision for oversized groups)' : ''),
     total_sub_plans: subPlans.length,
     parallelizable_count: subPlans.filter(sp => sp._meta.parallelizable).length,
     sequential_count: subPlans.filter(sp => !sp._meta.parallelizable).length,
     interface_first: subPlans.findIndex(sp => sp._meta.is_interface_producer) === 0,
     total_files: plan.all_files.length,
-    budget_per_subtask: USABLE_CONTEXT,
+    budget_per_subtask: usableContext,
     estimated_tokens: recommendation.metrics.total_estimated,
     context_limit: recommendation.metrics.context_limit,
+    cascaded,
+    overflow_warnings: subPlans.filter(sp => sp._meta.overflow_warning).map(sp => sp._meta.overflow_warning),
     execution_order: subPlans.map((sp, i) => ({
       index: i + 1,
       name: sp.name,
@@ -813,6 +914,8 @@ module.exports = {
   formatSubPlanJSON,
   buildSubPlan,
   calculateBudget,
+  estimateGroupTokens,
+  subdivideGroup,
 };
 
 // ============================================================
