@@ -83,6 +83,18 @@ Container entrypoints (baked into Docker images):
   agent-verifier.js — Lightweight: applies patches, runs verification steps (tsc, tests, lint),
     reports pass/fail. Auto-detects checks or uses explicit verification_steps from config.
 
+## Worktree Orchestrator (Docker-free fallback)
+Drop-in replacement when Docker is unavailable:
+  node forge-containers/worktree-orchestrator.js status  [--root .]  — Claude CLI + resource status
+  node forge-containers/worktree-orchestrator.js cleanup [--root .]  — Remove orphan worktrees
+  node forge-containers/worktree-orchestrator.js detect  [--root .]  — Auto-detect execution mode
+
+Same interface as Docker orchestrator: launch(), launchAll(), cleanup().
+Lifecycle: acquire slot → git worktree → write agent config + graph DB + ledger → Claude Code subprocess
+  (`claude --print --dangerously-skip-permissions`) → git diff as patch → apply to main repo → log learnings.
+Parallelism: Promise pool via ResourceManager semaphore (same concurrency limits).
+Auto-detection: `autoDetect(cwd)` returns { mode: 'container'|'worktree'|'none', orchestrator, reason }.
+
 ## Dynamic Agent Factory
 Builds specialized agent configurations from sub-plans:
   node forge-agents/factory.js analyze <plan-file> --root .  — Show archetype, risk, context, verification
