@@ -134,61 +134,77 @@ function collectDashboardData(dbPath) {
 function generateCSS() {
   return `
     :root {
-      --bg: #0f0f1a;
-      --bg-card: #1a1a2e;
-      --bg-hover: #242442;
-      --bg-input: #12122a;
-      --border: #2a2a4a;
-      --text: #e0e0e0;
-      --text-dim: #888;
-      --accent: #00d4ff;
-      --accent-dim: #0088aa;
-      --green: #00c853;
-      --yellow: #ffd600;
-      --red: #ff1744;
-      --orange: #ff6e40;
+      --ec-primary: #003366;
+      --ec-secondary: #2990EA;
+      --ec-accent: #008dbb;
+      --ec-navy: #001f3d;
+      --ec-sky: #e8f2fc;
+      --bg: #f5f7fa;
+      --bg-card: #ffffff;
+      --bg-hover: #eef3f9;
+      --bg-input: #ffffff;
+      --border: #dce3eb;
+      --text: #1a2e4a;
+      --text-dim: #6b7c93;
+      --accent: #2990EA;
+      --accent-dim: #003366;
+      --green: #2e8b57;
+      --yellow: #c49000;
+      --red: #d32f2f;
+      --orange: #e65100;
       --panel-width: 420px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-family: 'Exo', system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
       overflow: hidden;
       height: 100vh;
       display: flex;
       flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Header */
+    /* Header — EUROCONTROL navy gradient */
     .dashboard-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 12px 24px;
-      background: var(--bg-card);
-      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, var(--ec-primary) 0%, var(--ec-navy) 100%);
+      border-bottom: none;
       flex-shrink: 0;
       z-index: 10;
     }
+    .dashboard-header::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      bottom: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--ec-secondary) 0%, var(--ec-accent) 100%);
+    }
     .header-left { display: flex; align-items: center; gap: 16px; }
     .header-left h1 {
-      font-size: 16px; font-weight: 700; color: var(--accent);
+      font-size: 16px; font-weight: 700; color: #ffffff;
       letter-spacing: 1px; text-transform: uppercase;
     }
-    .header-left .project-name { font-size: 14px; color: var(--text-dim); }
+    .header-left .project-name { font-size: 14px; color: rgba(255,255,255,0.7); }
     .header-stats { display: flex; gap: 24px; }
-    .header-stats .stat { font-size: 12px; color: var(--text-dim); }
-    .header-stats .stat strong { color: var(--accent); font-size: 14px; margin-right: 4px; }
-    .header-right { font-size: 11px; color: var(--text-dim); text-align: right; line-height: 1.5; }
+    .header-stats .stat { font-size: 12px; color: rgba(255,255,255,0.6); }
+    .header-stats .stat strong { color: #ffffff; font-size: 14px; margin-right: 4px; }
+    .header-right { font-size: 11px; color: rgba(255,255,255,0.5); text-align: right; line-height: 1.5; }
 
     /* Tab navigation */
     .tab-nav {
       display: flex;
       background: var(--bg-card);
-      border-bottom: 2px solid var(--border);
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
       z-index: 10;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
     .tab-btn {
       padding: 10px 24px;
@@ -197,13 +213,14 @@ function generateCSS() {
       color: var(--text-dim);
       font-family: inherit;
       font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
       border-bottom: 2px solid transparent;
-      margin-bottom: -2px;
+      margin-bottom: -1px;
       transition: color 0.2s, border-color 0.2s;
     }
     .tab-btn:hover { color: var(--text); }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn.active { color: var(--ec-primary); border-bottom-color: var(--ec-secondary); font-weight: 600; }
 
     /* Tab content */
     .tab-content {
@@ -226,16 +243,19 @@ function generateCSS() {
       background: var(--bg-input);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 6px 12px;
-      border-radius: 4px;
+      padding: 8px 12px;
+      border-radius: 6px;
       font-family: inherit;
       font-size: 12px;
       width: 260px;
       outline: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
-    .search-bar input:focus { border-color: var(--accent); }
+    .search-bar input:focus { border-color: var(--ec-secondary); box-shadow: 0 0 0 2px rgba(41,144,234,0.15); }
     .search-bar .legend {
       display: flex; gap: 12px; font-size: 11px; color: var(--text-dim);
+      background: var(--bg-card); padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--border);
     }
     .search-bar .legend-dot {
       display: inline-block; width: 10px; height: 10px;
@@ -258,7 +278,7 @@ function generateCSS() {
       transition: transform 0.25s ease;
       display: flex;
       flex-direction: column;
-      box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+      box-shadow: -4px 0 20px rgba(0,51,102,0.08);
     }
     .side-panel.open { transform: translateX(0); }
     .side-panel-header {
@@ -267,9 +287,10 @@ function generateCSS() {
       align-items: center;
       padding: 16px 20px;
       border-bottom: 1px solid var(--border);
+      background: var(--ec-sky);
       flex-shrink: 0;
     }
-    .side-panel-header h2 { font-size: 14px; color: var(--accent); }
+    .side-panel-header h2 { font-size: 14px; color: var(--ec-primary); font-weight: 600; }
     .side-panel-close {
       background: none; border: none; color: var(--text-dim);
       font-size: 20px; cursor: pointer; line-height: 1;
@@ -291,30 +312,30 @@ function generateCSS() {
     .panel-list li { padding: 3px 0; color: var(--text-dim); }
     .panel-list li .name { color: var(--text); }
     .panel-list li .badge {
-      display: inline-block; padding: 1px 6px; border-radius: 3px;
+      display: inline-block; padding: 1px 6px; border-radius: 9999px;
       font-size: 10px; margin-left: 6px;
     }
-    .badge-high { background: rgba(0,200,83,0.2); color: var(--green); }
-    .badge-medium { background: rgba(255,214,0,0.2); color: var(--yellow); }
-    .badge-low { background: rgba(255,23,68,0.2); color: var(--red); }
+    .badge-high { background: rgba(46,139,87,0.12); color: var(--green); }
+    .badge-medium { background: rgba(196,144,0,0.12); color: var(--yellow); }
+    .badge-low { background: rgba(211,47,47,0.12); color: var(--red); }
 
     /* Tooltip */
     .tooltip {
       position: absolute;
       pointer-events: none;
-      background: #111128;
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 6px 10px;
+      border-radius: 6px;
+      padding: 8px 12px;
       font-size: 11px;
       color: var(--text);
       z-index: 200;
       max-width: 350px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 12px rgba(0,51,102,0.12);
       white-space: nowrap;
     }
     .tooltip .tt-label { color: var(--text-dim); }
-    .tooltip .tt-value { color: var(--accent); font-weight: 600; }
+    .tooltip .tt-value { color: var(--ec-primary); font-weight: 600; }
 
     /* Dependency explorer */
     .dep-controls {
@@ -323,10 +344,11 @@ function generateCSS() {
     }
     .dep-controls select {
       background: var(--bg-input); border: 1px solid var(--border);
-      color: var(--text); padding: 6px 10px; border-radius: 4px;
+      color: var(--text); padding: 8px 10px; border-radius: 6px;
       font-family: inherit; font-size: 12px; width: 340px; outline: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
-    .dep-controls select:focus { border-color: var(--accent); }
+    .dep-controls select:focus { border-color: var(--ec-secondary); }
     .dep-label { font-size: 11px; color: var(--text-dim); }
     .dep-tree-container {
       display: flex; width: 100%; height: 100%; padding-top: 50px;
@@ -339,25 +361,27 @@ function generateCSS() {
     .dep-tree-title {
       position: absolute; top: 4px; left: 12px;
       font-size: 11px; color: var(--text-dim); text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1px; font-weight: 600;
     }
 
     /* Treemap */
     .treemap-container { width: 100%; height: 100%; position: relative; }
     .treemap-cell {
       position: absolute; overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 2px;
       cursor: pointer; transition: opacity 0.15s;
     }
     .treemap-cell:hover { opacity: 0.85; }
     .treemap-cell .cell-label {
-      padding: 3px 5px; font-size: 10px; color: rgba(255,255,255,0.8);
+      padding: 3px 5px; font-size: 10px; color: rgba(255,255,255,0.9);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-weight: 500;
     }
     .treemap-group-label {
-      position: absolute; font-size: 11px; color: var(--accent);
+      position: absolute; font-size: 11px; color: var(--ec-primary);
       font-weight: 700; letter-spacing: 0.5px; padding: 2px 6px;
-      background: rgba(0,0,0,0.6); z-index: 2;
+      background: rgba(255,255,255,0.85); border-radius: 3px; z-index: 2;
     }
 
     /* Capability matrix */
@@ -367,7 +391,7 @@ function generateCSS() {
     }
     .cap-matrix th {
       padding: 6px 10px; text-align: left; font-weight: 600;
-      border-bottom: 1px solid var(--border); color: var(--text-dim);
+      border-bottom: 2px solid var(--border); color: var(--text-dim);
       position: sticky; top: 0; background: var(--bg-card); z-index: 2;
     }
     .cap-matrix th.rotated {
@@ -378,7 +402,7 @@ function generateCSS() {
     .cap-matrix td {
       padding: 0; width: 36px; height: 32px;
       text-align: center; cursor: pointer;
-      border: 1px solid rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
       transition: opacity 0.15s;
     }
     .cap-matrix td:hover { opacity: 0.75; }
@@ -395,30 +419,30 @@ function generateCSS() {
       border-collapse: collapse; font-size: 12px; width: 100%;
     }
     .risk-table th {
-      padding: 8px 12px; text-align: left; font-weight: 600;
+      padding: 10px 12px; text-align: left; font-weight: 600;
       border-bottom: 2px solid var(--border); color: var(--text-dim);
       cursor: pointer; user-select: none; position: sticky; top: 0;
       background: var(--bg-card); z-index: 2;
     }
-    .risk-table th:hover { color: var(--accent); }
+    .risk-table th:hover { color: var(--ec-primary); }
     .risk-table th .sort-arrow { margin-left: 4px; font-size: 10px; }
     .risk-table td {
-      padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      padding: 10px 12px; border-bottom: 1px solid var(--border);
     }
     .risk-table tr { transition: background 0.15s; cursor: pointer; }
     .risk-table tr:hover { background: var(--bg-hover); }
-    .risk-table tr.risk-low { background: rgba(0,200,83,0.04); }
-    .risk-table tr.risk-medium { background: rgba(255,214,0,0.06); }
-    .risk-table tr.risk-high { background: rgba(255,23,68,0.08); }
-    .risk-table tr.risk-critical { background: rgba(255,23,68,0.15); }
+    .risk-table tr.risk-low { background: rgba(46,139,87,0.04); }
+    .risk-table tr.risk-medium { background: rgba(196,144,0,0.06); }
+    .risk-table tr.risk-high { background: rgba(211,47,47,0.06); }
+    .risk-table tr.risk-critical { background: rgba(211,47,47,0.12); }
     .risk-badge {
-      display: inline-block; padding: 2px 8px; border-radius: 3px;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      display: inline-block; padding: 2px 8px; border-radius: 9999px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.5px;
     }
-    .risk-badge.LOW { background: rgba(0,200,83,0.2); color: var(--green); }
-    .risk-badge.MEDIUM { background: rgba(255,214,0,0.2); color: var(--yellow); }
-    .risk-badge.HIGH { background: rgba(255,23,68,0.2); color: var(--red); }
-    .risk-badge.CRITICAL { background: rgba(255,23,68,0.4); color: #fff; }
+    .risk-badge.LOW { background: rgba(46,139,87,0.12); color: var(--green); border: 1px solid rgba(46,139,87,0.2); }
+    .risk-badge.MEDIUM { background: rgba(196,144,0,0.12); color: var(--yellow); border: 1px solid rgba(196,144,0,0.2); }
+    .risk-badge.HIGH { background: rgba(211,47,47,0.12); color: var(--red); border: 1px solid rgba(211,47,47,0.2); }
+    .risk-badge.CRITICAL { background: var(--red); color: #fff; }
 
     /* Evidence popup */
     .evidence-popup {
@@ -427,9 +451,9 @@ function generateCSS() {
       background: var(--bg-card); border: 1px solid var(--border);
       border-radius: 8px; padding: 20px; z-index: 300;
       max-width: 500px; max-height: 400px; overflow-y: auto;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+      box-shadow: 0 8px 30px rgba(0,51,102,0.15);
     }
-    .evidence-popup h3 { font-size: 13px; color: var(--accent); margin-bottom: 10px; }
+    .evidence-popup h3 { font-size: 13px; color: var(--ec-primary); margin-bottom: 10px; font-weight: 600; }
     .evidence-popup .evidence-text { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
     .evidence-popup .close-btn {
       position: absolute; top: 8px; right: 12px;
@@ -438,14 +462,14 @@ function generateCSS() {
     }
     .overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5); z-index: 250;
+      background: rgba(0,51,102,0.3); z-index: 250;
     }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+    ::-webkit-scrollbar-thumb { background: #c0c8d4; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a0aab6; }
 
     /* Empty state */
     .empty-state {
@@ -463,7 +487,7 @@ function generateHTML(data) {
   return `
   <header class="dashboard-header">
     <div class="header-left">
-      <h1>A-Forge Code Graph</h1>
+      <h1>Atos Forge Code Graph</h1>
       <span class="project-name">${esc(data.projectName)}</span>
     </div>
     <div class="header-stats">
@@ -490,9 +514,9 @@ function generateHTML(data) {
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="Search modules, files, symbols..." />
       <div class="legend">
-        <span><span class="legend-dot" style="background:#00c853"></span>Stable</span>
-        <span><span class="legend-dot" style="background:#ffd600"></span>Medium</span>
-        <span><span class="legend-dot" style="background:#ff1744"></span>Unstable</span>
+        <span><span class="legend-dot" style="background:#2e8b57"></span>Stable</span>
+        <span><span class="legend-dot" style="background:#c49000"></span>Medium</span>
+        <span><span class="legend-dot" style="background:#d32f2f"></span>Unstable</span>
       </div>
     </div>
   </div>
@@ -576,7 +600,7 @@ function generateJS() {
     return f ? f.m : null;
   }
 
-  const stabilityColor = { high: '#00c853', medium: '#ffd600', low: '#ff1744' };
+  const stabilityColor = { high: '#2e8b57', medium: '#c49000', low: '#d32f2f' };
 
   // Tooltip
   const tooltipEl = $('#tooltip');
@@ -693,12 +717,12 @@ function generateJS() {
       .attr('refX', 25).attr('refY', 5)
       .attr('markerWidth', 6).attr('markerHeight', 6)
       .attr('orient', 'auto')
-      .append('path').attr('d', 'M0,0L10,5L0,10Z').attr('fill', '#555');
+      .append('path').attr('d', 'M0,0L10,5L0,10Z').attr('fill', '#b0bec5');
     link.attr('marker-end', 'url(#arrow)');
 
     // Edge tooltips
     link.on('mouseover', function(evt, d) {
-      d3.select(this).attr('stroke', '#00d4ff').attr('stroke-opacity', 1);
+      d3.select(this).attr('stroke', '#2990EA').attr('stroke-opacity', 1);
       const srcName = typeof d.source === 'object' ? d.source.name : d.source;
       const tgtName = typeof d.target === 'object' ? d.target.name : d.target;
       showTooltip(evt, '<span class="tt-value">' + esc(srcName) + '</span>' +
@@ -729,7 +753,7 @@ function generateJS() {
       .text(d => d.name)
       .attr('text-anchor', 'middle')
       .attr('dy', d => sizeScale(d.file_count) + 16)
-      .attr('fill', '#e0e0e0')
+      .attr('fill', '#1a2e4a')
       .attr('font-size', '12px')
       .attr('font-weight', '600');
 
@@ -797,7 +821,7 @@ function generateJS() {
 
     // Hover node
     node.on('mouseover', function(evt, d) {
-      d3.select(this).select('circle').attr('stroke', '#00d4ff').attr('stroke-width', 3);
+      d3.select(this).select('circle').attr('stroke', '#2990EA').attr('stroke-width', 3);
       showTooltip(evt, '<span class="tt-value">' + esc(d.name) + '</span><br>' +
         '<span class="tt-label">Files:</span> ' + d.file_count +
         ' | <span class="tt-label">Stability:</span> ' + (d.stability || 'unknown'));
@@ -833,7 +857,7 @@ function generateJS() {
           match = detail.publicAPI.some(s => s.name.toLowerCase().includes(q));
         }
         d3.select(this).select('circle')
-          .attr('stroke', match ? '#00d4ff' : '#555')
+          .attr('stroke', match ? '#2990EA' : '#b0bec5')
           .attr('stroke-width', match ? 4 : 2)
           .attr('opacity', match ? 1 : 0.3);
         d3.select(this).select('text').attr('opacity', match ? 1 : 0.3);
@@ -971,7 +995,7 @@ function generateJS() {
         .attr('class', 'tree-link')
         .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x))
         .attr('fill', 'none')
-        .attr('stroke', d => d.target.data.crossModule ? '#ff6e40' : '#555')
+        .attr('stroke', d => d.target.data.crossModule ? '#e65100' : '#b0bec5')
         .attr('stroke-width', d => d.target.data.crossModule ? 2 : 1)
         .attr('stroke-opacity', 0.7);
 
@@ -983,7 +1007,7 @@ function generateJS() {
 
       nodeG.append('circle')
         .attr('r', 5)
-        .attr('fill', d => d.data.crossModule ? '#ff6e40' : '#00d4ff')
+        .attr('fill', d => d.data.crossModule ? '#e65100' : '#2990EA')
         .attr('stroke', '#fff')
         .attr('stroke-width', 1);
 
@@ -991,7 +1015,7 @@ function generateJS() {
         .attr('dx', d => d.children ? -8 : 8)
         .attr('dy', 4)
         .attr('text-anchor', d => d.children ? 'end' : 'start')
-        .attr('fill', '#e0e0e0')
+        .attr('fill', '#1a2e4a')
         .attr('font-size', '11px')
         .text(d => d.data.name + (d.data.module ? ' [' + d.data.module + ']' : ''));
 
@@ -1087,7 +1111,7 @@ function generateJS() {
     const maxRisk = d3.max(D.hotspots, h => h.risk_score) || 1;
     const riskColor = d3.scaleLinear()
       .domain([0, maxRisk * 0.25, maxRisk * 0.5, maxRisk])
-      .range(['#00c853', '#a8d600', '#ff9100', '#ff1744']);
+      .range(['#2e8b57', '#a8b545', '#e65100', '#d32f2f']);
 
     // Module group labels
     for (const leaf of root.children || []) {
@@ -1189,7 +1213,7 @@ function generateJS() {
 
     const confColor = d3.scaleLinear()
       .domain([0, 0.3, 0.7, 1])
-      .range(['#1a1a2e', '#1e3a1e', '#2d6a2d', '#00c853']);
+      .range(['#f5f7fa', '#c8e6c9', '#66bb6a', '#2e7d32']);
 
     let html = '<table class="cap-matrix"><thead><tr><th></th>';
     for (const cap of caps) {
@@ -1205,7 +1229,7 @@ function generateJS() {
           const pct = (entry.confidence * 100).toFixed(0);
           html += '<td style="background:' + confColor(entry.confidence) + '" ';
           html += 'data-mod="' + esc(mod) + '" data-cap="' + esc(cap) + '" data-evidence="' + esc(entry.evidence) + '" data-conf="' + pct + '">';
-          html += '<span class="cap-conf" style="color:rgba(255,255,255,' + Math.max(0.4, entry.confidence) + ')">' + pct + '</span>';
+          html += '<span class="cap-conf" style="color:' + (entry.confidence > 0.5 ? 'rgba(255,255,255,' + Math.max(0.7, entry.confidence) + ')' : 'rgba(0,51,102,' + Math.max(0.4, entry.confidence * 1.5) + ')') + '">' + pct + '</span>';
           html += '</td>';
         } else {
           html += '<td></td>';
@@ -1428,7 +1452,10 @@ function buildHTML(data) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A-Forge Code Graph \u2014 ${esc(data.projectName)}</title>
+  <title>Atos Forge Code Graph \u2014 ${esc(data.projectName)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Exo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>${generateCSS()}</style>
 </head>
 <body>
