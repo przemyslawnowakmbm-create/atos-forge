@@ -1,601 +1,518 @@
-<div align="center">
+# Atos Forge
 
-# ATOS FORGE
+Internal tooling for AI-assisted development at scale. Forge wraps Claude Code with a code graph, session memory, agent orchestration, and a 6-layer verification pipeline. It runs entirely on your machine.
 
-**Atos Forge (A-Forge) — An enterprise-grade, AI-powered spec-driven development system with dynamic agent creation, ephemeral container execution, and code graph intelligence. Built for massive codebases.**
+Works air-gapped. No external services.
 
-**Solves context rot — the quality degradation that happens as Claude fills its context window.**
-
-[![GitHub stars](https://img.shields.io/github/stars/przemyslawnowakmbm-create/atos-forge?style=for-the-badge&logo=github&color=181717)](https://github.com/przemyslawnowakmbm-create/atos-forge)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-
-<br>
-
-[How It Works](#how-it-works) · [Commands](#commands) · [Why It Works](#why-it-works) · [User Guide](docs/USER-GUIDE.md)
-
-</div>
+```
+Requirements: Node 20+, Git, Claude Code CLI
+Optional:     Docker (for container isolation)
+```
 
 ---
 
-## Overview
+## What this is
 
-A-Forge is a context engineering layer that makes AI-powered development reliable at scale. Behind the scenes: context engineering, XML prompt formatting, subagent orchestration, and state management. What you see: a few commands that just work.
+Most AI coding tools treat your codebase as a flat bag of files. Forge builds a graph of it: modules, dependencies, interfaces, capabilities, hotspots. Every operation — planning, execution, verification — uses this graph to understand what it's touching, what might break, and what to test.
 
-Describe your idea, let the system extract everything it needs to know, and let Claude Code get to work. A-Forge keeps context fresh across phases, plans, and execution — so quality never degrades.
+When a task is too large for a single context window, Forge splits it into sub-plans, creates specialized agents for each, runs them in parallel (containers or worktrees), collects their patches, verifies the result, and auto-fixes failures. The session ledger persists decisions and progress so nothing is lost between restarts.
+
+### What makes it different
+
+| Component | What it does |
+|-----------|-------------|
+| **Code Graph** | Tree-sitter AST analysis builds a SQLite database of every file, symbol, import, module boundary, and interface. Queries answer "what depends on this?" in milliseconds. |
+| **Interactive Dashboard** | Self-contained HTML file with D3.js. Module map, dependency explorer, hotspot heatmap, capability matrix, risk register. Opens in any browser, works offline. |
+| **Agent Factory** | Reads a plan file, queries the graph for context, determines archetype (specialist, integrator, careful, general), composes a system prompt, selects which files to load, and defines verification steps. |
+| **Container Orchestrator** | Runs agents in Docker containers or git worktrees. Resource-aware scheduling: auto-detects cores and RAM, bin-packs agents into waves respecting memory and CPU limits. |
+| **Task Assessment** | Before execution, estimates whether a plan fits in a single context window. If not, splits it by module boundaries, concerns, or individual files with cascading fallback. |
+| **6-Layer Verification** | Structural checks, type compilation, interface contract hashes, dependency cycles, graph-identified tests, behavioral verification. Each layer independently toggleable. Auto-fix loop retries failures up to 3 times before escalating. |
+| **Session Ledger** | Markdown file at `.forge/session/ledger.md` that records decisions, warnings, errors, user preferences, and rejected approaches. Agents read it on startup so Wave 3 knows what Wave 1 learned. |
 
 ---
 
-## Who This Is For
-
-Teams and developers building with AI who need reliable, reproducible results on large codebases.
-
----
-
-## Getting Started
-
-Clone and install locally:
+## Quick start
 
 ```bash
-git clone https://github.com/przemyslawnowakmbm-create/atos-forge.git
-cd atos-forge
-node bin/install.js --claude --local
+# 1. Build the code graph
+node forge-graph/builder.js .
+
+# 2. Check everything is working
+node atos-forge/bin/forge-tools.cjs doctor
+
+# 3. Explore the codebase visually
+node atos-forge/bin/forge-tools.cjs graph visualize --open
+
+# 4. Query the graph
+node forge-graph/query.js overview
+node forge-graph/query.js impact src/auth/login.ts
+node forge-graph/query.js hotspots --top 10
+
+# 5. Run verification on changed files
+node forge-verify/engine.js --root . --files src/auth/login.ts
 ```
 
-Verify with `/forge:help` inside Claude Code.
+---
 
-<details>
-<summary><strong>Non-interactive Install (Docker, CI, Scripts)</strong></summary>
+## Architecture
+
+```
+                          .forge/config.json
+                                 |
+                          +--------------+
+                          |    Config    |  ~/.forge/config.json (global)
+                          |    System   |  .forge/config.json   (project)
+                          +--------------+
+                                 |
+         +-----------------------+-----------------------+
+         |                       |                       |
+         v                       v                       v
+  +--------------+      +--------------+      +--------------+
+  |  Code Graph  |----->|   Session    |----->|    Agent     |
+  |    Engine    |      |   Ledger     |      |   Factory    |
+  |              |      |              |      |              |
+  | builder.js   |      | ledger.js    |      | factory.js   |
+  | query.js     |      |              |      | parallel-    |
+  | updater.js   |      | Persists:    |      |  planner.js  |
+  | capability-  |      | - decisions  |      |              |
+  |  detector.js |      | - warnings   |      | Archetypes:  |
+  | snapshot.js  |      | - errors     |      | specialist   |
+  | dashboard-   |      | - progress   |      | integrator   |
+  |  generator.js|      | - preferences|      | careful      |
+  +--------------+      +--------------+      | general      |
+         |                       |            +--------------+
+         |  context-for-task     |  session        |
+         |  impact analysis      |  context        |  agent configs
+         |  contract hashes      |                 |
+         v                       v                 v
+  +--------------+      +--------------+      +--------------+
+  |  Assessment  |      |  Container   |<-----|  Execution   |
+  |   Pipeline   |      | Orchestrator |      |   Pipeline   |
+  |              |      |              |      |              |
+  | assessor.js  |      | Docker or    |      | execute-     |
+  | splitter.js  |      |  worktree    |      |  phase.md    |
+  |              |      |              |      |              |
+  | Splits plans |      | Parallel     |      | Waves with   |
+  | that exceed  |      | execution    |      | knowledge    |
+  | context      |      | with resource|      | propagation  |
+  | budget       |      | limits       |      |              |
+  +--------------+      +--------------+      +--------------+
+                                |
+                    patches (git diff)
+                                |
+                                v
+                        +--------------+
+                        | Verification |
+                        |    Loop      |
+                        |              |
+                        | engine.js    |  6 layers, fail-fast
+                        | loop.js      |  auto-fix up to 3x
+                        |              |  escalate if stuck
+                        | L1 Structure |
+                        | L2 Types     |
+                        | L3 Contracts |
+                        | L4 Deps      |
+                        | L5 Tests     |
+                        | L6 Behavioral|
+                        +--------------+
+                                |
+                           PASS | FAIL
+                                |
+                                v
+                        +--------------+
+                        |    Commit    |
+                        | + Ledger     |
+                        |   Update     |
+                        +--------------+
+```
+
+**Data flow:** The graph provides context for every operation. The ledger carries knowledge forward between waves. The factory uses both to build the right agent for each task. The orchestrator runs agents in isolation. The verification loop checks everything before committing.
+
+---
+
+## Graph commands
+
+The code graph is the foundation. Build it first, then query it.
 
 ```bash
-# Claude Code
-node bin/install.js --claude --global   # Install to ~/.claude/
-node bin/install.js --claude --local    # Install to ./.claude/
+# Build from scratch (scans all files, detects modules, extracts symbols)
+node forge-graph/builder.js <project-root>
 
-# OpenCode
-node bin/install.js --opencode --global # Install to ~/.config/opencode/
-
-# Gemini CLI
-node bin/install.js --gemini --global   # Install to ~/.gemini/
-
-# All runtimes
-node bin/install.js --all --global      # Install to all directories
+# Incremental update (only changed files since last build)
+node forge-graph/updater.js <project-root>
 ```
 
-Use `--global` (`-g`) or `--local` (`-l`) to skip the location prompt.
-Use `--claude`, `--opencode`, `--gemini`, or `--all` to skip the runtime prompt.
-
-</details>
-
-### Recommended: Skip Permissions Mode
-
-A-Forge is designed for frictionless automation. Run Claude Code with:
+### Queries
 
 ```bash
-claude --dangerously-skip-permissions
+# High-level codebase summary
+node forge-graph/query.js overview
+
+# What does this file depend on? What depends on it?
+node forge-graph/query.js show <file>
+
+# Blast radius: what breaks if this file changes?
+node forge-graph/query.js impact <file>
+
+# Which files change the most and have the highest complexity?
+node forge-graph/query.js hotspots [--top N]
+
+# Are there circular dependencies?
+node forge-graph/query.js cycles
+
+# What can each module do? (typescript, testing, database, etc.)
+node forge-graph/query.js capabilities [module-name]
+
+# What context does an agent need to work on these files?
+node forge-graph/query.js context-for-task <file1> <file2> ...
+
+# All modules and their dependency relationships
+node forge-graph/query.js modules
 ```
 
-> [!TIP]
-> This is how A-Forge is intended to be used — stopping to approve `date` and `git commit` 50 times defeats the purpose.
-
-<details>
-<summary><strong>Alternative: Granular Permissions</strong></summary>
-
-If you prefer not to use that flag, add this to your project's `.claude/settings.json`:
-
-```json
-{
-  "permissions": {
-    "allow": [
-      "Bash(date:*)",
-      "Bash(echo:*)",
-      "Bash(cat:*)",
-      "Bash(ls:*)",
-      "Bash(mkdir:*)",
-      "Bash(wc:*)",
-      "Bash(head:*)",
-      "Bash(tail:*)",
-      "Bash(sort:*)",
-      "Bash(grep:*)",
-      "Bash(tr:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git status:*)",
-      "Bash(git log:*)",
-      "Bash(git diff:*)",
-      "Bash(git tag:*)"
-    ]
-  }
-}
-```
-
-</details>
-
----
-
-## How It Works
-
-> **Already have code?** Run `/forge:map-codebase` first. It spawns parallel agents to analyze your stack, architecture, conventions, and concerns. Then `/forge:new-project` knows your codebase — questions focus on what you're adding, and planning automatically loads your patterns.
-
-### 1. Initialize Project
-
-```
-/forge:new-project
-```
-
-One command, one flow. The system:
-
-1. **Questions** — Asks until it understands your idea completely (goals, constraints, tech preferences, edge cases)
-2. **Research** — Spawns parallel agents to investigate the domain (optional but recommended)
-3. **Requirements** — Extracts what's v1, v2, and out of scope
-4. **Roadmap** — Creates phases mapped to requirements
-
-You approve the roadmap. Now you're ready to build.
-
-**Creates:** `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, `.planning/research/`
-
----
-
-### 2. Discuss Phase
-
-```
-/forge:discuss-phase 1
-```
-
-**This is where you shape the implementation.**
-
-Your roadmap has a sentence or two per phase. That's not enough context to build something the way *you* imagine it. This step captures your preferences before anything gets researched or planned.
-
-The system analyzes the phase and identifies gray areas based on what's being built:
-
-- **Visual features** → Layout, density, interactions, empty states
-- **APIs/CLIs** → Response format, flags, error handling, verbosity
-- **Content systems** → Structure, tone, depth, flow
-- **Organization tasks** → Grouping criteria, naming, duplicates, exceptions
-
-For each area you select, it asks until you're satisfied. The output — `CONTEXT.md` — feeds directly into the next two steps:
-
-1. **Researcher reads it** — Knows what patterns to investigate ("user wants card layout" → research card component libraries)
-2. **Planner reads it** — Knows what decisions are locked ("infinite scroll decided" → plan includes scroll handling)
-
-The deeper you go here, the more the system builds what you actually want. Skip it and you get reasonable defaults. Use it and you get *your* vision.
-
-**Creates:** `{phase_num}-CONTEXT.md`
-
----
-
-### 3. Plan Phase
-
-```
-/forge:plan-phase 1
-```
-
-The system:
-
-1. **Researches** — Investigates how to implement this phase, guided by your CONTEXT.md decisions
-2. **Plans** — Creates 2-3 atomic task plans with XML structure
-3. **Verifies** — Checks plans against requirements, loops until they pass
-
-Each plan is small enough to execute in a fresh context window. No degradation, no "I'll be more concise now."
-
-**Creates:** `{phase_num}-RESEARCH.md`, `{phase_num}-{N}-PLAN.md`
-
----
-
-### 4. Execute Phase
-
-```
-/forge:execute-phase 1
-```
-
-The system:
-
-1. **Runs plans in waves** — Parallel where possible, sequential when dependent
-2. **Fresh context per plan** — 200k tokens purely for implementation, zero accumulated garbage
-3. **Commits per task** — Every task gets its own atomic commit
-4. **Verifies against goals** — Checks the codebase delivers what the phase promised
-
-Walk away, come back to completed work with clean git history.
-
-**How Wave Execution Works:**
-
-Plans are grouped into "waves" based on dependencies. Within each wave, plans run in parallel. Waves run sequentially.
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  PHASE EXECUTION                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  WAVE 1 (parallel)          WAVE 2 (parallel)          WAVE 3       │
-│  ┌─────────┐ ┌─────────┐    ┌─────────┐ ┌─────────┐    ┌─────────┐ │
-│  │ Plan 01 │ │ Plan 02 │ →  │ Plan 03 │ │ Plan 04 │ →  │ Plan 05 │ │
-│  │         │ │         │    │         │ │         │    │         │ │
-│  │ User    │ │ Product │    │ Orders  │ │ Cart    │    │ Checkout│ │
-│  │ Model   │ │ Model   │    │ API     │ │ API     │    │ UI      │ │
-│  └─────────┘ └─────────┘    └─────────┘ └─────────┘    └─────────┘ │
-│       │           │              ↑           ↑              ↑       │
-│       └───────────┴──────────────┴───────────┘              │       │
-│              Dependencies: Plan 03 needs Plan 01            │       │
-│                          Plan 04 needs Plan 02              │       │
-│                          Plan 05 needs Plans 03 + 04        │       │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**Why waves matter:**
-- Independent plans → Same wave → Run in parallel
-- Dependent plans → Later wave → Wait for dependencies
-- File conflicts → Sequential plans or same plan
-
-This is why "vertical slices" (Plan 01: User feature end-to-end) parallelize better than "horizontal layers" (Plan 01: All models, Plan 02: All APIs).
-
-**Creates:** `{phase_num}-{N}-SUMMARY.md`, `{phase_num}-VERIFICATION.md`
-
----
-
-### 5. Verify Work
-
-```
-/forge:verify-work 1
-```
-
-**This is where you confirm it actually works.**
-
-Automated verification checks that code exists and tests pass. But does the feature *work* the way you expected? This is your chance to use it.
-
-The system:
-
-1. **Extracts testable deliverables** — What you should be able to do now
-2. **Walks you through one at a time** — "Can you log in with email?" Yes/no, or describe what's wrong
-3. **Diagnoses failures automatically** — Spawns debug agents to find root causes
-4. **Creates verified fix plans** — Ready for immediate re-execution
-
-If everything passes, you move on. If something's broken, you don't manually debug — you just run `/forge:execute-phase` again with the fix plans it created.
-
-**Creates:** `{phase_num}-UAT.md`, fix plans if issues found
-
----
-
-### 6. Repeat → Complete → Next Milestone
-
-```
-/forge:discuss-phase 2
-/forge:plan-phase 2
-/forge:execute-phase 2
-/forge:verify-work 2
-...
-/forge:complete-milestone
-/forge:new-milestone
-```
-
-Loop **discuss → plan → execute → verify** until milestone complete.
-
-Each phase gets your input (discuss), proper research (plan), clean execution (execute), and human verification (verify). Context stays fresh. Quality stays high.
-
-When all phases are done, `/forge:complete-milestone` archives the milestone and tags the release.
-
-Then `/forge:new-milestone` starts the next version — same flow as `new-project` but for your existing codebase. You describe what you want to build next, the system researches the domain, you scope requirements, and it creates a fresh roadmap. Each milestone is a clean cycle: define → build → ship.
-
----
-
-### Quick Mode
-
-```
-/forge:quick
-```
-
-**For ad-hoc tasks that don't need full planning.**
-
-Quick mode gives you A-Forge guarantees (atomic commits, state tracking) with a faster path:
-
-- **Same agents** — Planner + executor, same quality
-- **Skips optional steps** — No research, no plan checker, no verifier
-- **Separate tracking** — Lives in `.planning/quick/`, not phases
-
-Use for: bug fixes, small features, config changes, one-off tasks.
-
-```
-/forge:quick
-> What do you want to do? "Add dark mode toggle to settings"
-```
-
-**Creates:** `.planning/quick/001-add-dark-mode-toggle/PLAN.md`, `SUMMARY.md`
-
----
-
-## Why It Works
-
-### Context Engineering
-
-Claude Code is incredibly powerful *if* you give it the context it needs. Most people don't.
-
-A-Forge handles it for you:
-
-| File | What it does |
-|------|--------------|
-| `PROJECT.md` | Project vision, always loaded |
-| `research/` | Ecosystem knowledge (stack, features, architecture, pitfalls) |
-| `REQUIREMENTS.md` | Scoped v1/v2 requirements with phase traceability |
-| `ROADMAP.md` | Where you're going, what's done |
-| `STATE.md` | Decisions, blockers, position — memory across sessions |
-| `PLAN.md` | Atomic task with XML structure, verification steps |
-| `SUMMARY.md` | What happened, what changed, committed to history |
-| `todos/` | Captured ideas and tasks for later work |
-
-Size limits based on where Claude's quality degrades. Stay under, get consistent excellence.
-
-### XML Prompt Formatting
-
-Every plan is structured XML optimized for Claude:
-
-```xml
-<task type="auto">
-  <name>Create login endpoint</name>
-  <files>src/app/api/auth/login/route.ts</files>
-  <action>
-    Use jose for JWT (not jsonwebtoken - CommonJS issues).
-    Validate credentials against users table.
-    Return httpOnly cookie on success.
-  </action>
-  <verify>curl -X POST localhost:3000/api/auth/login returns 200 + Set-Cookie</verify>
-  <done>Valid credentials return cookie, invalid return 401</done>
-</task>
-```
-
-Precise instructions. No guessing. Verification built in.
-
-### Multi-Agent Orchestration
-
-Every stage uses the same pattern: a thin orchestrator spawns specialized agents, collects results, and routes to the next step.
-
-| Stage | Orchestrator does | Agents do |
-|-------|------------------|-----------|
-| Research | Coordinates, presents findings | 4 parallel researchers investigate stack, features, architecture, pitfalls |
-| Planning | Validates, manages iteration | Planner creates plans, checker verifies, loop until pass |
-| Execution | Groups into waves, tracks progress | Executors implement in parallel, each with fresh 200k context |
-| Verification | Presents results, routes next | Verifier checks codebase against goals, debuggers diagnose failures |
-
-The orchestrator never does heavy lifting. It spawns agents, waits, integrates results.
-
-**The result:** You can run an entire phase — deep research, multiple plans created and verified, thousands of lines of code written across parallel executors, automated verification against goals — and your main context window stays at 30-40%. The work happens in fresh subagent contexts. Your session stays fast and responsive.
-
-### Atomic Git Commits
-
-Each task gets its own commit immediately after completion:
+### Via forge-tools
 
 ```bash
-abc123f docs(08-02): complete user registration plan
-def456g feat(08-02): add email confirmation flow
-hij789k feat(08-02): implement password hashing
-lmn012o feat(08-02): create registration endpoint
+# Same queries routed through the CLI
+node atos-forge/bin/forge-tools.cjs graph init         # Build graph
+node atos-forge/bin/forge-tools.cjs graph status       # Health + stats
+node atos-forge/bin/forge-tools.cjs graph impact <file>
+node atos-forge/bin/forge-tools.cjs graph context <f1> <f2>
+node atos-forge/bin/forge-tools.cjs graph visualize    # Generate dashboard
+node atos-forge/bin/forge-tools.cjs graph snapshot save
+node atos-forge/bin/forge-tools.cjs graph snapshot list
+node atos-forge/bin/forge-tools.cjs graph snapshot-diff
 ```
 
-> [!NOTE]
-> **Benefits:** Git bisect finds exact failing task. Each task independently revertable. Clear history for Claude in future sessions. Better observability in AI-automated workflow.
+### Dashboard
 
-Every commit is surgical, traceable, and meaningful.
+```bash
+# Generate and open the interactive HTML dashboard
+node atos-forge/bin/forge-tools.cjs graph visualize --open
+```
 
-### Modular by Design
+The dashboard is a single `.forge/dashboard.html` file (~1MB) with embedded D3.js. Five tabs:
 
-- Add phases to current milestone
-- Insert urgent work between phases
-- Complete milestones and start fresh
-- Adjust plans without rebuilding everything
+1. **Module Map** — force-directed graph of module dependencies, sized by file count, colored by stability
+2. **Dependency Explorer** — pick any file, see its import tree (upstream) and consumer tree (downstream)
+3. **Hotspot Heatmap** — treemap grouped by module, colored by change frequency
+4. **Capability Matrix** — modules vs capabilities (typescript, testing, api, database, etc.)
+5. **Risk Register** — high-consumer interfaces, hotspot files, circular deps, unstable modules
 
-You're never locked in. The system adapts.
+Works offline. Open it in any browser.
 
 ---
 
-## Commands
+## Session management
 
-### Core Workflow
+Forge remembers decisions and progress even if your terminal session ends. The session ledger at `.forge/session/ledger.md` persists context across compaction and restarts.
 
-| Command | What it does |
-|---------|--------------|
-| `/forge:new-project [--auto]` | Full initialization: questions → research → requirements → roadmap |
-| `/forge:discuss-phase [N] [--auto]` | Capture implementation decisions before planning |
-| `/forge:plan-phase [N] [--auto]` | Research + plan + verify for a phase |
-| `/forge:execute-phase <N>` | Execute all plans in parallel waves, verify when complete |
-| `/forge:verify-work [N]` | Manual user acceptance testing ¹ |
-| `/forge:audit-milestone` | Verify milestone achieved its definition of done |
-| `/forge:complete-milestone` | Archive milestone, tag release |
-| `/forge:new-milestone [name]` | Start next version: questions → research → requirements → roadmap |
+The ledger contains:
+- **Current execution state** — phase, wave, what's done, what's running
+- **Decisions** — choices made and their rationale (agents won't re-ask)
+- **Warnings from agents** — loaded into downstream agents automatically
+- **User preferences** — respected by all subsequent agents
+- **Rejected approaches** — agents won't retry these
+- **Errors and fixes** — what broke, what was tried, what worked
 
-### Navigation
+**Knowledge propagation:** When Wave 1 agents discover something ("this API returns XML, not JSON"), they write it to the ledger. Wave 2 agents read it on startup. No agent repeats a mistake another already made.
 
-| Command | What it does |
-|---------|--------------|
-| `/forge:progress` | Where am I? What's next? |
-| `/forge:help` | Show all commands and usage guide |
-| `/forge:update` | Update A-Forge with changelog preview |
+```bash
+# Read current ledger state
+node atos-forge/bin/forge-tools.cjs ledger state
 
-### Brownfield
+# View the full ledger
+node atos-forge/bin/forge-tools.cjs ledger read
 
-| Command | What it does |
-|---------|--------------|
-| `/forge:map-codebase` | Analyze existing codebase before new-project |
+# Compact (stay under token budget)
+node atos-forge/bin/forge-tools.cjs ledger compact
 
-### Phase Management
+# Archive and reset for a new phase
+node atos-forge/bin/forge-tools.cjs ledger archive
+```
 
-| Command | What it does |
-|---------|--------------|
-| `/forge:add-phase` | Append phase to roadmap |
-| `/forge:insert-phase [N]` | Insert urgent work between phases |
-| `/forge:remove-phase [N]` | Remove future phase, renumber |
-| `/forge:list-phase-assumptions [N]` | See Claude's intended approach before planning |
-| `/forge:plan-milestone-gaps` | Create phases to close gaps from audit |
-
-### Session
-
-| Command | What it does |
-|---------|--------------|
-| `/forge:pause-work` | Create handoff when stopping mid-phase |
-| `/forge:resume-work` | Restore from last session |
-
-### Utilities
-
-| Command | What it does |
-|---------|--------------|
-| `/forge:settings` | Configure model profile and workflow agents |
-| `/forge:set-profile <profile>` | Switch model profile (quality/balanced/budget) |
-| `/forge:add-todo [desc]` | Capture idea for later |
-| `/forge:check-todos` | List pending todos |
-| `/forge:debug [desc]` | Systematic debugging with persistent state |
-| `/forge:quick [--full]` | Execute ad-hoc task with A-Forge guarantees (`--full` adds plan-checking and verification) |
-| `/forge:health [--repair]` | Validate `.planning/` directory integrity, auto-repair with `--repair` |
-
-<sup>¹ Contributed by reddit user OracleGreyBeard</sup>
+When agents are instructed via CLAUDE.md, the first thing they do is read the ledger. If the conversation context gets compacted by Claude Code, the ledger is still there on disk with the full picture. Trust the ledger over summarized history when they conflict.
 
 ---
 
 ## Configuration
 
-A-Forge stores project settings in `.planning/config.json`. Configure during `/forge:new-project` or update later with `/forge:settings`. For the full config schema, workflow toggles, git branching options, and per-agent model breakdown, see the [User Guide](docs/USER-GUIDE.md#configuration-reference).
+Forge uses a unified config system. Settings merge in order:
 
-### Core Settings
-
-| Setting | Options | Default | What it controls |
-|---------|---------|---------|------------------|
-| `mode` | `yolo`, `interactive` | `interactive` | Auto-approve vs confirm at each step |
-| `depth` | `quick`, `standard`, `comprehensive` | `standard` | Planning thoroughness (phases × plans) |
-
-### Model Profiles
-
-Control which Claude model each agent uses. Balance quality vs token spend.
-
-| Profile | Planning | Execution | Verification |
-|---------|----------|-----------|--------------|
-| `quality` | Opus | Opus | Sonnet |
-| `balanced` (default) | Opus | Sonnet | Sonnet |
-| `budget` | Sonnet | Sonnet | Haiku |
-
-Switch profiles:
 ```
-/forge:set-profile budget
+defaults  <-  ~/.forge/config.json (global)  <-  .forge/config.json (project)
 ```
 
-Or configure via `/forge:settings`.
+Global config is optional. Project config overrides everything. If neither exists, defaults apply.
 
-### Workflow Agents
-
-These spawn additional agents during planning/execution. They improve quality but add tokens and time.
-
-| Setting | Default | What it does |
-|---------|---------|--------------|
-| `workflow.research` | `true` | Researches domain before planning each phase |
-| `workflow.plan_check` | `true` | Verifies plans achieve phase goals before execution |
-| `workflow.verifier` | `true` | Confirms must-haves were delivered after execution |
-| `workflow.auto_advance` | `false` | Auto-chain discuss → plan → execute without stopping |
-
-Use `/forge:settings` to toggle these, or override per-invocation:
-- `/forge:plan-phase --skip-research`
-- `/forge:plan-phase --skip-verify`
-
-### Execution
-
-| Setting | Default | What it controls |
-|---------|---------|------------------|
-| `parallelization.enabled` | `true` | Run independent plans simultaneously |
-| `planning.commit_docs` | `true` | Track `.planning/` in git |
-
-### Git Branching
-
-Control how A-Forge handles branches during execution.
-
-| Setting | Options | Default | What it does |
-|---------|---------|---------|--------------|
-| `git.branching_strategy` | `none`, `phase`, `milestone` | `none` | Branch creation strategy |
-| `git.phase_branch_template` | string | `forge/phase-{phase}-{slug}` | Template for phase branches |
-| `git.milestone_branch_template` | string | `forge/{milestone}-{slug}` | Template for milestone branches |
-
-**Strategies:**
-- **`none`** — Commits to current branch (default A-Forge behavior)
-- **`phase`** — Creates a branch per phase, merges at phase completion
-- **`milestone`** — Creates one branch for entire milestone, merges at completion
-
-At milestone completion, A-Forge offers squash merge (recommended) or merge with history.
-
----
-
-## Security
-
-### Protecting Sensitive Files
-
-A-Forge's codebase mapping and analysis commands read files to understand your project. **Protect files containing secrets** by adding them to Claude Code's deny list:
-
-1. Open Claude Code settings (`.claude/settings.json` or global)
-2. Add sensitive file patterns to the deny list:
+### Schema
 
 ```json
 {
-  "permissions": {
-    "deny": [
-      "Read(.env)",
-      "Read(.env.*)",
-      "Read(**/secrets/*)",
-      "Read(**/*credential*)",
-      "Read(**/*.pem)",
-      "Read(**/*.key)"
-    ]
-  }
+  "project":       { "name": "", "description": "" },
+  "graph":         { "enabled": true, "auto_update": true, "languages": [],
+                     "ignore_patterns": ["node_modules", "dist", "build", ".git"],
+                     "module_detection": true, "capability_detection": true,
+                     "dashboard_auto_regenerate": true, "snapshot_retention": 20 },
+  "execution":     { "mode": "interactive", "container_backend": "worktree",
+                     "context_budget": 200000, "assessment_threshold": 0.80,
+                     "auto_split": true, "max_fix_loops": 3 },
+  "containers":    { "max_concurrent": "auto", "max_memory_per_container": "2g",
+                     "max_cpu_per_container": 1.0, "timeout_seconds": 600,
+                     "network_access": false, "cleanup_on_exit": true,
+                     "image_prefix": "forge-agent" },
+  "agents":        { "factory_enabled": true, "default_archetype": "general",
+                     "model_profiles": { "quality": "opus", "balanced": "sonnet",
+                     "budget": "haiku" }, "active_profile": "balanced" },
+  "verification":  { "layers": { "structural": true, "type_check": true,
+                     "interface_contracts": true, "dependency_analysis": true,
+                     "tests": true, "behavioral": true },
+                     "auto_fix": true, "max_fix_loops": 3,
+                     "test_command": null, "type_check_command": null },
+  "session":       { "ledger_enabled": true, "ledger_max_tokens": 8000,
+                     "auto_compact": true, "archive_on_phase_complete": true },
+  "display":       { "rich_output": true, "inline_graph_context": true,
+                     "show_graph_diff": true, "show_agent_learnings": true },
+  "git":           { "atomic_commits": true, "commit_prefix": "",
+                     "branching_strategy": "none", "sign_commits": false }
 }
 ```
 
-This prevents Claude from reading these files entirely, regardless of what commands you run.
+All fields have defaults. You only need to set what you want to change.
 
-> [!IMPORTANT]
-> A-Forge includes built-in protections against committing secrets, but defense-in-depth is best practice. Deny read access to sensitive files as a first line of defense.
+`"auto"` values for `max_concurrent`, `max_total_memory`, `max_total_cpu` are resolved at runtime from your system's actual cores and RAM.
 
----
+### Verification layer names
 
-## Troubleshooting
+The config uses lowercase names. The engine maps them internally:
 
-**Commands not found after install?**
-- Restart Claude Code to reload slash commands
-- Verify files exist in `~/.claude/commands/forge/` (global) or `./.claude/commands/forge/` (local)
+| Config key | Engine layer |
+|-----------|-------------|
+| `structural` | STRUCTURAL |
+| `type_check` | TYPE_COMPILE |
+| `interface_contracts` | INTERFACE_CONTRACTS |
+| `dependency_analysis` | DEPENDENCY |
+| `tests` | TESTS |
+| `behavioral` | BEHAVIORAL |
 
-**Commands not working as expected?**
-- Run `/forge:help` to verify installation
-- Re-run `node bin/install.js` to reinstall
-
-**Updating to the latest version?**
-```bash
-node bin/install.js
-```
-
-**Using Docker or containerized environments?**
-
-If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
-```bash
-CLAUDE_CONFIG_DIR=/home/youruser/.claude node bin/install.js --global
-```
-This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
-
-### Uninstalling
-
-To remove A-Forge completely:
-
-```bash
-# Global installs
-node bin/install.js --claude --global --uninstall
-node bin/install.js --opencode --global --uninstall
-
-# Local installs (current project)
-node bin/install.js --claude --local --uninstall
-node bin/install.js --opencode --local --uninstall
-```
-
-This removes all A-Forge commands, agents, hooks, and settings while preserving your other configurations.
+Set any layer to `false` to skip it globally.
 
 ---
 
-## License
+## System commands
 
-MIT License. See [LICENSE](LICENSE) for details.
+### Doctor
+
+Checks all dependencies, graph health, container readiness, and system resources in one command.
+
+```bash
+node atos-forge/bin/forge-tools.cjs doctor
+```
+
+```
+╔════════════════ ATOS FORGE HEALTH CHECK ═════════════════╗
+╠══════════════════════════════════════════════════════════╣
+║  Dependencies                                            ║
+║    ✅ Node.js           v20.20.0                          ║
+║    ✅ Git               2.43.0                            ║
+║    ✅ Docker            v29.2.1                           ║
+║    ✅ Claude CLI        2.1.49                            ║
+║    ✅ tree-sitter       available                         ║
+║    ✅ better-sqlite3    available                         ║
+║    ✅ chalk             available                         ║
+║                                                          ║
+║  Project Health                                          ║
+║    ✅ Configuration     valid (project)                   ║
+║    ✅ Code Graph        147 files, 12 modules             ║
+║    ✅ Dashboard         2h ago                            ║
+║    ✅ Ledger            ~3.2k tokens, Phase 3             ║
+║    ✅ Snapshots         12 saved                          ║
+║                                                          ║
+║  System                                                  ║
+║    ✅ Resources         16 cores, 32.0g RAM               ║
+║                         → max 6 concurrent agents         ║
+║                                                          ║
+║  13/13 passed                                            ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+JSON output: `node atos-forge/bin/forge-tools.cjs doctor --raw`
+
+### Settings
+
+View effective config, detect system capabilities, get recommendations.
+
+```bash
+# Show all settings with source attribution
+# D = default, G = global (~/.forge/config.json), P = project (.forge/config.json)
+node atos-forge/bin/forge-tools.cjs settings
+
+# Get a specific value
+node atos-forge/bin/forge-tools.cjs settings get containers.max_concurrent
+
+# Set a value (validates after save)
+node atos-forge/bin/forge-tools.cjs settings set containers.max_concurrent 4
+
+# System-aware recommendations
+node atos-forge/bin/forge-tools.cjs settings recommend
+
+# Validate config
+node atos-forge/bin/forge-tools.cjs settings validate
+```
+
+### Init (graph)
+
+```bash
+# Build code graph from scratch
+node atos-forge/bin/forge-tools.cjs graph init
+
+# Graph health and statistics
+node atos-forge/bin/forge-tools.cjs graph status
+```
+
+### Impact analysis
+
+```bash
+# What breaks if this file changes?
+node atos-forge/bin/forge-tools.cjs graph impact src/auth/session.ts
+
+# What context does an agent need for these files?
+node atos-forge/bin/forge-tools.cjs graph context src/api/users.ts src/db/models.ts
+```
+
+### Verification
+
+```bash
+# Run 6-layer verification on specific files
+node forge-verify/engine.js --root . --files src/api/users.ts
+
+# Run verification loop with auto-fix (up to 3 attempts)
+node forge-verify/loop.js --root . --files src/api/users.ts --max-loops 3
+
+# Via forge-tools
+node atos-forge/bin/forge-tools.cjs verify work --files src/api/users.ts --commit
+```
+
+### Snapshots
+
+```bash
+# Save current graph state
+node atos-forge/bin/forge-tools.cjs graph snapshot save
+
+# List saved snapshots
+node atos-forge/bin/forge-tools.cjs graph snapshot list
+
+# Compare current graph against last snapshot
+node atos-forge/bin/forge-tools.cjs graph snapshot-diff
+```
 
 ---
 
-<div align="center">
+## Directory structure
 
-**Claude Code is powerful. A-Forge makes it reliable.**
+```
+atos-forge/
+├── atos-forge/              CLI, workflows, templates
+│   ├── bin/forge-tools.cjs  Main CLI entry point (6000 lines, 50+ subcommands)
+│   ├── workflows/           Execution pipeline definitions
+│   └── templates/           Config and scaffold templates
+│
+├── forge-graph/             Code graph engine
+│   ├── builder.js           Full build: scan files, parse AST, detect modules
+│   ├── updater.js           Incremental: only changed files since last commit
+│   ├── query.js             Query API: impact, hotspots, cycles, context-for-task
+│   ├── capability-detector  Per-module capability detection
+│   ├── dashboard-generator  Self-contained HTML + D3.js dashboard
+│   └── snapshot.js          Graph state snapshots for diffing
+│
+├── forge-session/           Session persistence
+│   └── ledger.js            Markdown ledger: decisions, warnings, state
+│
+├── forge-agents/            Agent orchestration
+│   ├── factory.js           Build agent configs from plans + graph context
+│   └── parallel-planner.js  DAG scheduling, bin-packing into waves
+│
+├── forge-assess/            Task assessment
+│   ├── assessor.js          Context overflow detection
+│   └── splitter.js          Plan splitting (module/concern/file strategies)
+│
+├── forge-containers/        Execution isolation
+│   ├── orchestrator.js      Docker container lifecycle
+│   ├── worktree-orchestrator Docker-free fallback via git worktrees
+│   └── config.js            Resource detection and limits
+│
+├── forge-verify/            Verification pipeline
+│   ├── engine.js            6-layer verification engine
+│   └── loop.js              Auto-fix loop with escalation
+│
+├── forge-config/            Configuration system
+│   ├── config.js            Unified schema, merge, validation
+│   ├── doctor.js            Health check (13 checks)
+│   └── settings.js          Display, recommendations
+│
+├── .forge/                  Runtime state (gitignored)
+│   ├── config.json          Project configuration
+│   ├── graph.db             SQLite code graph database
+│   ├── dashboard.html       Generated interactive dashboard
+│   ├── session/ledger.md    Session ledger
+│   └── snapshots/           Graph state snapshots
+│
+└── CLAUDE.md                Agent instructions (read by Claude Code on startup)
+```
 
-</div>
+---
+
+## Requirements
+
+| Dependency | Version | Required | Notes |
+|-----------|---------|----------|-------|
+| Node.js | 20+ | Yes | Runtime for all modules |
+| Git | 2.x | Yes | Worktree support needed for agent execution |
+| Claude Code CLI | Any | Yes | Agent execution (`claude --print`) |
+| Docker | 20+ | No | Container isolation (falls back to worktrees) |
+| tree-sitter | (npm) | No | Better AST parsing (falls back to regex) |
+| better-sqlite3 | (npm) | No | Graph database (graph features disabled without it) |
+
+Run `node atos-forge/bin/forge-tools.cjs doctor` to check your environment.
+
+**Air-gapped operation:** Forge makes no network calls. The graph database, dashboard, ledger, and config are all local files. The only external dependency is Claude Code itself (which handles its own API connection). If you pre-install npm dependencies, everything works fully offline.
+
+---
+
+## Programmatic API
+
+Every module exports functions for use in scripts and workflows.
+
+```javascript
+// Unified config
+const { loadConfig, resolveEffective, validate } = require('./forge-config/config');
+const config = resolveEffective('/path/to/project');
+
+// Graph queries
+const { GraphQuery } = require('./forge-graph/query');
+const gq = new GraphQuery('.forge/graph.db');
+gq.open();
+const context = gq.getContextForTask(['src/api/users.ts']);
+const impact = gq.impact('src/db/models.ts');
+
+// Verification
+const { verify } = require('./forge-verify/engine');
+const result = await verify({ cwd: '.', files: ['src/api/users.ts'] });
+
+// Verification loop with auto-fix
+const { verifyLoop } = require('./forge-verify/loop');
+const loopResult = await verifyLoop({ cwd: '.', files: ['src/api/users.ts'], maxLoops: 3 });
+
+// Agent factory
+const { buildAgentConfig } = require('./forge-agents/factory');
+const agent = await buildAgentConfig('plans/01-PLAN.md', '.');
+
+// Session ledger
+const ledger = require('./forge-session/ledger');
+ledger.logDecision('.', { decision: 'Use JWT', reason: 'Stateless auth needed' });
+const state = ledger.readState('.');
+
+// Doctor
+const { doctor } = require('./forge-config/doctor');
+const health = doctor('.', { json: true });
+```
