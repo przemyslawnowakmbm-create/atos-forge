@@ -101,7 +101,7 @@ forge-tools ledger reset [label]     # Archive and create fresh ledger
 ## Node.js API
 
 ```javascript
-const ledger = require('~/.claude/atos-forge/forge-session/ledger');
+const ledger = require('~/.claude/forge-session/ledger');
 
 // State tracking
 ledger.updateState(cwd, { active_phase: 3, current_wave: '2 of 4', status: 'executing' });

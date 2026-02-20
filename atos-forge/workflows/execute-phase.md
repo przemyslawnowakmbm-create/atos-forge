@@ -58,7 +58,7 @@ Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)
 # Docker availability
 DOCKER_CHECK=$(node -e "
   try {
-    const { checkDocker } = require('$HOME/.claude/atos-forge/forge-containers/orchestrator');
+    const { checkDocker } = require('$HOME/.claude/forge-containers/orchestrator');
     console.log(JSON.stringify(checkDocker()));
   } catch { console.log('{\"available\":false}'); }
 " 2>/dev/null)
@@ -68,7 +68,7 @@ DOCKER_VERSION=$(echo "$DOCKER_CHECK" | jq -r '.version // "none"')
 # Resource detection
 RESOURCES=$(node -e "
   try {
-    const { resolveConfig } = require('$HOME/.claude/atos-forge/forge-containers/config');
+    const { resolveConfig } = require('$HOME/.claude/forge-containers/config');
     const c = resolveConfig('$(pwd)');
     console.log(JSON.stringify({
       cores: c.system.total_cores,
@@ -152,8 +152,8 @@ done
 **Step 2: ASSESS each plan → split if needed → display assessment summary.**
 
 ```bash
-ASSESSOR="$HOME/.claude/atos-forge/forge-assess/assessor.js"
-SPLITTER="$HOME/.claude/atos-forge/forge-assess/splitter.js"
+ASSESSOR="$HOME/.claude/forge-assess/assessor.js"
+SPLITTER="$HOME/.claude/forge-assess/splitter.js"
 ```
 
 **If assessor available:** For each incomplete plan:
@@ -225,7 +225,7 @@ node "$TOOLS" ledger log-decision "Plan ${PLAN_ID} assessed: ${STATUS} (${UTILIZ
 Build specialized agent configurations for all execution units:
 
 ```bash
-FACTORY="$HOME/.claude/atos-forge/forge-agents/factory.js"
+FACTORY="$HOME/.claude/forge-agents/factory.js"
 ```
 
 For each plan/sub-plan in the final execution list:
@@ -276,7 +276,7 @@ For each agent, show: task_id, archetype, affected modules, risk level, top capa
 **Step 4: PLAN PARALLEL execution using the Parallel Planner.**
 
 ```bash
-PLANNER="$HOME/.claude/atos-forge/forge-agents/parallel-planner.js"
+PLANNER="$HOME/.claude/forge-agents/parallel-planner.js"
 ```
 
 The planner receives all factory results and produces resource-aware execution waves:
@@ -375,13 +375,13 @@ The orchestrator handles the full lifecycle: acquire slot → git worktree → b
 ```bash
 # Build Docker image if not cached
 node -e "
-  const { ensureImage, detectTemplate } = require('$HOME/.claude/atos-forge/forge-containers/orchestrator');
+  const { ensureImage, detectTemplate } = require('$HOME/.claude/forge-containers/orchestrator');
   ensureImage(detectTemplate('$(pwd)')).then(() => console.log('Image ready'));
 " 2>/dev/null
 
 # Launch all agents in this wave
 WAVE_RESULTS=$(node -e "
-  const { launchAll } = require('$HOME/.claude/atos-forge/forge-containers/orchestrator');
+  const { launchAll } = require('$HOME/.claude/forge-containers/orchestrator');
   const tasks = JSON.parse(process.env.WAVE_TASKS);
   launchAll(tasks, { cwd: '$(pwd)' }).then(results => {
     console.log(JSON.stringify(results));
@@ -494,14 +494,14 @@ fi
 
 ```bash
 FIX_LOOPS=0
-MAX_FIX=$(node -e "const a = require('$HOME/.claude/atos-forge/forge-assess/assessor'); console.log(a.loadForgeConfig('$(pwd)').max_fix_loops || 3);" 2>/dev/null)
+MAX_FIX=$(node -e "const a = require('$HOME/.claude/forge-assess/assessor'); console.log(a.loadForgeConfig('$(pwd)').max_fix_loops || 3);" 2>/dev/null)
 ```
 
 **5e. Update graph incrementally:**
 
 ```bash
 if [ "$GRAPH_EXISTS" = "true" ]; then
-  UPDATER_PATH="$HOME/.claude/atos-forge/forge-graph/updater.js"
+  UPDATER_PATH="$HOME/.claude/forge-graph/updater.js"
   TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
 
   if [ -f "$UPDATER_PATH" ]; then
@@ -576,7 +576,7 @@ if [ "$HAS_SPLITS" = "true" ] && [ $WAVE_NUM -lt $TOTAL_WAVES ]; then
   done
 
   # Re-assess context fit (graph AND ledger may have changed)
-  ASSESSOR="$HOME/.claude/atos-forge/forge-assess/assessor.js"
+  ASSESSOR="$HOME/.claude/forge-assess/assessor.js"
   if [ -f "$ASSESSOR" ]; then
     for REMAINING_PLAN in "${REMAINING_PLANS[@]}"; do
       REASSESS=$(node "$ASSESSOR" "$REMAINING_PLAN" --root "$(pwd)" 2>/dev/null)
@@ -782,7 +782,7 @@ node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
 # Container cleanup (stopped containers, dangling images)
 if [ "$DOCKER_AVAILABLE" = "true" ]; then
   node -e "
-    const { cleanup } = require('$HOME/.claude/atos-forge/forge-containers/orchestrator');
+    const { cleanup } = require('$HOME/.claude/forge-containers/orchestrator');
     const r = cleanup();
     console.log('Cleaned: ' + r.containers + ' containers, ' + r.worktrees + ' worktrees');
   " 2>/dev/null
@@ -793,7 +793,7 @@ rm -rf /tmp/forge-subplans-* /tmp/forge-configs-* 2>/dev/null
 
 # Final graph update (ensure completeness)
 if [ "$GRAPH_EXISTS" = "true" ]; then
-  UPDATER_PATH="$HOME/.claude/atos-forge/forge-graph/updater.js"
+  UPDATER_PATH="$HOME/.claude/forge-graph/updater.js"
   if [ -f "$UPDATER_PATH" ]; then
     node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1
   fi

@@ -68,6 +68,6 @@ Graph updates automatically after each git commit.
 
 If `success` is false or build fails, display the error and suggest:
 - Check that the repository has source files
-- Try `node ~/.claude/atos-forge/forge-graph/builder.js .` directly for verbose output
+- Try `node ~/.claude/forge-graph/builder.js .` directly for verbose output
 
 </process>
