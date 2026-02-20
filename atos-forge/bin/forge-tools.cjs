@@ -746,7 +746,12 @@ function cmdConfigGet(cwd, keyPath, raw) {
     error(`Key not found: ${keyPath}`);
   }
 
-  output(current, raw, String(current));
+  // For scalar values, output raw (no JSON quotes) so bash scripts can use them directly
+  if (typeof current === 'string' || typeof current === 'number' || typeof current === 'boolean') {
+    process.stdout.write(String(current));
+  } else {
+    output(current, raw, String(current));
+  }
 }
 
 function cmdHistoryDigest(cwd, raw) {

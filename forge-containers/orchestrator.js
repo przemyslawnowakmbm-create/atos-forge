@@ -547,7 +547,8 @@ if (require.main === module) {
 
   } else if (cmd === 'ensure-image') {
     // Build or verify Docker image — returns JSON
-    const template = args[1] || detectTemplate(cwd);
+    // Usage: node orchestrator.js ensure-image [template] [--root <cwd>] [--force]
+    const template = (args[1] && !args[1].startsWith('--')) ? args[1] : detectTemplate(cwd);
     const force = args.includes('--force');
     try {
       const result = ensureImage(template, { force });
