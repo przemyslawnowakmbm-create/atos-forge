@@ -134,6 +134,27 @@ Archetype time estimates: specialist 2-5min, integrator 4-8min, careful 5-10min,
 Programmatic: require('forge-agents/parallel-planner').planExecution(factoryResults, cwd, opts)
 Returns: { waves[], summary, resources, dependencies }
 
+## 6-Layer Verification Engine
+Graph-aware, fail-fast verification pipeline:
+  node forge-verify/engine.js --root . [--files f1,f2] [--plan plan.md] [--layer 1-6] [--json]
+
+Layers (fail-fast order):
+1. STRUCTURAL (<5s) — syntax errors, stray console.log/debugger, merge conflict markers, bracket balance
+2. TYPE/COMPILE (10-30s) — tsc --noEmit, mypy, go build (auto-detected from file extensions + graph capabilities)
+3. INTERFACE CONTRACTS (5-15s) — graph contract_hash comparison, breaking change detection, consumer risk
+4. DEPENDENCY (<5s) — graph.getCycles() for new circular deps, orphaned imports
+5. TESTS (30s-5min) — graph-identified test files for changed code (getContextForTask → testFiles)
+6. BEHAVIORAL (varies) — plan's custom verify steps from frontmatter
+
+Output: { overall, layers[], fix_suggestions[], auto_fixable, graph_diff }
+Rich terminal display with pass/fail/skip per layer, duration, specific error details.
+Fix suggestions with auto_fixable flags for debugger/console.log removal.
+
+Ledger integration: logError() for each failure, updateState({ verification: "passed" }) on full pass.
+
+Programmatic: require('forge-verify/engine').verify({ cwd, files, planPath, dbPath, ... })
+CLI flags: --root, --files, --plan, --db, --baseline, --layer, --fail-fast, --json, --silent, --no-ledger
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots
