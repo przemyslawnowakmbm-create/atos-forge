@@ -58,6 +58,26 @@ function buildSpec(params) {
   fs.mkdirSync(knowledgeDir, { recursive: true });
   volumes.push({ host: knowledgeDir, container: '/knowledge', mode: 'rw' });
 
+  // Mount Claude CLI binary + config (required for agent to call Anthropic API)
+  const home = require('os').homedir();
+  const claudeConfigDir = path.join(home, '.claude');
+
+  // Resolve the actual Claude CLI binary (follow symlinks)
+  const claudeSymlink = path.join(home, '.local', 'bin', 'claude');
+  let claudeBinaryPath = null;
+  try {
+    claudeBinaryPath = fs.realpathSync(claudeSymlink);
+  } catch { /* not found */ }
+
+  // Mount the resolved binary directly to /usr/local/bin/claude
+  if (claudeBinaryPath && fs.existsSync(claudeBinaryPath)) {
+    volumes.push({ host: claudeBinaryPath, container: '/usr/local/bin/claude', mode: 'ro' });
+  }
+  // Claude config (API keys, settings)
+  if (fs.existsSync(claudeConfigDir)) {
+    volumes.push({ host: claudeConfigDir, container: '/home/forge/.claude', mode: 'ro' });
+  }
+
   // Extra volumes from opts
   if (opts.extraVolumes) {
     for (const v of opts.extraVolumes) {
@@ -75,6 +95,7 @@ function buildSpec(params) {
     FORGE_GRAPH_PATH: fs.existsSync(dbPath) ? '/graph/graph.db' : '',
     FORGE_KNOWLEDGE_PATH: '/knowledge',
     NODE_ENV: 'production',
+    HOME: '/home/forge',
     ...(opts.env || {}),
   };
 
@@ -139,7 +160,8 @@ function toDockerArgs(spec) {
     '--memory', spec.memory,
     '--cpus', spec.cpus,
     '--workdir', spec.workdir,
-    '--network', 'none', // isolated
+    // Run as host user so mounted volume permissions match
+    '--user', `${process.getuid()}:${process.getgid()}`,
   ];
 
   // Volumes

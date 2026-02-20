@@ -390,11 +390,15 @@ async function launchAll(tasks, params) {
 // ============================================================
 
 function detectTemplate(cwd) {
-  const hasPackageJson = fs.existsSync(path.join(cwd, 'package.json'));
+  const hasNode = fs.existsSync(path.join(cwd, 'package.json'))
+    || fs.existsSync(path.join(cwd, 'frontend', 'package.json'));
   const hasPython = fs.existsSync(path.join(cwd, 'pyproject.toml'))
-    || fs.existsSync(path.join(cwd, 'requirements.txt'));
+    || fs.existsSync(path.join(cwd, 'requirements.txt'))
+    || fs.existsSync(path.join(cwd, 'backend', 'requirements.txt'));
+  const hasCompose = fs.existsSync(path.join(cwd, 'docker-compose.yml'))
+    || fs.existsSync(path.join(cwd, 'docker-compose.yaml'));
 
-  if (hasPackageJson && hasPython) return 'full';
+  if ((hasNode && hasPython) || hasCompose) return 'full';
   if (hasPython) return 'python';
   return 'node';
 }
