@@ -1,9 +1,9 @@
 <purpose>
-Execute all plans in a phase using wave-based parallel execution. Orchestrator stays lean — delegates plan execution to subagents.
+Execute all plans in a phase using the full pipeline: Assessment → Splitting → Agent Factory → Parallel Planner → Container Orchestration → Verification.
 </purpose>
 
 <core_principle>
-Orchestrator coordinates, not executes. Each subagent loads the full execute-plan context. Orchestrator: discover plans → analyze deps → group waves → spawn agents → handle checkpoints → collect results.
+Orchestrator coordinates, not executes. Knowledge propagates between waves: Wave N agents produce warnings → written to ledger → Wave N+1 agents receive those warnings in session_context → they avoid known pitfalls.
 </core_principle>
 
 <required_reading>
@@ -26,7 +26,10 @@ Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelizat
 **If `plan_count` is 0:** Error — no plans found in phase.
 **If `state_exists` is false but `.planning/` exists:** Offer reconstruct or continue.
 
-When `parallelization` is false, plans within a wave execute sequentially.
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger update-state '{"active_command":"execute-phase","active_phase":"'"${PHASE_NUMBER}"'"}' 2>/dev/null
+```
 </step>
 
 <step name="handle_branching">
@@ -48,8 +51,85 @@ From init JSON: `phase_dir`, `plan_count`, `incomplete_count`.
 Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)"
 </step>
 
-<step name="discover_and_group_plans">
-Load plan inventory with wave grouping in one call:
+<step name="detect_capabilities">
+**Check system capabilities for execution mode selection.**
+
+```bash
+# Docker availability
+DOCKER_CHECK=$(node -e "
+  try {
+    const { checkDocker } = require('$HOME/.claude/atos-forge/forge-containers/orchestrator');
+    console.log(JSON.stringify(checkDocker()));
+  } catch { console.log('{\"available\":false}'); }
+" 2>/dev/null)
+DOCKER_AVAILABLE=$(echo "$DOCKER_CHECK" | jq -r '.available')
+DOCKER_VERSION=$(echo "$DOCKER_CHECK" | jq -r '.version // "none"')
+
+# Resource detection
+RESOURCES=$(node -e "
+  try {
+    const { resolveConfig } = require('$HOME/.claude/atos-forge/forge-containers/config');
+    const c = resolveConfig('$(pwd)');
+    console.log(JSON.stringify({
+      cores: c.system.total_cores,
+      memory: c.system.total_memory_str,
+      max_concurrent: c.max_concurrent,
+      mem_per_container: c.max_memory_per_container_str,
+      total_mem: c.max_total_memory_str
+    }));
+  } catch { console.log('{\"cores\":2,\"memory\":\"4.0g\",\"max_concurrent\":1,\"mem_per_container\":\"2.0g\",\"total_mem\":\"4.0g\"}'); }
+" 2>/dev/null)
+CORES=$(echo "$RESOURCES" | jq -r '.cores')
+MEMORY=$(echo "$RESOURCES" | jq -r '.memory')
+MAX_CONCURRENT=$(echo "$RESOURCES" | jq -r '.max_concurrent')
+
+# Graph availability
+GRAPH_EXISTS=false
+if [ -f ".forge/graph.db" ]; then
+  GRAPH_EXISTS=true
+fi
+```
+
+**Select execution mode:**
+
+| Docker | Resources | Mode |
+|--------|-----------|------|
+| Yes | >= 8GB, 4+ cores | **Container mode** — full parallel orchestration |
+| Yes | 4-8GB, 2-3 cores | **Container mode** — max_concurrent=1, sequential within waves |
+| No | any | **Worktree mode** — fallback: Task subagents in git worktrees, no isolation |
+
+```bash
+EXECUTION_MODE="container"
+if [ "$DOCKER_AVAILABLE" != "true" ]; then
+  EXECUTION_MODE="worktree"
+fi
+```
+
+Display:
+```
+◆ Execution environment:
+  Docker: {DOCKER_VERSION or "not available"}
+  System: {MEMORY} RAM, {CORES} cores
+  Mode: {EXECUTION_MODE} (max {MAX_CONCURRENT} concurrent agents)
+  Graph: {available or "not found — run /forge:init"}
+```
+
+**If worktree mode:**
+```
+⚠ Docker not available — using worktree fallback mode
+  Agents will execute via Task subagents (no container isolation)
+  Patches applied directly to working tree (sequential only)
+```
+
+**Ledger:** Log execution mode:
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger log-decision "Execution mode: ${EXECUTION_MODE} (docker=${DOCKER_AVAILABLE}, cores=${CORES}, mem=${MEMORY}, concurrent=${MAX_CONCURRENT})" 2>/dev/null
+```
+</step>
+
+<step name="load_plans">
+Load plan inventory with wave grouping:
 
 ```bash
 PLAN_INDEX=$(node ~/.claude/atos-forge/bin/forge-tools.cjs phase-plan-index "${PHASE_NUMBER}")
@@ -59,514 +139,684 @@ Parse JSON for: `phase`, `plans[]` (each with `id`, `wave`, `autonomous`, `objec
 
 **Filtering:** Skip plans where `has_summary: true`. If `--gaps-only`: also skip non-gap_closure plans. If all filtered: "No matching incomplete plans" → exit.
 
-Report:
-```
-## Execution Plan
-
-**Phase {X}: {Name}** — {total_plans} plans across {wave_count} waves
-
-| Wave | Plans | What it builds |
-|------|-------|----------------|
-| 1 | 01-01, 01-02 | {from plan objectives, 3-8 words} |
-| 2 | 01-03 | ... |
+Collect all incomplete plan paths:
+```bash
+PLAN_PATHS=()
+for PLAN in ${INCOMPLETE_PLANS[@]}; do
+  PLAN_PATHS+=("${PHASE_DIR}/${PLAN}")
+done
 ```
 </step>
 
-<step name="graph_impact_check">
-**Pre-execution impact analysis (if code graph exists):**
-
-```bash
-GRAPH_STATUS=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph status 2>/dev/null || echo '{"graph_exists":false}')
-GRAPH_EXISTS=$(echo "$GRAPH_STATUS" | jq -r '.graph_exists')
-```
-
-**If `GRAPH_EXISTS` is true:**
-
-Run impact analysis on all files in the phase:
-```bash
-IMPACT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph impact --phase "${PHASE_NUMBER}" 2>/dev/null || echo '{}')
-RISK_LEVEL=$(echo "$IMPACT" | jq -r '.risk.level // "UNKNOWN"')
-RISK_REASONS=$(echo "$IMPACT" | jq -r '.risk.reasons // [] | join("; ")')
-CONSUMER_COUNT=$(echo "$IMPACT" | jq -r '.summary.consumerCount // 0')
-BOUNDARY_COUNT=$(echo "$IMPACT" | jq -r '.summary.boundariesCrossed // 0')
-```
-
-Display impact summary:
-```
-◆ Code Graph Impact: Risk={RISK_LEVEL}, Consumers={CONSUMER_COUNT}, Boundaries={BOUNDARY_COUNT}
-{if RISK_REASONS: "  Reasons: {RISK_REASONS}"}
-```
-
-**If `RISK_LEVEL` is "HIGH" or "CRITICAL":**
-
-Use AskUserQuestion:
-- header: "High risk"
-- question: "Code graph shows {RISK_LEVEL} risk: {RISK_REASONS}. This phase affects {CONSUMER_COUNT} downstream consumers across {BOUNDARY_COUNT} module boundaries. Proceed with execution?"
-- options:
-  - "Proceed" — Execute despite high risk
-  - "Review impact first" — Run `/forge:impact {PHASE_NUMBER}` for full analysis before deciding
-
-If "Review impact first": Display `/forge:impact {PHASE_NUMBER}` and exit workflow.
-
-**Ledger:** Log the risk assessment result:
-```bash
-TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-node "$TOOLS" ledger log-decision "Pre-execution risk: ${RISK_LEVEL} (consumers=${CONSUMER_COUNT}, boundaries=${BOUNDARY_COUNT})" --rationale "${RISK_REASONS}" 2>/dev/null
-```
-
-**If `GRAPH_EXISTS` is false:** Display note:
-```
-◇ No code graph — run /forge:init for pre-execution impact analysis
-```
-</step>
-
-<step name="assess_and_split_plans">
-**Assess each plan for context fit and split if needed.**
-
-For each incomplete plan from `discover_and_group_plans`:
+<step name="assess_and_split">
+**Step 2: ASSESS each plan → split if needed → display assessment summary.**
 
 ```bash
 ASSESSOR="$HOME/.claude/atos-forge/forge-assess/assessor.js"
-if [ -f "$ASSESSOR" ]; then
-  ASSESSMENT=$(node "$ASSESSOR" "${PLAN_PATH}" --root "$(pwd)" 2>/dev/null)
-fi
+SPLITTER="$HOME/.claude/atos-forge/forge-assess/splitter.js"
+```
+
+**If assessor available:** For each incomplete plan:
+
+```bash
+ASSESSMENT=$(node "$ASSESSOR" "${PLAN_PATH}" --root "$(pwd)" 2>/dev/null)
 ```
 
 Parse each assessment for: `needs_split`, `strategy`, `metrics.overflow_ratio`, `metrics.total_estimated`, `metrics.context_limit`.
 
-**If `needs_split` is true for any plan:**
+**If `needs_split` is true:**
 
-Run the splitter:
 ```bash
-SPLITTER="$HOME/.claude/atos-forge/forge-assess/splitter.js"
 SPLIT_RESULT=$(node "$SPLITTER" "${PLAN_PATH}" --root "$(pwd)" --format json 2>/dev/null)
 ```
 
-Parse split result for: `sub_plans[]` (each with `subtask`, `name`, `files`, `depends_on`, `context_budget`, `graph_context`, `session_context`, `action`, `verify`, `done`, `meta`).
+Parse split result for `sub_plans[]`. Write each sub-plan to a temp directory:
 
-Replace the original plan in the execution DAG with its sub-plans. Sub-plans inherit the parent's wave but add internal ordering via `depends_on`.
+```bash
+SUB_PLAN_DIR=$(mktemp -d /tmp/forge-subplans-XXXXXX)
+# For each sub_plan, write its formatted content as a .md file
+# Sub-plans inherit parent's wave but add internal depends_on ordering
+```
 
-**Rebuild wave grouping:**
+Replace the original plan path with the sub-plan paths in the execution list.
 
-After all assessments, rebuild the execution DAG:
-- Plans that fit → keep as-is in their original wave
-- Split plans → sub-plans ordered by `depends_on`, interface-producing sub-plans in earlier position
-- Sub-plans marked `parallelizable: true` → same wave position
-- Sub-plans with dependencies → later wave position
+**Rebuild final plan list:**
 
-**Display execution summary:**
+- Plans that fit → keep original path
+- Split plans → replaced by sub-plan paths (ordered by depends_on)
+
+**Display assessment summary:**
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
-║              EXECUTION PLAN — Phase {X}                   ║
+║           ASSESSMENT — Phase {X}: {Name}                  ║
 ╠═══════════════════════════════════════════════════════════╣
-{For each plan:}
-║  Plan {N}: {objective}                                    ║
-║    Assessment: OK ({utilization}% context utilization)     ║
-{OR if split:}
-║  Plan {N}: {objective}                                    ║
-║    Assessment: SPLIT ({overflow_ratio}% — exceeds context) ║
-║    → Sub-plan {N}a: {name} ({budget_pct}%)                ║
-║    → Sub-plan {N}b: {name} ({budget_pct}%)                ║
-║    → Sub-plan {N}c: {name} ({budget_pct}%)                ║
+║  Plan 01: {objective}                                     ║
+║    ✓ OK — 67% context utilization                         ║
+║                                                           ║
+║  Plan 02: {objective}                                     ║
+║    ⚠ SPLIT — 187% context (strategy: concern)             ║
+║    → 02a: Schema types (23%)                              ║
+║    → 02b: Implementation (45%)                            ║
+║    → 02c: Tests + config (31%)                            ║
+║                                                           ║
+║  Plan 03: {objective}                                     ║
+║    ✓ OK — 42% context utilization                         ║
 ╠═══════════════════════════════════════════════════════════╣
-║  Execution: Wave 1: [{ids}] → Wave 2: [{ids}] → ...      ║
+║  Total: {N} execution units ({M} original, {K} from splits)║
 ╚═══════════════════════════════════════════════════════════╝
 ```
 
-Calculate `utilization` as: `(metrics.total_estimated / metrics.context_limit * 100)`.
-Calculate `budget_pct` for sub-plans as: estimated file tokens / context_budget * 100.
-
-**Ledger:** Log assessment results:
+**Ledger:** Log each assessment:
 ```bash
 TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-# For each assessed plan:
 node "$TOOLS" ledger log-decision "Plan ${PLAN_ID} assessed: ${STATUS} (${UTILIZATION}% context)" --rationale "${REASON}" 2>/dev/null
-# For each split:
-node "$TOOLS" ledger log-decision "Plan ${PLAN_ID} split into ${SUBTASK_COUNT} sub-plans (${STRATEGY})" --rationale "${SPLIT_REASON}" 2>/dev/null
 ```
 
-**Interactive mode (not YOLO):**
+**If assessor not available:** Skip assessment, use original plans:
+```
+◇ No assessor available — executing plans without context assessment
+```
+</step>
 
-Check config mode:
+<step name="create_agents">
+**Step 3: CREATE AGENTS via Dynamic Agent Factory.**
+
+Build specialized agent configurations for all execution units:
+
+```bash
+FACTORY="$HOME/.claude/atos-forge/forge-agents/factory.js"
+```
+
+For each plan/sub-plan in the final execution list:
+
+```bash
+AGENT_CONFIG=$(node "$FACTORY" build "${PLAN_PATH}" --root "$(pwd)" 2>/dev/null)
+```
+
+Each factory result contains:
+- `agentConfig` — system prompt, task prompt, archetype, context package, verification steps, session context
+- `containerParams` — image selection, resource config
+- `analysis` — archetype decision, risk level, affected modules, capabilities
+
+Collect all factory results into an array.
+
+**Display agent decisions:**
+
+```
+┌─ AGENT FACTORY ──────────────────────────────────────────┐
+│                                                          │
+│  schema-agent     SPECIALIST  forge-graph  LOW risk      │
+│    → JWT, database_sql capabilities detected             │
+│    → 3 verification steps, 45% context budget            │
+│    → Session: 2 decisions, 1 warning injected            │
+│                                                          │
+│  stripe-agent     CAREFUL     billing      HIGH risk     │
+│    → stripe, authentication capabilities detected        │
+│    → 5 verification steps, 62% context budget            │
+│    → Session: 2 decisions, 3 warnings injected           │
+│                                                          │
+│  consumer-agents  INTEGRATOR  3 modules    MEDIUM risk   │
+│    → react_advanced, api_server capabilities             │
+│    → 4 verification steps, 51% context budget            │
+│    → Session: 2 decisions, 4 warnings injected           │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+For each agent, show: task_id, archetype, affected modules, risk level, top capabilities, verification step count, context budget utilization, session context items injected.
+
+**If factory not available:** Fall back to raw plan execution (legacy Task subagent mode from previous workflow version). Display warning:
+```
+⚠ Agent factory not available — using legacy executor mode
+```
+</step>
+
+<step name="plan_parallel">
+**Step 4: PLAN PARALLEL execution using the Parallel Planner.**
+
+```bash
+PLANNER="$HOME/.claude/atos-forge/forge-agents/parallel-planner.js"
+```
+
+The planner receives all factory results and produces resource-aware execution waves:
+
+```bash
+# Write factory results to temp file for planner input
+CONFIGS_PATH=$(mktemp /tmp/forge-configs-XXXXXX.json)
+# ... write JSON array of factory results to CONFIGS_PATH
+
+PLAN_RESULT=$(node "$PLANNER" plan-configs "$CONFIGS_PATH" --root "$(pwd)" --json 2>/dev/null)
+```
+
+Parse the plan for: `waves[]` (each with `agents[]`, `resource_allocation`, `time_estimate`), `summary`, `resources`, `dependencies`.
+
+**Display execution plan (the planner's formatPlan output):**
+
+```
+╔══════════════════════════════════════════════════════════╗
+║          PARALLEL EXECUTION PLAN                         ║
+╠══════════════════════════════════════════════════════════╣
+║  System: 16GB RAM, 8 cores                               ║
+║  Container limits: max 3 concurrent, 2GB each            ║
+║                                                          ║
+║  Wave 1 ─── [schema-agent] ─── [types-agent]            ║
+║              2GB / 1 CPU       2GB / 1 CPU               ║
+║                    │                │                     ║
+║  Wave 2 ─── [stripe-specialist] ◄──┘                    ║
+║              2GB / 1 CPU                                 ║
+║                    │                                     ║
+║  Wave 3 ─── [consumer-1] [consumer-2] [tests]           ║
+║              2GB/1CPU    2GB/1CPU     2GB/1CPU           ║
+║                                                          ║
+║  Total: 6 agents, ~15 min, peak 6GB RAM                 ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+**Interactive mode confirmation:**
+
 ```bash
 MODE=$(node ~/.claude/atos-forge/bin/forge-tools.cjs config-get mode 2>/dev/null || echo "interactive")
 ```
 
 If `MODE` is "interactive": Use AskUserQuestion:
 - header: "Execute"
-- question: "Proceed with this execution plan?"
+- question: "Proceed with {wave_count}-wave execution plan? ({agent_count} agents, ~{estimated_duration}, peak {peak_memory} RAM)"
 - options:
   - "Execute" — Run all waves as planned
-  - "Review splits" — Show detailed sub-plan breakdown before proceeding
+  - "Review agents" — Show full agent config details before proceeding
   - "Abort" — Cancel execution
 
-If "Review splits": Display each sub-plan's full XML (from splitter output), then re-ask execute/abort.
+If "Review agents": Display each agent's full analysis (factory analyze output), then re-ask execute/abort.
 If "Abort": Exit workflow.
 
 **If YOLO mode or "Execute" selected:** Continue to `execute_waves`.
 
-**If assessor not available (file doesn't exist):** Skip assessment, continue with original plans. Display:
-```
-◇ No assessor available — executing plans without context assessment
+**Graph impact pre-check (if graph exists):**
+
+```bash
+if [ "$GRAPH_EXISTS" = "true" ]; then
+  TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+  # Save pre-execution snapshot for later full diff
+  node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
+fi
 ```
 </step>
 
 <step name="execute_waves">
-Execute each wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`, sequential if `false`.
+**Step 5: EXECUTE WAVES.**
+
+Execute each wave sequentially. Within a wave: parallel via containers (or sequential in worktree mode).
 
 **For each wave:**
 
-1. **Describe what's being built (BEFORE spawning):**
+**5a. Log wave start:**
 
-   Read each plan's `<objective>`. Extract what's being built and why.
-
-   ```
-   ---
-   ## Wave {N}
-
-   **{Plan ID}: {Plan Name}**
-   {2-3 sentences: what this builds, technical approach, why it matters}
-
-   Spawning {count} agent(s)...
-   ---
-   ```
-
-   - Bad: "Executing terrain generation plan"
-   - Good: "Procedural terrain generator using Perlin noise — creates height maps, biome zones, and collision meshes. Required before vehicle physics can interact with ground."
-
-2. **Spawn executor agents:**
-
-   Pass paths only — executors read files themselves with their fresh 200k context.
-   This keeps orchestrator context lean (~10-15%).
-
-   ```
-   Task(
-     subagent_type="forge-executor",
-     model="{executor_model}",
-     prompt="
-       <objective>
-       Execute plan {plan_number} of phase {phase_number}-{phase_name}.
-       Commit each task atomically. Create SUMMARY.md. Update STATE.md and ROADMAP.md.
-       </objective>
-
-       <execution_context>
-       @~/.claude/atos-forge/workflows/execute-plan.md
-       @~/.claude/atos-forge/templates/summary.md
-       @~/.claude/atos-forge/references/checkpoints.md
-       @~/.claude/atos-forge/references/tdd.md
-       </execution_context>
-
-       <files_to_read>
-       Read these files at execution start using the Read tool:
-       - Plan: {phase_dir}/{plan_file}
-       - State: .planning/STATE.md
-       - Config: .planning/config.json (if exists)
-       </files_to_read>
-
-       <success_criteria>
-       - [ ] All tasks executed
-       - [ ] Each task committed individually
-       - [ ] SUMMARY.md created in plan directory
-       - [ ] STATE.md updated with position and decisions
-       - [ ] ROADMAP.md updated with plan progress (via `roadmap update-plan-progress`)
-       </success_criteria>
-     "
-   )
-   ```
-
-3. **Wait for all agents in wave to complete.**
-
-4. **Report completion — spot-check claims first:**
-
-   For each SUMMARY.md:
-   - Verify first 2 files from `key-files.created` exist on disk
-   - Check `git log --oneline --all --grep="{phase}-{plan}"` returns ≥1 commit
-   - Check for `## Self-Check: FAILED` marker
-
-   If ANY spot-check fails: report which plan failed, route to failure handler — ask "Retry plan?" or "Continue with remaining waves?"
-
-   If pass:
-   ```
-   ---
-   ## Wave {N} Complete
-
-   **{Plan ID}: {Plan Name}**
-   {What was built — from SUMMARY.md}
-   {Notable deviations, if any}
-
-   {If more waves: what this enables for next wave}
-   ---
-   ```
-
-   - Bad: "Wave 2 complete. Proceeding to Wave 3."
-   - Good: "Terrain system complete — 3 biome types, height-based texturing, physics collision meshes. Vehicle physics (Wave 3) can now reference ground surfaces."
-
-   **Ledger:** After each wave completes, log progress:
-   ```bash
-   TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-   node "$TOOLS" ledger update-state "{\"current_wave\":\"${WAVE_NUM} of ${TOTAL_WAVES}\",\"agents_complete\":${COMPLETED},\"agents_running\":0,\"agents_queued\":${REMAINING}}" 2>/dev/null
-   # For each completed plan in the wave:
-   node "$TOOLS" ledger log-decision "Wave ${WAVE_NUM} complete: ${PLAN_IDS}" --rationale "${SUMMARY_ONELINER}" 2>/dev/null
-   ```
-
-   **Ledger:** If any agent reports learnings or warnings from SUMMARY.md, log them:
-   ```bash
-   # From SUMMARY.md issues section:
-   node "$TOOLS" ledger log-warning "${ISSUE_TEXT}" --severity medium --source "forge-executor-${PLAN_ID}" 2>/dev/null
-   # From SUMMARY.md discoveries:
-   node "$TOOLS" ledger log-discovery "${DISCOVERY_TEXT}" --source "forge-executor-${PLAN_ID}" 2>/dev/null
-   ```
-
-   **Sub-plan handling:** When executing a sub-plan from the splitter (has `parent_plan` and `subtask` fields):
-   - Pass the sub-plan's `<graph_context>` instructions to the executor so it loads relevant graph data
-   - Pass the sub-plan's `<session_context>` instructions so it loads relevant ledger entries
-   - Use the sub-plan's `<files>` as the scope (not the parent plan's full file list)
-   - Use the sub-plan's `<action>`, `<verify>`, `<done>` instead of the parent plan's tasks
-   - After sub-plan completes: run its `<verify>` checks before proceeding to dependent sub-plans
-
-   Modify the executor spawn for sub-plans:
-   ```
-   Task(
-     subagent_type="forge-executor",
-     model="{executor_model}",
-     prompt="
-       <objective>
-       Execute sub-plan {subtask} of plan {parent_plan} in phase {phase_number}-{phase_name}.
-       This is an auto-split task — only modify files in scope.
-       Commit each change atomically. Create SUMMARY.md. Update STATE.md.
-       </objective>
-
-       <execution_context>
-       @~/.claude/atos-forge/workflows/execute-plan.md
-       @~/.claude/atos-forge/templates/summary.md
-       @~/.claude/atos-forge/references/checkpoints.md
-       @~/.claude/atos-forge/references/tdd.md
-       </execution_context>
-
-       <sub_plan>
-       {Full sub-plan XML from splitter — includes files, action, verify, done}
-       </sub_plan>
-
-       <context_loading>
-       Graph context: {sub_plan.graph_context instructions}
-       Session context: {sub_plan.session_context instructions}
-       </context_loading>
-
-       <files_to_read>
-       Read these files at execution start:
-       - Parent plan: {phase_dir}/{parent_plan_file} (for overall context)
-       - State: .planning/STATE.md
-       - Config: .planning/config.json (if exists)
-       - Ledger: .forge/session/ledger.md (if exists — load per session_context instructions)
-       </files_to_read>
-
-       <success_criteria>
-       - [ ] All actions from sub-plan executed
-       - [ ] Each change committed individually
-       - [ ] Verification checks pass: {sub_plan.verify}
-       - [ ] SUMMARY.md created
-       - [ ] STATE.md updated
-       </success_criteria>
-     "
-   )
-   ```
-
-5. **After-wave graph update and diff:**
-
-   After each wave completes (before proceeding to next wave), update the graph incrementally and show structural changes:
-
-   ```bash
-   if [ "$GRAPH_EXISTS" = "true" ]; then
-     UPDATER_PATH="$HOME/.claude/atos-forge/forge-graph/updater.js"
-     TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-
-     # Update graph with changes from this wave
-     if [ -f "$UPDATER_PATH" ]; then
-       node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1
-     fi
-
-     # Save snapshot after this wave
-     if [ -f "$TOOLS_PATH" ]; then
-       node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
-     fi
-
-     # Show graph diff (structural changes from this wave)
-     DIFF_OUTPUT=$(node "$TOOLS_PATH" graph snapshot-diff 2>/dev/null || echo "")
-     if [ -n "$DIFF_OUTPUT" ]; then
-       echo "◆ Graph changes after Wave ${WAVE_NUM}:"
-       echo "$DIFF_OUTPUT"
-     fi
-   fi
-   ```
-
-   **Ledger:** Log wave graph state:
-   ```bash
-   TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-   node "$TOOLS" ledger log-decision "Wave ${WAVE_NUM} graph updated — snapshot saved" --rationale "Post-wave incremental update" 2>/dev/null
-   ```
-
-6. **Re-assess remaining plans (if splits occurred):**
-
-   If any plans were split in `assess_and_split_plans`, re-assess remaining unexecuted plans after each wave. Context requirements may have changed due to:
-   - New files created by this wave
-   - Interface changes affecting downstream consumers
-   - Module boundary shifts
-
-   ```bash
-   ASSESSOR="$HOME/.claude/atos-forge/forge-assess/assessor.js"
-   if [ -f "$ASSESSOR" ] && [ "$HAS_SPLITS" = "true" ]; then
-     for REMAINING_PLAN in "${REMAINING_PLANS[@]}"; do
-       REASSESS=$(node "$ASSESSOR" "$REMAINING_PLAN" --root "$(pwd)" 2>/dev/null)
-       # If a previously-OK plan now overflows (due to new files), warn
-       # If a split plan's remaining sub-plans now fit in fewer chunks, note
-     done
-   fi
-   ```
-
-   If re-assessment reveals new overflows, log a warning but do NOT re-split mid-execution — continue with the original plan. The warning alerts the user to potential issues.
-
-   ```bash
-   node "$TOOLS" ledger log-warning "Re-assessment: plan ${PLAN_ID} now at ${NEW_RATIO}% context (was ${OLD_RATIO}%)" --severity medium --source "execute-phase" 2>/dev/null
-   ```
-
-7. **Handle failures:**
-
-   **Known Claude Code bug (classifyHandoffIfNeeded):** If an agent reports "failed" with error containing `classifyHandoffIfNeeded is not defined`, this is a Claude Code runtime bug — not a A-Forge or agent issue. The error fires in the completion handler AFTER all tool calls finish. In this case: run the same spot-checks as step 4 (SUMMARY.md exists, git commits present, no Self-Check: FAILED). If spot-checks PASS → treat as **successful**. If spot-checks FAIL → treat as real failure below.
-
-   For real failures: report which plan failed → ask "Continue?" or "Stop?" → if continue, dependent plans may also fail. If stop, partial completion report.
-
-   **Ledger:** Log failures:
-   ```bash
-   TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-   node "$TOOLS" ledger log-error "${FAILURE_DESCRIPTION}" --fix "${FIX_IF_ANY}" 2>/dev/null
-   ```
-
-8. **Execute checkpoint plans between waves** — see `<checkpoint_handling>`.
-
-9. **Proceed to next wave.**
-</step>
-
-<step name="checkpoint_handling">
-Plans with `autonomous: false` require user interaction.
-
-**Auto-mode checkpoint handling:**
-
-Read auto-advance config:
-```bash
-AUTO_CFG=$(node ~/.claude/atos-forge/bin/forge-tools.cjs config-get workflow.auto_advance 2>/dev/null || echo "false")
-```
-
-When executor returns a checkpoint AND `AUTO_CFG` is `"true"`:
-- **human-verify** → Auto-spawn continuation agent with `{user_response}` = `"approved"`. Log `⚡ Auto-approved checkpoint`.
-- **decision** → Auto-spawn continuation agent with `{user_response}` = first option from checkpoint details. Log `⚡ Auto-selected: [option]`.
-- **human-action** → Present to user (existing behavior below). Auth gates cannot be automated.
-
-**Standard flow (not auto-mode, or human-action type):**
-
-1. Spawn agent for checkpoint plan
-2. Agent runs until checkpoint task or auth gate → returns structured state
-3. Agent return includes: completed tasks table, current task + blocker, checkpoint type/details, what's awaited
-4. **Present to user:**
-   ```
-   ## Checkpoint: [Type]
-
-   **Plan:** 03-03 Dashboard Layout
-   **Progress:** 2/3 tasks complete
-
-   [Checkpoint Details from agent return]
-   [Awaiting section from agent return]
-   ```
-5. User responds: "approved"/"done" | issue description | decision selection
-6. **Spawn continuation agent (NOT resume)** using continuation-prompt.md template:
-   - `{completed_tasks_table}`: From checkpoint return
-   - `{resume_task_number}` + `{resume_task_name}`: Current task
-   - `{user_response}`: What user provided
-   - `{resume_instructions}`: Based on checkpoint type
-7. Continuation agent verifies previous commits, continues from resume point
-8. Repeat until plan completes or user stops
-
-**Why fresh agent, not resume:** Resume relies on internal serialization that breaks with parallel tool calls. Fresh agents with explicit state are more reliable.
-
-**Checkpoints in parallel waves:** Agent pauses and returns while other parallel agents may complete. Present checkpoint, spawn continuation, wait for all before next wave.
-
-**Ledger:** Log checkpoints and user responses:
 ```bash
 TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-# When checkpoint is hit:
-node "$TOOLS" ledger log-decision "Checkpoint: ${CHECKPOINT_TYPE} in plan ${PLAN_ID}" --rationale "${CHECKPOINT_DETAILS}" 2>/dev/null
-# When user responds:
-node "$TOOLS" ledger log-decision "User response to checkpoint: ${USER_RESPONSE}" 2>/dev/null
+node "$TOOLS" ledger update-state '{"current_wave":"'"${WAVE_NUM} of ${TOTAL_WAVES}"'","agents_running":'"${WAVE_AGENT_COUNT}"',"agents_complete":'"${COMPLETED_AGENTS}"'}' 2>/dev/null
 ```
-</step>
 
-<step name="update_graph">
-**Final graph update + full diff (if code graph exists):**
+Display:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Wave {N}/{total} — {agent_count} agent(s)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{For each agent: task_id (archetype) — objective}
+Launching...
+```
 
-After all waves complete (before verification), do a final graph refresh. Per-wave updates already happened in `execute_waves` step 5, but this ensures completeness.
+**5b. Launch containers → monitor → collect patches → apply:**
+
+**Container mode (Docker available):**
+
+The orchestrator handles the full lifecycle: acquire slot → git worktree → build spec → run container → collect patches.
+
+```bash
+# Build Docker image if not cached
+node -e "
+  const { ensureImage, detectTemplate } = require('$HOME/.claude/atos-forge/forge-containers/orchestrator');
+  ensureImage(detectTemplate('$(pwd)')).then(() => console.log('Image ready'));
+" 2>/dev/null
+
+# Launch all agents in this wave
+WAVE_RESULTS=$(node -e "
+  const { launchAll } = require('$HOME/.claude/atos-forge/forge-containers/orchestrator');
+  const tasks = JSON.parse(process.env.WAVE_TASKS);
+  launchAll(tasks, { cwd: '$(pwd)' }).then(results => {
+    console.log(JSON.stringify(results));
+  });
+" 2>/dev/null)
+```
+
+Each result from `launchAll` contains:
+```json
+{
+  "taskId": "...",
+  "status": "success|error|timeout",
+  "exitCode": 0,
+  "duration_ms": 45000,
+  "timedOut": false,
+  "patches": { "applied": [], "failed": [], "skipped": [] },
+  "agentResult": { "task_id": "...", "warnings": [], "discoveries": [] },
+  "learnings": { "warnings": [], "discoveries": [] },
+  "errors": []
+}
+```
+
+Apply collected patches to main working tree:
+```bash
+# Orchestrator already applies patches via patch-collector
+# Results include applied/failed/skipped patch status
+```
+
+**Worktree mode (no Docker):**
+
+Fall back to Task subagents. Execute sequentially within each wave:
+
+```
+Task(
+  subagent_type="forge-executor",
+  model="{executor_model}",
+  prompt="
+    <objective>
+    Execute plan {plan_path} of phase {phase_number}-{phase_name}.
+    Commit each task atomically. Create SUMMARY.md. Update STATE.md.
+    </objective>
+
+    <agent_config>
+    System prompt: {agentConfig.system_prompt}
+    Archetype: {agentConfig.archetype}
+    Verification: {agentConfig.verification_steps}
+    </agent_config>
+
+    <execution_context>
+    @~/.claude/atos-forge/workflows/execute-plan.md
+    @~/.claude/atos-forge/templates/summary.md
+    @~/.claude/atos-forge/references/checkpoints.md
+    </execution_context>
+
+    <files_to_read>
+    Plan: {plan_path}
+    State: .planning/STATE.md
+    Ledger: .forge/session/ledger.md (if exists)
+    </files_to_read>
+
+    <session_context>
+    {agentConfig.session_context — decisions, warnings, preferences, rejected}
+    </session_context>
+
+    <success_criteria>
+    - [ ] All tasks executed
+    - [ ] Each task committed individually
+    - [ ] SUMMARY.md created
+    - [ ] STATE.md updated
+    </success_criteria>
+  "
+)
+```
+
+**5c. Quick verify (syntax + type check):**
+
+After patches are applied, run quick verification:
+
+```bash
+# TypeScript check (if tsconfig exists)
+if [ -f "tsconfig.json" ]; then
+  TSC_RESULT=$(npx tsc --noEmit 2>&1 || true)
+  TSC_EXIT=$?
+fi
+
+# ESLint check (if eslintrc exists)
+LINT_RESULT=""
+if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f "eslint.config.js" ]; then
+  LINT_RESULT=$(npx eslint --quiet --no-error-on-unmatched-pattern . 2>&1 | tail -5 || true)
+fi
+```
+
+**5d. If verification failed: revert bad patch, create fix-agent, re-run:**
+
+```bash
+if [ $TSC_EXIT -ne 0 ]; then
+  # Identify which agent's patch caused the failure
+  # Revert that agent's changes:
+  git checkout -- ${FAILED_FILES}
+
+  # Create a fix-agent using the factory with the error context
+  # The fix-agent gets the TypeScript errors in its task prompt
+  # plus the original agent's objective and files
+  FIX_CONFIG=$(node "$FACTORY" build "${FAILED_PLAN_PATH}" --root "$(pwd)" --task-id "${TASK_ID}-fix" 2>/dev/null)
+  # Re-run through orchestrator (single agent, container or worktree)
+fi
+```
+
+**Max fix loops:** Controlled by config (`max_fix_loops`, default 3). If exceeded, mark the agent as failed and continue.
+
+```bash
+FIX_LOOPS=0
+MAX_FIX=$(node -e "const a = require('$HOME/.claude/atos-forge/forge-assess/assessor'); console.log(a.loadForgeConfig('$(pwd)').max_fix_loops || 3);" 2>/dev/null)
+```
+
+**5e. Update graph incrementally:**
 
 ```bash
 if [ "$GRAPH_EXISTS" = "true" ]; then
   UPDATER_PATH="$HOME/.claude/atos-forge/forge-graph/updater.js"
   TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+
   if [ -f "$UPDATER_PATH" ]; then
     node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1
-    echo "◆ Code graph updated (final)"
   fi
+
+  # Save snapshot after wave
   if [ -f "$TOOLS_PATH" ]; then
     node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
-    echo "◆ Final graph snapshot saved"
   fi
 fi
 ```
 
-**Show full graph diff (entire phase vs pre-execution baseline):**
+**5f. Collect agent learnings → write to ledger:**
 
-Compare the final snapshot against the pre-execution snapshot (saved before wave 1):
+For each agent result in the wave:
 
-```bash
-if [ "$GRAPH_EXISTS" = "true" ]; then
-  TOOLS_PATH="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-  FULL_DIFF=$(node "$TOOLS_PATH" graph snapshot-diff 2>/dev/null || echo "")
-  if [ -n "$FULL_DIFF" ]; then
-    echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo " Graph Diff — Phase ${PHASE_NUMBER} (all waves)"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "$FULL_DIFF"
-    echo ""
-  fi
-fi
-```
-
-**Ledger:** Log final graph state:
 ```bash
 TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-node "$TOOLS" ledger update-state "{\"status\":\"graph updated, proceeding to verification\"}" 2>/dev/null
-node "$TOOLS" ledger log-decision "Phase ${PHASE_NUMBER} graph final update complete" --rationale "Full diff captured in snapshot" 2>/dev/null
+
+# For each warning from agent result.learnings.warnings:
+node "$TOOLS" ledger log-warning "${WARNING_TEXT}" --severity medium --source "container:${TASK_ID}" 2>/dev/null
+
+# For each discovery from agent result.learnings.discoveries:
+node "$TOOLS" ledger log-discovery "${DISCOVERY_TEXT}" --source "container:${TASK_ID}" 2>/dev/null
+
+# Wave completion log with full results:
+node "$TOOLS" ledger log-wave-complete "${WAVE_NUM}" '{"agents":'"${WAVE_AGENT_COUNT}"',"passed":'"${PASSED}"',"failed":'"${FAILED}"',"patches_applied":'"${PATCHES_APPLIED}"'}' 2>/dev/null
+```
+
+**This is the critical knowledge propagation point:** Warnings written here are available to Wave N+1 agents via their session_context. The factory's `extractSessionContext()` reads the updated ledger and injects these warnings into subsequent agents' system prompts.
+
+**5g. Show wave completion + graph diff:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Wave {N} Complete
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+| Agent | Archetype | Status | Duration | Patches |
+|-------|-----------|--------|----------|---------|
+| schema-agent | specialist | ✓ pass | 2m 34s | 3 applied |
+| types-agent | specialist | ✓ pass | 1m 48s | 2 applied |
+
+Learnings: 1 warning, 2 discoveries captured → ledger
+
+{If graph exists:}
+◆ Graph changes:
+  +2 files, +5 symbols, +3 dependencies
+  Module stability: forge-graph HIGH → HIGH (no change)
+```
+
+If graph diff available:
+```bash
+DIFF_OUTPUT=$(node "$TOOLS_PATH" graph snapshot-diff 2>/dev/null || echo "")
+```
+
+**5h. Re-assess remaining tasks if more waves:**
+
+If there are remaining waves AND any plans were split:
+
+```bash
+if [ "$HAS_SPLITS" = "true" ] && [ $WAVE_NUM -lt $TOTAL_WAVES ]; then
+  # Re-build factory configs for remaining agents
+  # The factory re-reads the ledger, picking up new warnings from this wave
+  # This is how Wave N+1 agents get UPDATED session context
+
+  for REMAINING_PLAN in "${REMAINING_PLANS[@]}"; do
+    UPDATED_CONFIG=$(node "$FACTORY" build "${REMAINING_PLAN}" --root "$(pwd)" 2>/dev/null)
+    # Replace the old config in the execution list
+    # The new config includes updated session_context with this wave's warnings
+  done
+
+  # Re-assess context fit (graph AND ledger may have changed)
+  ASSESSOR="$HOME/.claude/atos-forge/forge-assess/assessor.js"
+  if [ -f "$ASSESSOR" ]; then
+    for REMAINING_PLAN in "${REMAINING_PLANS[@]}"; do
+      REASSESS=$(node "$ASSESSOR" "$REMAINING_PLAN" --root "$(pwd)" 2>/dev/null)
+      NEW_RATIO=$(echo "$REASSESS" | jq -r '.metrics.overflow_ratio')
+      # If previously OK plan now overflows, warn
+      # If split plan now fits in fewer chunks, note
+    done
+  fi
+fi
+```
+
+The key: **remaining agents get re-factored with fresh session context.** The factory calls `extractSessionContext()` which reads the updated ledger, pulling in warnings just written in step 5f. This ensures knowledge propagates without relying on conversation context.
+
+**Checkpoint handling within waves:**
+
+Plans with `autonomous: false` require user interaction. Handle identically to the legacy checkpoint flow:
+
+1. Agent pauses at checkpoint → returns structured state
+2. Present checkpoint to user
+3. User responds → spawn continuation agent
+4. Continuation completes → collect results normally
+
+Auto-advance config (`workflow.auto_advance`) applies to `human-verify` and `decision` checkpoints.
+`human-action` checkpoints always require user interaction.
+
+**Handle failures:**
+
+For each failed agent in a wave:
+
+| Failure Type | Action |
+|---|---|
+| Patch fails to apply | Revert, create fix-agent, retry (up to max_fix_loops) |
+| Type check fails | Revert failed file(s), fix-agent with error context |
+| Agent timeout | Log warning, skip agent, continue wave |
+| Agent crash | Log error, skip agent, continue wave |
+| All agents in wave fail | Stop execution, report for investigation |
+
+**classifyHandoffIfNeeded false failure:** Agent reports "failed" with error `classifyHandoffIfNeeded is not defined` → Claude Code runtime bug. Spot-check (patches exist, commits present) → if pass, treat as success.
+
+**Ledger:** Log failures:
+```bash
+node "$TOOLS" ledger log-error "${FAILURE_DESCRIPTION}" --fix "${FIX_IF_ANY}" 2>/dev/null
+```
+
+Proceed to next wave.
+</step>
+
+<step name="full_verification">
+**Step 6: FULL VERIFICATION.**
+
+After all waves complete, run comprehensive verification.
+
+**Quick verification (always runs):**
+
+```bash
+VERIFY_RESULTS=""
+
+# 1. TypeScript
+if [ -f "tsconfig.json" ]; then
+  TSC_OUT=$(npx tsc --noEmit 2>&1)
+  TSC_OK=$?
+  VERIFY_RESULTS="${VERIFY_RESULTS}TypeScript: $([ $TSC_OK -eq 0 ] && echo 'PASS' || echo 'FAIL')\n"
+fi
+
+# 2. Tests (if test script exists)
+if [ -f "package.json" ] && node -e "const p=require('./package.json'); process.exit(p.scripts?.test ? 0 : 1)" 2>/dev/null; then
+  TEST_OUT=$(npm test 2>&1 | tail -20)
+  TEST_OK=$?
+  VERIFY_RESULTS="${VERIFY_RESULTS}Tests: $([ $TEST_OK -eq 0 ] && echo 'PASS' || echo 'FAIL')\n"
+fi
+
+# 3. Lint
+if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f "eslint.config.js" ]; then
+  LINT_OUT=$(npx eslint --quiet . 2>&1 | tail -10)
+  LINT_OK=$?
+  VERIFY_RESULTS="${VERIFY_RESULTS}Lint: $([ $LINT_OK -eq 0 ] && echo 'PASS' || echo 'FAIL')\n"
+fi
+
+# 4. Build (if build script exists)
+if [ -f "package.json" ] && node -e "const p=require('./package.json'); process.exit(p.scripts?.build ? 0 : 1)" 2>/dev/null; then
+  BUILD_OUT=$(npm run build 2>&1 | tail -20)
+  BUILD_OK=$?
+  VERIFY_RESULTS="${VERIFY_RESULTS}Build: $([ $BUILD_OK -eq 0 ] && echo 'PASS' || echo 'FAIL')\n"
+fi
+```
+
+**Phase goal verification (if verifier available):**
+
+```
+Task(
+  prompt="Verify phase {phase_number} goal achievement.
+Phase directory: {phase_dir}
+Phase goal: {goal from ROADMAP.md}
+Check must_haves against actual codebase.
+Create VERIFICATION.md.",
+  subagent_type="forge-verifier",
+  model="{verifier_model}"
+)
+```
+
+Read status:
+```bash
+VERIFICATION_STATUS=$(grep "^status:" "$PHASE_DIR"/*-VERIFICATION.md | cut -d: -f2 | tr -d ' ')
+```
+
+| Status | Action |
+|--------|--------|
+| `passed` | → commit_and_report |
+| `human_needed` | Present items for human testing, get approval |
+| `gaps_found` | Present gap summary, offer `/forge:plan-phase {phase} --gaps` |
+
+**Ledger:**
+```bash
+node "$TOOLS" ledger log-decision "Phase ${PHASE_NUMBER} verification: ${VERIFICATION_STATUS}" 2>/dev/null
 ```
 </step>
 
-<step name="aggregate_results">
-After all waves:
+<step name="commit_and_report">
+**Step 7: COMMIT with agent metadata.**
 
-```markdown
-## Phase {X}: {Name} Execution Complete
+Commit message format includes agent archetype tags:
 
-**Waves:** {N} | **Plans:** {M}/{total} complete
+```bash
+# Collect agent summaries for commit message
+AGENT_TAGS=""
+for AGENT in ${COMPLETED_AGENTS[@]}; do
+  AGENT_TAGS="${AGENT_TAGS} [forge:${AGENT_ARCHETYPE}]"
+done
 
-| Wave | Plans | Status |
-|------|-------|--------|
-| 1 | plan-01, plan-02 | ✓ Complete |
-| CP | plan-03 | ✓ Verified |
-| 2 | plan-04 | ✓ Complete |
+# Commit format: "feat(module): description [forge:archetype]"
+# Example: "feat(billing): add checkout flow [forge:stripe-specialist]"
+# Example: "feat(auth,api): integrate OAuth providers [forge:integrator]"
 
-### Plan Details
-1. **03-01**: [one-liner from SUMMARY.md]
-2. **03-02**: [one-liner from SUMMARY.md]
+git add -A
+git commit -m "$(cat <<EOF
+feat(phase-${PHASE_NUMBER}): ${PHASE_NAME}
 
-### Issues Encountered
-[Aggregate from SUMMARYs, or "None"]
+Executed via forge pipeline:
+- ${TOTAL_AGENTS} agents across ${TOTAL_WAVES} waves
+- Archetypes: ${ARCHETYPE_SUMMARY}
+- Duration: ${TOTAL_DURATION}
+${AGENT_TAGS}
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+EOF
+)"
+```
+
+For per-plan commits (if plans committed individually by agents in container mode), the commit metadata is embedded in each agent's patches. For worktree mode, agents commit directly.
+
+**Step 8: FINAL REPORT.**
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║              EXECUTION COMPLETE — Phase {X}: {Name}           ║
+╠═══════════════════════════════════════════════════════════════╣
+║                                                               ║
+║  Waves: {N} | Agents: {M} | Duration: {total_time}           ║
+║                                                               ║
+║  Verification:                                                ║
+║    TypeScript:  ✓ PASS                                        ║
+║    Tests:       ✓ PASS (42 passed, 0 failed)                  ║
+║    Lint:        ✓ PASS                                        ║
+║    Build:       ✓ PASS                                        ║
+║                                                               ║
+║  Agent Results:                                               ║
+║    schema-agent     specialist  ✓ 2m 34s  3 patches           ║
+║    types-agent      specialist  ✓ 1m 48s  2 patches           ║
+║    stripe-agent     careful     ✓ 5m 12s  4 patches           ║
+║    consumer-1       integrator  ✓ 3m 01s  3 patches           ║
+║    consumer-2       general     ✓ 2m 55s  2 patches           ║
+║    tests-agent      general     ✓ 4m 22s  5 patches           ║
+║                                                               ║
+║  Learnings Captured:                                          ║
+║    3 warnings, 5 discoveries → session ledger                 ║
+║                                                               ║
+║  Graph Diff (full phase):                                     ║
+║    +12 files, +45 symbols, +23 dependencies                   ║
+║    Modules affected: billing, auth, api                       ║
+║    New capabilities detected: stripe, authentication          ║
+║    Stability: billing LOW→MEDIUM, auth HIGH→HIGH              ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+**Graph diff:** Compare final snapshot vs pre-execution snapshot:
+```bash
+if [ "$GRAPH_EXISTS" = "true" ]; then
+  FULL_DIFF=$(node "$TOOLS_PATH" graph snapshot-diff 2>/dev/null || echo "")
+fi
+```
+
+**Save final snapshot:**
+```bash
+node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
+```
+</step>
+
+<step name="cleanup">
+**Step 9: CLEANUP.**
+
+```bash
+# Container cleanup (stopped containers, dangling images)
+if [ "$DOCKER_AVAILABLE" = "true" ]; then
+  node -e "
+    const { cleanup } = require('$HOME/.claude/atos-forge/forge-containers/orchestrator');
+    const r = cleanup();
+    console.log('Cleaned: ' + r.containers + ' containers, ' + r.worktrees + ' worktrees');
+  " 2>/dev/null
+fi
+
+# Temp file cleanup
+rm -rf /tmp/forge-subplans-* /tmp/forge-configs-* 2>/dev/null
+
+# Final graph update (ensure completeness)
+if [ "$GRAPH_EXISTS" = "true" ]; then
+  UPDATER_PATH="$HOME/.claude/atos-forge/forge-graph/updater.js"
+  if [ -f "$UPDATER_PATH" ]; then
+    node "$UPDATER_PATH" "$(pwd)" > /dev/null 2>&1
+  fi
+fi
+```
+</step>
+
+<step name="log_completion">
+**Step 10: LOG COMPLETION to ledger.**
+
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+
+# Final ledger state
+node "$TOOLS" ledger update-state '{"active_command":null,"current_wave":null,"agents_running":0,"phase_'"${PHASE_NUMBER}"'_status":"complete"}' 2>/dev/null
+
+# Log completion event
+node "$TOOLS" ledger log-decision "Phase ${PHASE_NUMBER} execution complete: ${PASSED_AGENTS}/${TOTAL_AGENTS} agents passed, ${TOTAL_WAVES} waves" --rationale "Verification: ${VERIFICATION_STATUS}, Duration: ${TOTAL_DURATION}" 2>/dev/null
+
+# Archive ledger if phase complete
+if [ "$VERIFICATION_STATUS" = "passed" ]; then
+  node "$TOOLS" ledger archive "phase-${PHASE_NUMBER}" 2>/dev/null
+fi
 ```
 </step>
 
@@ -577,158 +827,48 @@ After all waves:
 
 **1. Detect decimal phase and derive parent:**
 ```bash
-# Check if phase_number contains a decimal
 if [[ "$PHASE_NUMBER" == *.* ]]; then
   PARENT_PHASE="${PHASE_NUMBER%%.*}"
 fi
 ```
 
-**2. Find parent UAT file:**
+**2. Find parent UAT file and update gap statuses:**
+
+Read the parent UAT file's `## Gaps` section. Update `status: failed` → `status: resolved`.
+If all gaps resolved: update UAT frontmatter `status: diagnosed` → `status: resolved`.
+
+**3. Resolve referenced debug sessions:**
+
+For each gap with `debug_session:`: update status → resolved, move to `.planning/debug/resolved/`.
+
+**4. Commit updated artifacts:**
 ```bash
-PARENT_INFO=$(node ~/.claude/atos-forge/bin/forge-tools.cjs find-phase "${PARENT_PHASE}" --raw)
-# Extract directory from PARENT_INFO JSON, then find UAT file in that directory
-```
-
-**If no parent UAT found:** Skip this step (gap-closure may have been triggered by VERIFICATION.md instead).
-
-**3. Update UAT gap statuses:**
-
-Read the parent UAT file's `## Gaps` section. For each gap entry with `status: failed`:
-- Update to `status: resolved`
-
-**4. Update UAT frontmatter:**
-
-If all gaps now have `status: resolved`:
-- Update frontmatter `status: diagnosed` → `status: resolved`
-- Update frontmatter `updated:` timestamp
-
-**5. Resolve referenced debug sessions:**
-
-For each gap that has a `debug_session:` field:
-- Read the debug session file
-- Update frontmatter `status:` → `resolved`
-- Update frontmatter `updated:` timestamp
-- Move to resolved directory:
-```bash
-mkdir -p .planning/debug/resolved
-mv .planning/debug/{slug}.md .planning/debug/resolved/
-```
-
-**6. Commit updated artifacts:**
-```bash
-node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" --files .planning/phases/*${PARENT_PHASE}*/*-UAT.md .planning/debug/resolved/*.md
-```
-</step>
-
-<step name="verify_phase_goal">
-Verify phase achieved its GOAL, not just completed tasks.
-
-```bash
-PHASE_REQ_IDS=$(node ~/.claude/atos-forge/bin/forge-tools.cjs roadmap get-phase "${PHASE_NUMBER}" | jq -r '.section' | grep -i "Requirements:" | sed 's/.*Requirements:\*\*\s*//' | sed 's/[\[\]]//g')
-```
-
-```
-Task(
-  prompt="Verify phase {phase_number} goal achievement.
-Phase directory: {phase_dir}
-Phase goal: {goal from ROADMAP.md}
-Phase requirement IDs: {phase_req_ids}
-Check must_haves against actual codebase.
-Cross-reference requirement IDs from PLAN frontmatter against REQUIREMENTS.md — every ID MUST be accounted for.
-Create VERIFICATION.md.",
-  subagent_type="forge-verifier",
-  model="{verifier_model}"
-)
-```
-
-Read status:
-```bash
-grep "^status:" "$PHASE_DIR"/*-VERIFICATION.md | cut -d: -f2 | tr -d ' '
-```
-
-| Status | Action |
-|--------|--------|
-| `passed` | → update_roadmap |
-| `human_needed` | Present items for human testing, get approval or feedback |
-| `gaps_found` | Present gap summary, offer `/forge:plan-phase {phase} --gaps` |
-
-**If human_needed:**
-```
-## ✓ Phase {X}: {Name} — Human Verification Required
-
-All automated checks passed. {N} items need human testing:
-
-{From VERIFICATION.md human_verification section}
-
-"approved" → continue | Report issues → gap closure
-```
-
-**If gaps_found:**
-```
-## ⚠ Phase {X}: {Name} — Gaps Found
-
-**Score:** {N}/{M} must-haves verified
-**Report:** {phase_dir}/{phase_num}-VERIFICATION.md
-
-### What's Missing
-{Gap summaries from VERIFICATION.md}
-
----
-## ▶ Next Up
-
-`/forge:plan-phase {X} --gaps`
-
-<sub>`/clear` first → fresh context window</sub>
-
-Also: `cat {phase_dir}/{phase_num}-VERIFICATION.md` — full report
-Also: `/forge:verify-work {X}` — manual testing first
-```
-
-Gap closure cycle: `/forge:plan-phase {X} --gaps` reads VERIFICATION.md → creates gap plans with `gap_closure: true` → user runs `/forge:execute-phase {X} --gaps-only` → verifier re-runs.
-
-**Ledger:** Log verification outcome:
-```bash
-TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-# On passed:
-node "$TOOLS" ledger log-decision "Phase ${PHASE_NUMBER} verification passed" --rationale "All must-haves verified" 2>/dev/null
-# On gaps_found:
-node "$TOOLS" ledger log-warning "Phase ${PHASE_NUMBER} verification found gaps — ${GAP_COUNT} must-haves missing" --severity high 2>/dev/null
-# On human_needed:
-node "$TOOLS" ledger log-decision "Phase ${PHASE_NUMBER} automated checks passed, awaiting human verification" 2>/dev/null
+node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs(phase-${PARENT_PHASE}): resolve UAT gaps after ${PHASE_NUMBER} gap closure" --files .planning/phases/*${PARENT_PHASE}*/*-UAT.md .planning/debug/resolved/*.md
 ```
 </step>
 
 <step name="update_roadmap">
-**Mark phase complete and update all tracking files:**
+**Mark phase complete and update tracking files:**
 
 ```bash
 COMPLETION=$(node ~/.claude/atos-forge/bin/forge-tools.cjs phase complete "${PHASE_NUMBER}")
 ```
 
-The CLI handles:
-- Marking phase checkbox `[x]` with completion date
-- Updating Progress table (Status → Complete, date)
-- Updating plan count to final
-- Advancing STATE.md to next phase
-- Updating REQUIREMENTS.md traceability
-
-Extract from result: `next_phase`, `next_phase_name`, `is_last_phase`.
+The CLI handles: marking phase checkbox, updating Progress table, advancing STATE.md, updating REQUIREMENTS.md traceability.
 
 ```bash
-node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md .planning/phases/{phase_dir}/*-VERIFICATION.md
+node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs(phase-${PHASE_NUMBER}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md .planning/phases/{phase_dir}/*-VERIFICATION.md
 ```
 
-**Ledger:** Archive ledger on phase completion:
+**Ledger:**
 ```bash
-TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
-node "$TOOLS" ledger archive "phase-${PHASE_NUMBER}" 2>/dev/null
-node "$TOOLS" ledger update-state "{\"active_phase\":\"${NEXT_PHASE}\",\"status\":\"phase ${PHASE_NUMBER} complete\"}" 2>/dev/null
+node "$TOOLS" ledger update-state '{"active_phase":"'"${NEXT_PHASE}"'","status":"phase '"${PHASE_NUMBER}"' complete"}' 2>/dev/null
 ```
 </step>
 
 <step name="offer_next">
 
-**Exception:** If `gaps_found`, the `verify_phase_goal` step already presents the gap-closure path (`/forge:plan-phase {X} --gaps`). No additional routing needed — skip auto-advance.
+**If `gaps_found`:** The `full_verification` step already presents gap-closure path. Skip auto-advance.
 
 **Auto-advance detection:**
 
@@ -738,7 +878,7 @@ node "$TOOLS" ledger update-state "{\"active_phase\":\"${NEXT_PHASE}\",\"status\
    AUTO_CFG=$(node ~/.claude/atos-forge/bin/forge-tools.cjs config-get workflow.auto_advance 2>/dev/null || echo "false")
    ```
 
-**If `--auto` flag present OR `AUTO_CFG` is true (AND verification passed with no gaps):**
+**If `--auto` or `AUTO_CFG` is true (AND verification passed):**
 
 ```
 ╔══════════════════════════════════════════╗
@@ -747,31 +887,112 @@ node "$TOOLS" ledger update-state "{\"active_phase\":\"${NEXT_PHASE}\",\"status\
 ╚══════════════════════════════════════════╝
 ```
 
-Execute the transition workflow inline (do NOT use Task — orchestrator context is ~10-15%, transition needs phase completion data already in context):
+Execute transition workflow inline, passing `--auto` flag.
 
-Read and follow `~/.claude/atos-forge/workflows/transition.md`, passing through the `--auto` flag so it propagates to the next phase invocation.
-
-**If neither `--auto` nor `AUTO_CFG` is true:**
-
-The workflow ends. The user runs `/forge:progress` or invokes the transition workflow manually.
+**Otherwise:** Workflow ends. User runs `/forge:progress` or transition manually.
 </step>
 
 </process>
 
-<context_efficiency>
-Orchestrator: ~10-15% context. Subagents: fresh 200k each. No polling (Task blocks). No context bleed.
-</context_efficiency>
+<execution_modes>
+
+**Container Mode (Docker available):**
+Full parallel orchestration. Each agent runs in an isolated Docker container with:
+- Read-only repo mount
+- Writable output directory (patches, result.json)
+- No network access (--network=none)
+- Memory + CPU limits from config
+- Non-root user
+Patches collected and applied to main working tree via `git apply --3way`.
+
+**Worktree Mode (no Docker):**
+Fallback using Task subagents. Sequential execution within each wave.
+Agents get the factory's system prompt and session context injected into the Task prompt.
+No container isolation — agents work directly in the repo.
+Still benefits from: assessment, splitting, factory specialization, parallel planning, ledger propagation.
+
+**Weak Machine Mode (4GB RAM / 2 cores):**
+Automatically detected: max_concurrent=1, sequential execution.
+All waves execute one agent at a time. Same pipeline, just no parallelism.
+System still works — knowledge propagation between waves still applies.
+
+</execution_modes>
+
+<knowledge_propagation>
+The critical feedback loop that makes multi-wave execution intelligent:
+
+```
+Wave 1 agents execute
+  → produce warnings (e.g., "API endpoint /billing requires auth token")
+  → produce discoveries (e.g., "billing module uses Stripe v3 not v4")
+    ↓
+Step 5f: Write to ledger
+  → ledger.logWarning("API endpoint /billing requires auth token")
+  → ledger.logDiscovery("billing module uses Stripe v3 not v4")
+    ↓
+Step 5h: Re-build Wave 2 agent configs via factory
+  → factory.extractSessionContext() reads updated ledger
+  → new warnings appear in session_context.warnings
+    ↓
+Step 3 (for Wave 2): factory.composeSystemPrompt()
+  → injects warnings into system prompt:
+    "Warnings from prior work (account for these):
+     - API endpoint /billing requires auth token
+     - billing module uses Stripe v3 not v4"
+    ↓
+Wave 2 agents see these warnings in their prompt
+  → avoid known pitfalls
+  → build on previous discoveries
+```
+
+This propagation survives context compaction because it flows through the ledger file, not conversation history.
+</knowledge_propagation>
+
+<checkpoint_handling>
+Plans with `autonomous: false` require user interaction.
+
+**Auto-mode checkpoint handling:**
+
+Read auto-advance config:
+```bash
+AUTO_CFG=$(node ~/.claude/atos-forge/bin/forge-tools.cjs config-get workflow.auto_advance 2>/dev/null || echo "false")
+```
+
+When agent returns a checkpoint AND `AUTO_CFG` is true:
+- **human-verify** → Auto-approve. Log `Auto-approved checkpoint`.
+- **decision** → Auto-select first option. Log `Auto-selected: [option]`.
+- **human-action** → Present to user (cannot be automated).
+
+**Standard flow (not auto-mode, or human-action type):**
+
+1. Agent pauses at checkpoint → returns structured state
+2. Present checkpoint details to user
+3. User responds
+4. Spawn continuation agent (NOT resume — fresh agent with explicit state)
+5. Continuation completes → collect results normally
+
+**Ledger:** Log checkpoint events:
+```bash
+node "$TOOLS" ledger log-decision "Checkpoint: ${TYPE} in ${TASK_ID}" --rationale "${DETAILS}" 2>/dev/null
+```
+</checkpoint_handling>
 
 <failure_handling>
-- **classifyHandoffIfNeeded false failure:** Agent reports "failed" but error is `classifyHandoffIfNeeded is not defined` → Claude Code bug, not A-Forge. Spot-check (SUMMARY exists, commits present) → if pass, treat as success
-- **Agent fails mid-plan:** Missing SUMMARY.md → report, ask user how to proceed
-- **Dependency chain breaks:** Wave 1 fails → Wave 2 dependents likely fail → user chooses attempt or skip
-- **All agents in wave fail:** Systemic issue → stop, report for investigation
-- **Checkpoint unresolvable:** "Skip this plan?" or "Abort phase execution?" → record partial progress in STATE.md
+- **classifyHandoffIfNeeded false failure:** Agent "failed" with `classifyHandoffIfNeeded is not defined` → Claude Code bug. Spot-check (patches, commits) → treat as success if checks pass
+- **Patch application failure:** Revert → create fix-agent → retry (max 3 loops)
+- **Type check failure after patch:** Revert affected files → fix-agent with error context → retry
+- **Agent timeout:** Log warning, skip, continue
+- **Agent crash:** Log error, skip, continue
+- **Dependency chain break:** Wave N fails → Wave N+1 dependents warned → user chooses attempt or skip
+- **All agents in wave fail:** Stop execution, full report for investigation
 </failure_handling>
 
 <resumption>
-Re-run `/forge:execute-phase {phase}` → discover_plans finds completed SUMMARYs → skips them → resumes from first incomplete plan → continues wave execution.
+Re-run `/forge:execute-phase {phase}` → load_plans finds completed agents (by SUMMARY.md or result.json) → skips them → resumes from first incomplete wave.
 
-STATE.md tracks: last completed plan, current wave, pending checkpoints.
+The ledger preserves: current wave, completed agents, warnings, decisions. Re-run picks up where it left off.
 </resumption>
+
+<context_efficiency>
+Orchestrator: ~10-15% context. Agents: fresh context each (200k in containers, separate Task context in worktree mode). Knowledge propagates through ledger, not conversation context.
+</context_efficiency>

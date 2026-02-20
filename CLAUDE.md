@@ -43,14 +43,27 @@ Configuration in .forge/config.json or .planning/config.json (execution section)
   safety_margin (default 0.20), auto_split, max_fix_loops, overhead_per_subtask.
 
 ## Execution Pipeline
-The execute-phase workflow automatically:
-1. Assesses each plan for context overflow (forge-assess/assessor.js)
-2. Splits overflowing plans into sub-plans (forge-assess/splitter.js)
-3. Builds a dependency-aware execution DAG
-4. Executes in waves (parallel within wave, sequential across waves)
-5. After each wave: updates graph, takes snapshot, diffs, re-assesses remaining plans
+The execute-phase workflow (atos-forge/workflows/execute-phase.md) runs the full pipeline:
 
-Assessment happens both before execution AND between waves (plans may shrink after code changes).
+1. **Load plans** — discover incomplete plans, filter by wave/gaps
+2. **Assess & split** — assessor checks context fit, splitter breaks oversized plans
+3. **Create agents** — factory builds specialized configs (archetype, prompt, context, verification)
+4. **Plan parallel** — planner produces resource-aware execution waves (DAG + bin-packing)
+5. **Execute waves** — per wave:
+   a. Launch containers (or Task subagents in worktree fallback)
+   b. Collect patches → apply via git apply --3way
+   c. Quick verify (tsc, lint) → revert + fix-agent if failed (up to max_fix_loops)
+   d. Update graph incrementally, save snapshot
+   e. Write agent learnings to ledger (logWarning, logDiscovery, logWaveComplete)
+   f. Re-build remaining agents with updated ledger (knowledge propagation)
+6. **Full verification** — TypeScript, tests, lint, build, phase goal check
+7. **Commit** with agent metadata: "feat(module): desc [forge:archetype]"
+8. **Cleanup** — containers, worktrees, temp files, final graph update
+9. **Log completion** — ledger update, archive on phase complete
+
+Knowledge propagation: Wave N warnings → ledger → Wave N+1 session_context → agents avoid pitfalls.
+Execution modes: container (Docker), worktree (no Docker fallback), weak machine (sequential).
+16 workflow steps, 15 modules consumed, 9 structural sections.
 
 ## Ephemeral Containers
 Containerized agent execution for isolated, parallel sub-plan work:
