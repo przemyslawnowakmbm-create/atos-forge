@@ -583,8 +583,19 @@ function generateJS() {
   function showTooltip(evt, html) {
     tooltipEl.innerHTML = html;
     tooltipEl.style.display = 'block';
-    tooltipEl.style.left = (evt.pageX + 12) + 'px';
-    tooltipEl.style.top = (evt.pageY - 10) + 'px';
+    const gap = 12;
+    const ttWidth = tooltipEl.offsetWidth || 200;
+    const ttHeight = tooltipEl.offsetHeight || 60;
+    const spaceRight = window.innerWidth - evt.clientX;
+    const spaceBottom = window.innerHeight - evt.clientY;
+    const left = spaceRight < ttWidth + gap * 2
+      ? evt.pageX - ttWidth - gap
+      : evt.pageX + gap;
+    const top = spaceBottom < ttHeight + gap * 2
+      ? evt.pageY - ttHeight - gap
+      : evt.pageY - 10;
+    tooltipEl.style.left = left + 'px';
+    tooltipEl.style.top = top + 'px';
   }
   function hideTooltip() { tooltipEl.style.display = 'none'; }
 
@@ -1073,10 +1084,10 @@ function generateJS() {
       .paddingTop(18)
       .round(true)(root);
 
-    const maxChurn = d3.max(D.hotspots, h => h.changes_30d) || 1;
-    const churnColor = d3.scaleLinear()
-      .domain([0, maxChurn * 0.3, maxChurn])
-      .range(['#1e1e3a', '#8b3a00', '#ff1744']);
+    const maxRisk = d3.max(D.hotspots, h => h.risk_score) || 1;
+    const riskColor = d3.scaleLinear()
+      .domain([0, maxRisk * 0.25, maxRisk * 0.5, maxRisk])
+      .range(['#00c853', '#a8d600', '#ff9100', '#ff1744']);
 
     // Module group labels
     for (const leaf of root.children || []) {
@@ -1102,7 +1113,7 @@ function generateJS() {
       cell.style.top = leaf.y0 + 'px';
       cell.style.width = w + 'px';
       cell.style.height = h + 'px';
-      cell.style.background = churnColor(d.changes_30d || 0);
+      cell.style.background = riskColor(d.risk_score || 0);
 
       if (w > 30 && h > 16) {
         const label = document.createElement('div');
