@@ -14,10 +14,6 @@ Optional:     Docker (for container isolation)
 ## Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/przemyslawnowakmbm-create/atos-forge.git
-cd atos-forge
-
 # Install dependencies (graph engine needs tree-sitter and better-sqlite3)
 cd forge-graph && npm install && cd ..
 
@@ -28,9 +24,7 @@ node atos-forge/bin/forge-tools.cjs graph init
 node atos-forge/bin/forge-tools.cjs doctor
 ```
 
-That's it. The `graph init` command builds the code graph, installs git hooks, generates the dashboard, creates config from the template, and sets up the session and snapshot directories.
-
-For use inside another project, copy or symlink the Forge directories into your repo root and run `graph init` from there.
+`graph init` builds the code graph, installs git hooks, generates the dashboard, creates config from the template, and sets up the session and snapshot directories.
 
 ---
 
