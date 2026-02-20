@@ -286,58 +286,69 @@ class GraphUpdater {
 
     const existingPaths = new Set(allFilePaths);
 
-    const updateAll = this.db.transaction((files) => {
-      for (const filePath of files) {
-        const ext = path.extname(filePath).toLowerCase();
-        const language = LANGUAGE_EXTENSIONS[ext];
-        if (!language) continue;
+    // Parse all files first (outside transaction) to collect data
+    const parsed = [];
+    for (const filePath of filePaths) {
+      const ext = path.extname(filePath).toLowerCase();
+      const language = LANGUAGE_EXTENSIONS[ext];
+      if (!language) continue;
 
-        const fullPath = path.join(this.repoRoot, filePath);
-        let source;
+      const fullPath = path.join(this.repoRoot, filePath);
+      let source;
+      try {
+        source = fs.readFileSync(fullPath, 'utf8');
+      } catch {
+        continue;
+      }
+
+      const loc = source.split('\n').length;
+      const complexity = estimateComplexity(source, language);
+      const isTest = TEST_PATTERNS.some(p => p.test(filePath));
+      const isConfig = CONFIG_PATTERNS.some(p => p.test(filePath));
+      const moduleName = fileModuleMap.get(filePath) || '<root>';
+      const lastModified = this.getFileLastModified(filePath);
+
+      // Parse symbols and imports — prefer tree-sitter, fall back to regex
+      let extracted;
+      const parser = this.parserMgr.getParser(language, filePath);
+      if (parser) {
         try {
-          source = fs.readFileSync(fullPath, 'utf8');
-        } catch {
-          continue;
-        }
-
-        const loc = source.split('\n').length;
-        const complexity = estimateComplexity(source, language);
-        const isTest = TEST_PATTERNS.some(p => p.test(filePath));
-        const isConfig = CONFIG_PATTERNS.some(p => p.test(filePath));
-        const moduleName = fileModuleMap.get(filePath) || '<root>';
-        const lastModified = this.getFileLastModified(filePath);
-
-        // Parse symbols and imports — prefer tree-sitter, fall back to regex
-        let extracted;
-        const parser = this.parserMgr.getParser(language, filePath);
-        if (parser) {
-          try {
-            const tree = parser.parse(source);
-            extracted = extractFromAST(tree, language, source);
-            // If AST returned no symbols, fall back to regex
-            if (extracted.symbols.length === 0 && source.trim().length > 0) {
-              extracted = extractWithRegex(source, language);
-            }
-          } catch {
+          const tree = parser.parse(source);
+          extracted = extractFromAST(tree, language, source);
+          if (extracted.symbols.length === 0 && source.trim().length > 0) {
             extracted = extractWithRegex(source, language);
           }
-        } else {
+        } catch {
           extracted = extractWithRegex(source, language);
         }
-        const { symbols, imports } = extracted;
+      } else {
+        extracted = extractWithRegex(source, language);
+      }
 
-        // Write file record
-        insertFile.run(filePath, moduleName, language, loc, complexity, lastModified, isTest ? 1 : 0, isConfig ? 1 : 0);
+      parsed.push({
+        filePath, language, loc, complexity, isTest, isConfig,
+        moduleName, lastModified, symbols: extracted.symbols, imports: extracted.imports,
+      });
+    }
 
+    // Two-pass transaction: file records first, then symbols/deps/interfaces
+    const updateAll = this.db.transaction(() => {
+      // Pass 1: Insert all file records so FK targets exist
+      for (const p of parsed) {
+        insertFile.run(p.filePath, p.moduleName, p.language, p.loc, p.complexity, p.lastModified, p.isTest ? 1 : 0, p.isConfig ? 1 : 0);
+      }
+
+      // Pass 2: Symbols, interfaces, and dependencies
+      for (const p of parsed) {
         // Clear and rewrite symbols
-        deleteSymbols.run(filePath);
-        for (const sym of symbols) {
-          insertSymbol.run(sym.name, sym.kind, filePath, sym.line_start, sym.line_end, sym.exported ? 1 : 0, sym.signature);
+        deleteSymbols.run(p.filePath);
+        for (const sym of p.symbols) {
+          insertSymbol.run(sym.name, sym.kind, p.filePath, sym.line_start, sym.line_end, sym.exported ? 1 : 0, sym.signature);
         }
 
         // Clear and rewrite interfaces for exported symbols
-        deleteInterfaces.run(filePath);
-        for (const sym of symbols) {
+        deleteInterfaces.run(p.filePath);
+        for (const sym of p.symbols) {
           if (sym.exported) {
             const kindMap = {
               function: 'export_function', class: 'export_class',
@@ -347,26 +358,30 @@ class GraphUpdater {
             };
             const interfaceKind = kindMap[sym.kind] || 'export_function';
             const hash = crypto.createHash('sha256').update(sym.signature || sym.name).digest('hex').slice(0, 16);
-            insertInterface.run(sym.name, filePath, interfaceKind, 0, hash);
+            insertInterface.run(sym.name, p.filePath, interfaceKind, 0, hash);
           }
         }
 
-        // Clear and rewrite dependencies from this file
-        deleteDeps.run(filePath);
-        for (const imp of imports) {
-          const resolved = resolveImport(imp.name, filePath, allFiles);
-          if (resolved && resolved !== filePath) {
-            insertDep.run(filePath, resolved, imp.name, imp.type);
+        // Clear and rewrite dependencies — only insert if target exists in DB
+        deleteDeps.run(p.filePath);
+        for (const imp of p.imports) {
+          const resolved = resolveImport(imp.name, p.filePath, allFiles);
+          if (resolved && resolved !== p.filePath) {
+            // Check target exists in files table (may be outside the changed set)
+            const targetExists = this.db.prepare('SELECT 1 FROM files WHERE path = ?').get(resolved);
+            if (targetExists) {
+              insertDep.run(p.filePath, resolved, imp.name, imp.type);
+            }
           }
         }
 
         // Track stats
-        if (existingPaths.has(filePath)) this.stats.modified++;
+        if (existingPaths.has(p.filePath)) this.stats.modified++;
         else this.stats.added++;
       }
     });
 
-    updateAll(filePaths);
+    updateAll();
     console.log(`  Processed ${filePaths.length} file(s) (${this.stats.added} new, ${this.stats.modified} updated)`);
   }
 
