@@ -1,0 +1,35 @@
+FROM node:20-slim
+
+LABEL maintainer="forge-agent" \
+      forge-agent="true"
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    sqlite3 \
+    jq \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# tree-sitter CLI for symbol extraction
+RUN npm install -g tree-sitter-cli@0.22 2>/dev/null || true
+
+# Create workspace directories
+RUN mkdir -p /workspace /output/patches /knowledge /config /graph
+
+# Non-root user for safety
+RUN groupadd -r forge && useradd -r -g forge -d /workspace forge
+RUN chown -R forge:forge /workspace /output /knowledge
+
+WORKDIR /workspace
+
+# Entry point: read agent.json config, execute task
+# The actual agent script is mounted or provided via config
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh 2>/dev/null || true
+
+USER forge
+
+ENTRYPOINT ["bash", "-c"]
+CMD ["echo 'No command provided. Mount agent config at /config/agent.json'"]

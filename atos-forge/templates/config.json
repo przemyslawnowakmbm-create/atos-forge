@@ -42,5 +42,13 @@
     "overhead_per_subtask": 5000,
     "min_action_budget": 15000,
     "chars_per_token": 4
+  },
+  "containers": {
+    "max_concurrent": "auto",
+    "max_memory_per_container": "2g",
+    "max_cpu_per_container": 1.0,
+    "max_total_memory": "auto",
+    "max_total_cpu": "auto",
+    "timeout_seconds": 600
   }
 }

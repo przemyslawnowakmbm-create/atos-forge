@@ -52,6 +52,18 @@ The execute-phase workflow automatically:
 
 Assessment happens both before execution AND between waves (plans may shrink after code changes).
 
+## Ephemeral Containers
+Containerized agent execution for isolated, parallel sub-plan work:
+  node forge-containers/orchestrator.js status  — Docker + resource status
+  node forge-containers/orchestrator.js build <template>  — Build image (node|python|full)
+  node forge-containers/orchestrator.js cleanup — Remove stopped containers
+
+Lifecycle: acquire slot → git worktree → build spec → run container → collect patches → log learnings → cleanup.
+Resource limits in .forge/config.json (containers section): max_concurrent, max_memory_per_container, timeout_seconds.
+Auto-detection: max_concurrent = min(floor((cores-2)/cpu), floor((ram*0.7)/mem)), hard cap 8.
+Patches collected from /output/patches/, applied via git apply --3way.
+Agent warnings/discoveries written to session ledger on collection.
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots
