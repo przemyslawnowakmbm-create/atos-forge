@@ -61,6 +61,93 @@ When a task is too large for a single context window, Forge splits it into sub-p
 | **6-Layer Verification** | Structural checks, type compilation, interface contract hashes, dependency cycles, graph-identified tests, behavioral verification. Each layer independently toggleable. Auto-fix loop retries failures up to 3 times before escalating. |
 | **Session Ledger** | Markdown file at `.forge/session/ledger.md` that records decisions, warnings, errors, user preferences, and rejected approaches. Agents read it on startup so Wave 3 knows what Wave 1 learned. |
 
+### How agents work
+
+When you give Forge a task, it doesn't just send it to Claude. It runs a pipeline:
+
+**1. Assess** — Can this task fit in one context window?
+
+Forge estimates the token cost of every file involved (file size / 4 chars per token), adds overhead for the system prompt, graph context, and session ledger, then checks against the context budget (default 200k tokens with a 20% safety margin). If the total exceeds 80% of the usable budget, the task needs splitting.
+
+**2. Split** — Break oversized tasks into sub-plans
+
+Three strategies, chosen automatically based on file structure:
+
+- **Module split** — groups files by module boundaries (preferred when 2+ modules are affected)
+- **Concern split** — orders by type: schema → migration → implementation → test → config
+- **File split** — splits within a single large file by exported vs internal symbols
+
+If a sub-plan still overflows, it cascades: module → concern → file → symbol-level splits.
+
+**3. Build agents** — One specialized agent per sub-plan
+
+The factory reads each sub-plan, queries the code graph for dependencies and capabilities, and assigns an archetype:
+
+| Archetype | When | Behavior |
+|-----------|------|----------|
+| **Specialist** | Single module, strong capabilities | Deep focus, module-specific verification |
+| **Integrator** | 3+ modules touched | Cross-module awareness, interface checks |
+| **Careful** | High or critical risk score | Extra verification, conservative changes |
+| **General** | Everything else | Balanced approach |
+
+Each agent gets a tailored system prompt, a context package (the right files to load, not all of them), and a verification checklist.
+
+**4. Schedule** — Organize agents into waves
+
+The parallel planner builds a dependency graph (DAG) from the sub-plans. Independent agents run in parallel; dependent ones wait. Agents are bin-packed into waves respecting:
+
+- **max_concurrent** — auto-detected from your CPU and RAM, hard cap of 8
+- **max_total_memory** — 70% of system RAM
+- **max_total_cpu** — system cores minus 2
+
+Formula for auto-detection:
+```
+max_concurrent = min(
+  floor((cores - 2) / cpu_per_agent),
+  floor((ram × 0.7) / memory_per_agent)
+)
+```
+
+Example on a 16-core, 32GB machine with default 2GB/1CPU per agent: `min(14, 11) = 11`, capped at 8.
+
+**5. Execute** — Run each wave
+
+Per wave, Forge:
+1. Creates an isolated git worktree for each agent
+2. Launches a Docker container (or Claude Code subprocess if no Docker)
+3. Agent executes its sub-plan, produces a `git diff` patch
+4. Patches are applied to the main repo via `git apply --3way`
+5. Quick verification (layers 1–4) — if it fails, a fix-agent retries (up to 3 times)
+6. Agent warnings and discoveries are written to the session ledger
+
+**6. Propagate knowledge** — Wave N informs Wave N+1
+
+After each wave, the factory rebuilds the next wave's agent configs with the updated ledger. If Wave 1 discovers "this API returns XML, not JSON", Wave 2 agents see that in their system prompt and handle it correctly. No agent repeats a mistake another already made.
+
+**7. Verify** — Full 6-layer check after all waves
+
+All six verification layers run on the combined result. If anything fails, the auto-fix loop retries up to 3 times before escalating to you.
+
+**8. Commit** — One atomic commit with agent metadata
+
+### Can agents spawn sub-agents?
+
+No. Agents do not recursively spawn other agents. The orchestrator controls all parallelism through the wave system. An agent receives a sub-plan, executes it, and returns a patch. Communication between agents happens only through the session ledger — never directly.
+
+The wave structure makes this safe: Wave 1 agents are fully independent (no shared files). Wave 2 agents can depend on Wave 1's output. The dependency graph prevents conflicts.
+
+### Execution modes
+
+Forge degrades gracefully based on what's available:
+
+| Mode | Requires | Parallelism | Isolation |
+|------|----------|-------------|-----------|
+| **Container** | Docker + Claude CLI | Full (up to 8 concurrent) | Complete (each agent in its own container) |
+| **Worktree** | Git + Claude CLI | Full (up to 8 concurrent) | Partial (separate worktrees, shared host) |
+| **Sequential** | Claude CLI only | None (one at a time) | None |
+
+Auto-detected at runtime. Override with `execution.container_backend` in config.
+
 ---
 
 ## Quick start
