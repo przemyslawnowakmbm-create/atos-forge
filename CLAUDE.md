@@ -188,8 +188,64 @@ Wave integration:
 Programmatic: require('forge-verify/loop').verifyLoop({ cwd, files, maxLoops, commit, ... })
 Returns: { overall, loops[], fix_summary[], graph_diff, learnings[], escalated, escalation_reason }
 
+## Unified Configuration System
+Single source of truth for all Forge configuration:
+  node forge-config/config.js (module, no CLI)
+
+Merge order: defaults ← ~/.forge/config.json (global) ← .forge/config.json (project).
+Deep merge: objects merged recursively, arrays replaced, nulls preserved.
+
+Schema sections (9 primary + 4 legacy):
+- project: { name, description }
+- graph: { enabled, auto_update, languages, ignore_patterns, module_detection, capability_detection, dashboard_auto_regenerate, snapshot_retention }
+- execution: { mode, container_backend, context_budget, assessment_threshold, auto_split, max_fix_loops, ... }
+- containers: { max_concurrent, max_memory_per_container, max_cpu_per_container, timeout_seconds, network_access, cleanup_on_exit, image_prefix }
+- agents: { factory_enabled, default_archetype, model_profiles: { quality, balanced, budget }, active_profile }
+- verification: { layers: { structural, type_check, interface_contracts, dependency_analysis, tests, behavioral }, auto_fix, test_command, type_check_command }
+- session: { ledger_enabled, ledger_max_tokens, auto_compact, archive_on_phase_complete }
+- display: { rich_output, inline_graph_context, show_graph_diff, show_agent_learnings }
+- git: { atomic_commits, commit_prefix, branching_strategy, sign_commits }
+- Legacy: workflow, parallelization, gates, safety (backward compat with .planning/config.json)
+
+Key functions:
+  loadConfig(cwd) → { config, sources: { defaults, global, project }, projectSource }
+  resolveEffective(cwd) → config + _system (cores, RAM) + containers._resolved (concrete limits)
+  validate(config) → { valid, errors[] }
+  saveProjectConfig(cwd, config) → writes .forge/config.json
+
+Section accessors (backward-compatible return shapes):
+  getVerification(cwd) — maps lowercase→UPPERCASE for engine.js/loop.js
+  getContainers(cwd) — matches old loadContainerConfig shape
+  getExecution(cwd) — matches old loadForgeConfig shape
+  getLegacyToolsConfig(cwd) — flat shape for forge-tools.cjs
+
+All existing consumers delegate to unified config with try/catch fallback to original inline logic.
+
+## Forge Settings
+  node atos-forge/bin/forge-tools.cjs settings [show|recommend|validate|get|set]
+
+Subcommands:
+- (none) or show — display effective config with source attribution (D=default, G=global, P=project)
+- recommend — detect system capabilities, suggest optimal settings
+- validate — run schema validation on merged config
+- get <key.path> — read a specific config value (dot notation)
+- set <key.path> <value> — update project config, validates after save
+
+## Forge Doctor
+  node atos-forge/bin/forge-tools.cjs doctor [--raw for JSON]
+  node forge-config/doctor.js --root . [--json]
+
+13 health checks across 3 categories:
+1. Dependencies (7): Node.js, Git, Docker, Claude CLI, tree-sitter, better-sqlite3, chalk
+2. Project Health (5): Configuration, Code Graph, Dashboard, Session Ledger, Snapshots
+3. System (1): Resources (cores, RAM, max concurrent agents)
+
+Box-drawing terminal output with status icons. Returns { checks[], summary: { ok, warn, fail, skip } }.
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots
 - /forge:impact <file-or-phase> — Impact analysis shortcut
 - /forge:graph visualize — Generate and open HTML dashboard
+- /forge:settings — Show config, interactive edit, validate, recommend
+- /forge:doctor — Check all deps, graph health, container readiness, system

@@ -1,15 +1,90 @@
 {
-  "mode": "interactive",
-  "depth": "standard",
+  "project": {
+    "name": "",
+    "description": ""
+  },
+  "graph": {
+    "enabled": true,
+    "auto_update": true,
+    "languages": [],
+    "ignore_patterns": ["node_modules", "dist", "build", ".git", "vendor"],
+    "module_detection": true,
+    "capability_detection": true,
+    "dashboard_auto_regenerate": true,
+    "snapshot_retention": 20
+  },
+  "execution": {
+    "mode": "interactive",
+    "container_backend": "worktree",
+    "context_budget": 200000,
+    "safety_margin": 0.20,
+    "assessment_threshold": 0.80,
+    "auto_split": true,
+    "max_fix_loops": 3,
+    "overhead_per_subtask": 5000,
+    "min_action_budget": 15000,
+    "chars_per_token": 4
+  },
+  "containers": {
+    "max_concurrent": "auto",
+    "max_memory_per_container": "2g",
+    "max_cpu_per_container": 1.0,
+    "max_total_memory": "auto",
+    "max_total_cpu": "auto",
+    "timeout_seconds": 600,
+    "network_access": false,
+    "cleanup_on_exit": true,
+    "image_prefix": "forge-agent"
+  },
+  "agents": {
+    "factory_enabled": true,
+    "default_archetype": "general",
+    "capability_templates_dir": "",
+    "model_profiles": {
+      "quality": "opus",
+      "balanced": "sonnet",
+      "budget": "haiku"
+    },
+    "active_profile": "balanced"
+  },
+  "verification": {
+    "layers": {
+      "structural": true,
+      "type_check": true,
+      "interface_contracts": true,
+      "dependency_analysis": true,
+      "tests": true,
+      "behavioral": true
+    },
+    "auto_fix": true,
+    "max_fix_loops": 3,
+    "type_check_command": null,
+    "test_command": null,
+    "test_timeout": 300
+  },
+  "session": {
+    "ledger_enabled": true,
+    "ledger_max_tokens": 8000,
+    "auto_compact": true,
+    "archive_on_phase_complete": true
+  },
+  "display": {
+    "rich_output": true,
+    "inline_graph_context": true,
+    "show_graph_diff": true,
+    "show_agent_learnings": true
+  },
+  "git": {
+    "atomic_commits": true,
+    "commit_prefix": "",
+    "branching_strategy": "none",
+    "sign_commits": false
+  },
   "workflow": {
     "research": true,
     "plan_check": true,
     "verifier": true,
     "auto_advance": false
-  },
-  "planning": {
-    "commit_docs": true,
-    "search_gitignored": false
   },
   "parallelization": {
     "enabled": true,
@@ -32,38 +107,5 @@
   "safety": {
     "always_confirm_destructive": true,
     "always_confirm_external_services": true
-  },
-  "execution": {
-    "context_budget": 200000,
-    "assessment_threshold": 0.80,
-    "auto_split": true,
-    "max_fix_loops": 3,
-    "safety_margin": 0.20,
-    "overhead_per_subtask": 5000,
-    "min_action_budget": 15000,
-    "chars_per_token": 4
-  },
-  "containers": {
-    "max_concurrent": "auto",
-    "max_memory_per_container": "2g",
-    "max_cpu_per_container": 1.0,
-    "max_total_memory": "auto",
-    "max_total_cpu": "auto",
-    "timeout_seconds": 600
-  },
-  "verification": {
-    "layers": {
-      "STRUCTURAL": true,
-      "TYPE_COMPILE": true,
-      "INTERFACE_CONTRACTS": true,
-      "DEPENDENCY": true,
-      "TESTS": true,
-      "BEHAVIORAL": true
-    },
-    "auto_fix": true,
-    "max_fix_loops": 3,
-    "type_check_command": null,
-    "test_command": null,
-    "test_timeout": 300
   }
 }

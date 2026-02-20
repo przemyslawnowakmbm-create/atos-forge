@@ -169,6 +169,12 @@ function safeReadFile(filePath) {
 }
 
 function loadConfig(cwd) {
+  // Delegate to unified config system with fallback to inline defaults
+  try {
+    const forgeConfig = require(path.join(cwd, 'forge-config', 'config'));
+    return forgeConfig.getLegacyToolsConfig(cwd);
+  } catch { /* fallback below */ }
+
   const configPath = path.join(cwd, '.planning', 'config.json');
   const defaults = {
     model_profile: 'balanced',
@@ -5910,6 +5916,74 @@ async function main() {
         } catch (e) { error('Invalid JSON: ' + e.message); }
       } else {
         error('Unknown ledger subcommand. Available: read, state, compact, archive, reset, log-decision, log-warning, log-discovery, log-preference, log-error, log-rejected, update-state');
+      }
+      break;
+    }
+
+    case 'settings': {
+      try {
+        const settings = require(path.join(cwd, 'forge-config', 'settings'));
+        const forgeConfig = require(path.join(cwd, 'forge-config', 'config'));
+        const sub = args[1];
+        if (sub === 'recommend') {
+          const result = settings.recommend(cwd, { json: raw });
+          if (raw) output(result, raw);
+        } else if (sub === 'validate') {
+          const { config: effective } = forgeConfig.loadConfig(cwd);
+          const result = forgeConfig.validate(effective);
+          output(result, raw);
+        } else if (sub === 'get' && args[2]) {
+          const keyPath = args[2];
+          const { config: effective } = forgeConfig.loadConfig(cwd);
+          const keys = keyPath.split('.');
+          let value = effective;
+          for (const k of keys) {
+            if (value && typeof value === 'object') value = value[k];
+            else { value = undefined; break; }
+          }
+          output({ key: keyPath, value }, raw, String(value));
+        } else if (sub === 'set' && args[2] && args[3]) {
+          const keyPath = args[2];
+          const rawValue = args[3];
+          // Parse value: boolean, number, null, or string
+          let value;
+          if (rawValue === 'true') value = true;
+          else if (rawValue === 'false') value = false;
+          else if (rawValue === 'null') value = null;
+          else if (!isNaN(rawValue) && rawValue !== '') value = Number(rawValue);
+          else value = rawValue;
+          // Load, set nested key, validate, save
+          const { config: projectCfg } = forgeConfig.loadProjectConfig(cwd);
+          const cfg = projectCfg || {};
+          const keys = keyPath.split('.');
+          let target = cfg;
+          for (let i = 0; i < keys.length - 1; i++) {
+            if (!target[keys[i]] || typeof target[keys[i]] !== 'object') target[keys[i]] = {};
+            target = target[keys[i]];
+          }
+          target[keys[keys.length - 1]] = value;
+          forgeConfig.saveProjectConfig(cwd, cfg);
+          const merged = forgeConfig.loadConfig(cwd).config;
+          const validation = forgeConfig.validate(merged);
+          output({ updated: true, key: keyPath, value, valid: validation.valid, errors: validation.errors }, raw);
+        } else {
+          // Default: show all settings
+          const result = settings.showSettings(cwd, { json: raw, section: sub || undefined });
+          if (raw && result) output(result, raw);
+        }
+      } catch (e) {
+        error('Settings error: ' + e.message);
+      }
+      break;
+    }
+
+    case 'doctor': {
+      try {
+        const doctor = require(path.join(cwd, 'forge-config', 'doctor'));
+        const result = doctor.doctor(cwd, { json: raw });
+        if (raw) output(result, raw);
+      } catch (e) {
+        error('Doctor error: ' + e.message);
       }
       break;
     }

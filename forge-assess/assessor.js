@@ -41,8 +41,15 @@ const CONFIG_DEFAULTS = {
 };
 
 function loadForgeConfig(cwd) {
+  // Delegate to unified config system
+  try {
+    const exec = require('../forge-config/config').getExecution(cwd);
+    if (exec && Object.keys(exec).length > 0) {
+      return { ...CONFIG_DEFAULTS, ...exec };
+    }
+  } catch { /* fallback to inline */ }
+
   const root = cwd || process.cwd();
-  // Try .forge/config.json first (runtime override), then .planning/config.json (project config)
   const candidates = [
     path.join(root, '.forge', 'config.json'),
     path.join(root, '.planning', 'config.json'),

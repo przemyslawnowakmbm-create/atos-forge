@@ -83,10 +83,15 @@ const HUMAN_ONLY_LAYERS = new Set([
 ]);
 
 /**
- * Load verification config from .forge/config.json or .planning/config.json.
+ * Load verification config from unified config system or fallback.
  * Returns the `verification` section, or empty object if not found.
  */
 function loadVerificationConfig(cwd) {
+  // Delegate to unified config system
+  try {
+    return require('../forge-config/config').getVerification(cwd);
+  } catch { /* fallback to inline */ }
+
   const candidates = [
     path.join(cwd, '.forge', 'config.json'),
     path.join(cwd, '.planning', 'config.json'),

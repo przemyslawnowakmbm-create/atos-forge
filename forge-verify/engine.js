@@ -1197,6 +1197,11 @@ function collectGraphDiff(opts) {
  * Returns the `verification` section, or empty object if not found.
  */
 function loadVerificationConfig(cwd) {
+  // Delegate to unified config system
+  try {
+    return require('../forge-config/config').getVerification(cwd);
+  } catch { /* fallback to inline */ }
+
   const candidates = [
     path.join(cwd, '.forge', 'config.json'),
     path.join(cwd, '.planning', 'config.json'),

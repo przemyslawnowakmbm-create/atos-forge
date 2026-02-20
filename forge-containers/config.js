@@ -32,6 +32,14 @@ const CONTAINER_DEFAULTS = {
  * Merges `containers` section with CONTAINER_DEFAULTS.
  */
 function loadContainerConfig(cwd) {
+  // Delegate to unified config system
+  try {
+    const containers = require('../forge-config/config').getContainers(cwd);
+    if (containers && Object.keys(containers).length > 0) {
+      return { ...CONTAINER_DEFAULTS, ...containers };
+    }
+  } catch { /* fallback to inline */ }
+
   const root = cwd || process.cwd();
   const candidates = [
     path.join(root, '.forge', 'config.json'),
