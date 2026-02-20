@@ -10,8 +10,18 @@ const { detectModules, classifyFile, IGNORE_DIRS } = require('./module-detector'
 const { detectCapabilities } = require('./capability-detector');
 
 // ============================================================
-// Configuration
+// Configuration (unified config with hardcoded fallbacks)
 // ============================================================
+
+function loadGraphConfig(repoRoot) {
+  try {
+    const config = require('../forge-config/config');
+    const { config: effective } = config.loadConfig(repoRoot);
+    return effective.graph || {};
+  } catch {
+    return {};
+  }
+}
 
 const LANGUAGE_EXTENSIONS = {
   '.ts':   'typescript',
@@ -767,8 +777,23 @@ function getFileLastModified(repoRoot, filePath) {
 // File Discovery
 // ============================================================
 
-function discoverFiles(repoRoot) {
+function discoverFiles(repoRoot, graphConfig = {}) {
   const files = [];
+
+  // Merge config ignore_patterns with hardcoded IGNORE_DIRS
+  const ignoreSet = new Set(IGNORE_DIRS);
+  if (Array.isArray(graphConfig.ignore_patterns)) {
+    for (const p of graphConfig.ignore_patterns) ignoreSet.add(p);
+  }
+
+  // Build allowed language extensions from config + defaults
+  let langExts = LANGUAGE_EXTENSIONS;
+  if (Array.isArray(graphConfig.languages) && graphConfig.languages.length > 0) {
+    langExts = {};
+    for (const [ext, lang] of Object.entries(LANGUAGE_EXTENSIONS)) {
+      if (graphConfig.languages.includes(lang)) langExts[ext] = lang;
+    }
+  }
 
   function walk(dir, relative) {
     let entries;
@@ -779,7 +804,7 @@ function discoverFiles(repoRoot) {
     }
 
     for (const entry of entries) {
-      if (entry.name.startsWith('.') || IGNORE_DIRS.has(entry.name)) continue;
+      if (entry.name.startsWith('.') || ignoreSet.has(entry.name)) continue;
       const fullPath = path.join(dir, entry.name);
       const relPath = relative ? `${relative}/${entry.name}` : entry.name;
 
@@ -787,7 +812,7 @@ function discoverFiles(repoRoot) {
         walk(fullPath, relPath);
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase();
-        if (LANGUAGE_EXTENSIONS[ext]) {
+        if (langExts[ext]) {
           files.push(relPath);
         }
       }
@@ -809,6 +834,7 @@ class GraphBuilder {
     this.db = null;
     this.parserMgr = new ParserManager();
     this.stats = { files: 0, symbols: 0, dependencies: 0, modules: 0, parseErrors: 0 };
+    this.graphConfig = loadGraphConfig(this.repoRoot);
   }
 
   build() {
@@ -821,9 +847,9 @@ class GraphBuilder {
     this.parserMgr.init();
     this.reportParserStatus();
 
-    // 2. Discover files
+    // 2. Discover files (using config for ignore_patterns and languages)
     process.stdout.write('  [1/7] Discovering files... ');
-    const filePaths = discoverFiles(this.repoRoot);
+    const filePaths = discoverFiles(this.repoRoot, this.graphConfig);
     console.log(`${filePaths.length} files found`);
 
     if (filePaths.length === 0) {
@@ -832,10 +858,17 @@ class GraphBuilder {
       return;
     }
 
-    // 3. Detect modules
+    // 3. Detect modules (respects graph.module_detection config)
     process.stdout.write('  [2/7] Detecting modules... ');
-    const { modules, fileModuleMap } = detectModules(this.repoRoot, filePaths);
-    console.log(`${modules.size} modules detected`);
+    let modules, fileModuleMap;
+    if (this.graphConfig.module_detection === false) {
+      modules = new Map();
+      fileModuleMap = new Map();
+      console.log('skipped (disabled in config)');
+    } else {
+      ({ modules, fileModuleMap } = detectModules(this.repoRoot, filePaths));
+      console.log(`${modules.size} modules detected`);
+    }
 
     // 4. Parse files and extract symbols/imports
     process.stdout.write(`  [3/7] Parsing ${filePaths.length} files...\n`);

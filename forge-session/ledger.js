@@ -5,13 +5,36 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// Configuration
+// Configuration (unified config with hardcoded fallbacks)
 // ============================================================
 
-const MAX_TOKENS_SOFT = 8000;   // Target size after compaction
-const MAX_TOKENS_HARD = 10000;  // Trigger compaction above this
-const CHARS_PER_TOKEN = 4;      // Rough estimate for token counting
-const MAX_ARCHIVE_KEEP = 50;    // Max archived ledgers
+function loadSessionConfig(cwd) {
+  try {
+    const config = require('../forge-config/config');
+    const { config: effective } = config.loadConfig(cwd);
+    return effective.session || {};
+  } catch {
+    return {};
+  }
+}
+
+const DEFAULT_MAX_TOKENS_SOFT = 8000;
+const DEFAULT_MAX_TOKENS_HARD = 10000;
+const CHARS_PER_TOKEN = 4;
+const MAX_ARCHIVE_KEEP = 50;
+
+// Resolve limits from config, falling back to hardcoded defaults
+function getTokenLimits(cwd) {
+  const cfg = loadSessionConfig(cwd);
+  const soft = (typeof cfg.ledger_max_tokens === 'number' && cfg.ledger_max_tokens > 0)
+    ? cfg.ledger_max_tokens : DEFAULT_MAX_TOKENS_SOFT;
+  const hard = Math.ceil(soft * 1.25); // hard cap is 125% of soft limit
+  return { soft, hard };
+}
+
+// Keep legacy constants for exported backward compat
+const MAX_TOKENS_SOFT = DEFAULT_MAX_TOKENS_SOFT;
+const MAX_TOKENS_HARD = DEFAULT_MAX_TOKENS_HARD;
 
 // ============================================================
 // Paths
@@ -147,8 +170,10 @@ function save(cwd, header, sections) {
   header['Last updated'] = isoNow();
   const md = buildLedger(header, sections);
 
-  // Auto-compact if too large
-  if (estimateTokens(md) > MAX_TOKENS_HARD) {
+  // Auto-compact if too large (uses config limits with fallbacks)
+  const limits = getTokenLimits(cwd);
+  const cfg = loadSessionConfig(cwd);
+  if (cfg.auto_compact !== false && estimateTokens(md) > limits.hard) {
     const compacted = compactSections(header, sections);
     writeRaw(cwd, buildLedger(header, compacted));
   } else {
@@ -455,7 +480,8 @@ function compact(cwd) {
   if (!content) return { before_tokens: 0, after_tokens: 0, compacted: false };
 
   const beforeTokens = estimateTokens(content);
-  if (beforeTokens <= MAX_TOKENS_SOFT) {
+  const limits = getTokenLimits(cwd);
+  if (beforeTokens <= limits.soft) {
     return { before_tokens: beforeTokens, after_tokens: beforeTokens, compacted: false };
   }
 

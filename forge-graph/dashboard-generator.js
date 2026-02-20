@@ -6,6 +6,30 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 // ============================================================
+// Configuration (unified config with hardcoded fallbacks)
+// ============================================================
+
+function loadDashboardConfig(cwd) {
+  try {
+    const config = require('../forge-config/config');
+    const { config: effective } = config.loadConfig(cwd);
+    return effective.graph || {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Check if dashboard auto-regeneration is enabled.
+ * @param {string} cwd - Project root
+ * @returns {boolean}
+ */
+function shouldAutoRegenerate(cwd) {
+  const cfg = loadDashboardConfig(cwd);
+  return cfg.dashboard_auto_regenerate !== false;
+}
+
+// ============================================================
 // Data Collection
 // ============================================================
 
@@ -1424,4 +1448,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { collectDashboardData, buildHTML };
+module.exports = { collectDashboardData, buildHTML, shouldAutoRegenerate };

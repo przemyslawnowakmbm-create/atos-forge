@@ -351,6 +351,14 @@ function validate(config) {
     errors.push('graph.ignore_patterns: expected array');
   }
 
+  // Validate containers.max_concurrent: must be 'auto' or a positive integer
+  const mc = config.containers?.max_concurrent;
+  if (mc !== undefined && mc !== null && mc !== 'auto') {
+    if (typeof mc !== 'number' || mc < 1 || !Number.isInteger(mc)) {
+      errors.push(`containers.max_concurrent: must be 'auto' or a positive integer, got ${mc}`);
+    }
+  }
+
   return { valid: errors.length === 0, errors };
 }
 

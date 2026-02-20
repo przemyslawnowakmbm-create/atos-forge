@@ -4451,6 +4451,61 @@ function cmdGraphInit(cwd, args, raw) {
   // Read stats from the freshly built graph
   const meta = getGraphStatus(cwd) || {};
 
+  // === Full .forge/ environment setup ===
+
+  // Create .forge/config.json from template if missing
+  let configCreated = false;
+  const configPath = path.join(forgeDir, 'config.json');
+  if (!fs.existsSync(configPath)) {
+    try {
+      const templatePath = path.join(path.dirname(path.dirname(__filename)), 'templates', 'config.json');
+      if (fs.existsSync(templatePath)) {
+        fs.copyFileSync(templatePath, configPath);
+      } else {
+        // Write minimal config
+        fs.writeFileSync(configPath, JSON.stringify({ project: { name: path.basename(cwd) } }, null, 2) + '\n');
+      }
+      configCreated = true;
+    } catch { /* non-fatal */ }
+  }
+
+  // Create .forge/session/ directory
+  const sessionDir = path.join(forgeDir, 'session');
+  if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true });
+
+  // Create .forge/snapshots/ directory
+  const snapshotsDir = path.join(forgeDir, 'snapshots');
+  if (!fs.existsSync(snapshotsDir)) fs.mkdirSync(snapshotsDir, { recursive: true });
+
+  // Create .forge/knowledge/ directory
+  const knowledgeDir = path.join(forgeDir, 'knowledge');
+  if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true });
+
+  // Take initial graph snapshot
+  let snapshotSaved = false;
+  try {
+    const snapshotMod = require(path.join(getForgeGraphDir(), 'snapshot'));
+    snapshotMod.saveSnapshot(cwd, graphDbPath(cwd));
+    snapshotSaved = true;
+  } catch { /* non-fatal */ }
+
+  // Generate dashboard if auto-regeneration is enabled (or if no config to check)
+  let dashboardGenerated = false;
+  try {
+    let autoRegen = true;
+    try {
+      const { shouldAutoRegenerate } = require(path.join(getForgeGraphDir(), 'dashboard-generator'));
+      autoRegen = shouldAutoRegenerate(cwd);
+    } catch { /* default to true */ }
+    if (autoRegen) {
+      const dashGenPath = path.join(getForgeGraphDir(), 'dashboard-generator.js');
+      execSync(`node "${dashGenPath}" "${graphDbPath(cwd)}"`, {
+        cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000,
+      });
+      dashboardGenerated = true;
+    }
+  } catch { /* non-fatal */ }
+
   const result = {
     success: true,
     build_time: `${elapsed}s`,
@@ -4460,6 +4515,10 @@ function cmdGraphInit(cwd, args, raw) {
     dependency_count: meta.dependency_count || '0',
     hooks_installed: hooksInstalled,
     capabilities_detected: capabilitiesDetected > 0,
+    config_created: configCreated,
+    snapshot_saved: snapshotSaved,
+    dashboard_generated: dashboardGenerated,
+    directories_created: ['session', 'snapshots', 'knowledge'],
     db_path: graphDbPath(cwd),
   };
 
@@ -4666,6 +4725,41 @@ function cmdGraphSnapshotDiff(cwd, args, raw) {
 
   const diff = diffAgainstLatest(cwd, graphDbPath(cwd));
   output(diff, raw);
+}
+
+/**
+ * graph query passthrough — delegates to forge-graph/query.js CLI for
+ * subcommands not implemented natively: overview, show, hotspots, cycles, capabilities.
+ */
+function cmdGraphQuery(cwd, command, args, raw) {
+  if (!graphDbExists(cwd)) {
+    error('No code graph found. Run /forge:init first.');
+  }
+  const graphDir = getForgeGraphDir();
+  const queryPath = path.join(graphDir, 'query.js');
+  const extraArgs = args.filter(a => a !== command).join(' ');
+  const jsonFlag = raw ? ' --json' : '';
+  try {
+    const result = execSync(
+      `node "${queryPath}" ${command} ${extraArgs}${jsonFlag} --db "${graphDbPath(cwd)}"`,
+      { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000 }
+    );
+    if (raw) {
+      try {
+        output(JSON.parse(result), raw);
+      } catch {
+        process.stdout.write(result);
+      }
+    } else {
+      process.stdout.write(result);
+    }
+  } catch (e) {
+    const stderr = e.stderr ? e.stderr.trim() : '';
+    const stdout = e.stdout ? e.stdout.trim() : '';
+    if (stdout) process.stdout.write(stdout + '\n');
+    if (stderr) process.stderr.write(stderr + '\n');
+    if (!stdout && !stderr) error(`graph ${command} failed: ${e.message}`);
+  }
 }
 
 // ─── Compound Init Commands ───────────────────────────────────────────────────
@@ -5837,8 +5931,18 @@ async function main() {
         cmdGraphSnapshot(cwd, args.slice(2), raw);
       } else if (subcommand === 'snapshot-diff') {
         cmdGraphSnapshotDiff(cwd, args.slice(2), raw);
+      } else if (subcommand === 'overview') {
+        cmdGraphQuery(cwd, 'overview', args.slice(2), raw);
+      } else if (subcommand === 'show') {
+        cmdGraphQuery(cwd, 'show', args.slice(2), raw);
+      } else if (subcommand === 'hotspots') {
+        cmdGraphQuery(cwd, 'hotspots', args.slice(2), raw);
+      } else if (subcommand === 'cycles') {
+        cmdGraphQuery(cwd, 'cycles', args.slice(2), raw);
+      } else if (subcommand === 'capabilities') {
+        cmdGraphQuery(cwd, 'capabilities', args.slice(2), raw);
       } else {
-        error('Unknown graph subcommand. Available: init, status, impact, context, visualize, snapshot, snapshot-diff');
+        error('Unknown graph subcommand. Available: init, status, impact, context, visualize, snapshot, snapshot-diff, overview, show, hotspots, cycles, capabilities');
       }
       break;
     }
@@ -5952,9 +6056,9 @@ async function main() {
           else if (rawValue === 'null') value = null;
           else if (!isNaN(rawValue) && rawValue !== '') value = Number(rawValue);
           else value = rawValue;
-          // Load, set nested key, validate, save
+          // Validate FIRST — build a candidate config and check before saving
           const { config: projectCfg } = forgeConfig.loadProjectConfig(cwd);
-          const cfg = projectCfg || {};
+          const cfg = JSON.parse(JSON.stringify(projectCfg || {}));
           const keys = keyPath.split('.');
           let target = cfg;
           for (let i = 0; i < keys.length - 1; i++) {
@@ -5962,10 +6066,18 @@ async function main() {
             target = target[keys[i]];
           }
           target[keys[keys.length - 1]] = value;
-          forgeConfig.saveProjectConfig(cwd, cfg);
-          const merged = forgeConfig.loadConfig(cwd).config;
-          const validation = forgeConfig.validate(merged);
-          output({ updated: true, key: keyPath, value, valid: validation.valid, errors: validation.errors }, raw);
+          // Validate the candidate merged config
+          const candidateDefaults = forgeConfig.getDefault();
+          forgeConfig.deepMerge(candidateDefaults, cfg);
+          const validation = forgeConfig.validate(candidateDefaults);
+          if (!validation.valid) {
+            // Reject — don't save invalid config
+            output({ updated: false, key: keyPath, value, valid: false, errors: validation.errors }, raw);
+          } else {
+            // Save only after validation passes
+            forgeConfig.saveProjectConfig(cwd, cfg);
+            output({ updated: true, key: keyPath, value, valid: true, errors: [] }, raw);
+          }
         } else {
           // Default: show all settings
           const result = settings.showSettings(cwd, { json: raw, section: sub || undefined });

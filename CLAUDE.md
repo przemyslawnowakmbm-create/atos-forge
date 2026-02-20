@@ -235,17 +235,22 @@ Subcommands:
   node atos-forge/bin/forge-tools.cjs doctor [--raw for JSON]
   node forge-config/doctor.js --root . [--json]
 
-13 health checks across 3 categories:
+15 health checks across 3 categories:
 1. Dependencies (7): Node.js, Git, Docker, Claude CLI, tree-sitter, better-sqlite3, chalk
-2. Project Health (5): Configuration, Code Graph, Dashboard, Session Ledger, Snapshots
+2. Project Health (7): Configuration, Code Graph (with staleness warning >24h), Dashboard, Session Ledger, Snapshots, Git Hooks (post-commit forge updater), Docker Images (forge agent images)
 3. System (1): Resources (cores, RAM, max concurrent agents)
 
 Box-drawing terminal output with status icons. Returns { checks[], summary: { ok, warn, fail, skip } }.
 
 ## Forge Commands
-- /forge:init — Build code graph and initialize project
+- /forge:init — Build code graph, create full .forge/ environment (config, session, snapshots, knowledge, dashboard, hooks)
 - /forge:graph-status — Show code graph health, stats, hotspots
+- /forge:graph overview — Codebase summary
+- /forge:graph show <file> — File details with symbols
+- /forge:graph hotspots [--top N] — Risk hotspots
+- /forge:graph cycles — Circular dependencies
+- /forge:graph capabilities [module] — Module capabilities
 - /forge:impact <file-or-phase> — Impact analysis shortcut
 - /forge:graph visualize — Generate and open HTML dashboard
-- /forge:settings — Show config, interactive edit, validate, recommend
+- /forge:settings — Show config, interactive edit, validate, recommend (validates before saving)
 - /forge:doctor — Check all deps, graph health, container readiness, system

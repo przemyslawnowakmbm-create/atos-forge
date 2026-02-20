@@ -205,12 +205,17 @@ function checkGraph(cwd) {
     const fileCount = meta.file_count || meta.total_files || '?';
     const builtAt = meta.built_at || meta.last_build_time || null;
     let freshness = '';
+    let stale = false;
     if (builtAt) {
       const ageMs = Date.now() - new Date(builtAt).getTime();
       const ageH = Math.floor(ageMs / 3600000);
       freshness = ageH < 1 ? 'just now' : ageH < 24 ? `${ageH}h ago` : `${Math.floor(ageH / 24)}d ago`;
+      stale = ageH >= 24;
     }
-    return { name: 'Code Graph', status: 'ok', detail: `${fileCount} files, ${moduleCount} modules${freshness ? ` (${freshness})` : ''}` };
+    const status = stale ? 'warn' : 'ok';
+    const detail = `${fileCount} files, ${moduleCount} modules${freshness ? ` (${freshness})` : ''}`;
+    const extra = stale ? 'graph is stale — run forge:init or commit to trigger auto-update' : undefined;
+    return { name: 'Code Graph', status, detail, extra };
   } catch (e) {
     return { name: 'Code Graph', status: 'fail', detail: `error: ${e.message.slice(0, 60)}` };
   }
@@ -262,6 +267,41 @@ function checkSnapshots(cwd) {
   }
 }
 
+function checkGitHooks(cwd) {
+  const hookPath = path.join(cwd, '.git', 'hooks', 'post-commit');
+  if (!fs.existsSync(hookPath)) {
+    return { name: 'Git Hooks', status: 'fail', detail: 'post-commit hook not installed' };
+  }
+  try {
+    const content = fs.readFileSync(hookPath, 'utf8');
+    if (content.includes('forge-graph') || content.includes('builder') || content.includes('forge')) {
+      return { name: 'Git Hooks', status: 'ok', detail: 'post-commit hook installed (forge updater)' };
+    }
+    return { name: 'Git Hooks', status: 'warn', detail: 'post-commit exists but no forge updater found' };
+  } catch {
+    return { name: 'Git Hooks', status: 'warn', detail: 'post-commit exists but unreadable' };
+  }
+}
+
+function checkDockerImages() {
+  // First check if Docker is available
+  try {
+    execSync('docker version --format "{{.Server.Version}}"', { stdio: 'pipe', timeout: 5000 });
+  } catch {
+    return { name: 'Docker Images', status: 'skip', detail: 'Docker not available' };
+  }
+  try {
+    const images = execSync('docker images --format "{{.Repository}}" 2>/dev/null', { stdio: 'pipe', timeout: 10000, encoding: 'utf8' });
+    const forgeImages = images.split('\n').filter(l => l.includes('forge'));
+    if (forgeImages.length === 0) {
+      return { name: 'Docker Images', status: 'warn', detail: 'no forge images built (run forge container build)' };
+    }
+    return { name: 'Docker Images', status: 'ok', detail: `${forgeImages.length} forge image(s) built` };
+  } catch {
+    return { name: 'Docker Images', status: 'warn', detail: 'could not list images' };
+  }
+}
+
 function checkSystem(cwd) {
   try {
     const config = require('./config');
@@ -287,7 +327,7 @@ function doctor(cwd, opts = {}) {
   const root = cwd || process.cwd();
   const checks = [];
 
-  // Section 1: Dependencies
+  // Section 1: Dependencies (indices 0-6)
   checks.push(checkNode());
   checks.push(checkGit());
   checks.push(checkDocker());
@@ -296,14 +336,16 @@ function doctor(cwd, opts = {}) {
   checks.push(checkBetterSqlite3(root));
   checks.push(checkChalk(root));
 
-  // Section 2: Project Health
+  // Section 2: Project Health (indices 7-13)
   checks.push(checkConfig(root));
   checks.push(checkGraph(root));
   checks.push(checkDashboard(root));
   checks.push(checkLedger(root));
   checks.push(checkSnapshots(root));
+  checks.push(checkGitHooks(root));
+  checks.push(checkDockerImages());
 
-  // Section 3: System
+  // Section 3: System (index 14)
   checks.push(checkSystem(root));
 
   const summary = { ok: 0, warn: 0, fail: 0, skip: 0 };
@@ -340,17 +382,20 @@ function displayDoctor(checks, summary) {
   }
   boxLine('');
 
-  // Project Health (indices 7-11)
+  // Project Health (indices 7-13)
   boxSection('  Project Health');
-  for (let i = 7; i < 12; i++) {
+  for (let i = 7; i < checks.length - 1; i++) {
     const c = checks[i];
     boxLine(`  ${ICON[c.status]}  ${pad(c.name, 18)} ${chalk.dim(c.detail)}`);
+    if (c.extra) {
+      boxLine(`${' '.repeat(26)}\u2192 ${chalk.dim(c.extra)}`);
+    }
   }
   boxLine('');
 
-  // System (index 12)
+  // System (last index)
   boxSection('  System');
-  const sys = checks[12];
+  const sys = checks[checks.length - 1];
   boxLine(`  ${ICON[sys.status]}  ${pad(sys.name, 18)} ${chalk.dim(sys.detail)}`);
   if (sys.extra) {
     boxLine(`${' '.repeat(26)}\u2192 ${chalk.dim(sys.extra)}`);
@@ -408,5 +453,7 @@ module.exports = {
   checkDashboard,
   checkLedger,
   checkSnapshots,
+  checkGitHooks,
+  checkDockerImages,
   checkSystem,
 };

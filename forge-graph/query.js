@@ -5,24 +5,40 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// Chalk — graceful fallback when not installed
+// Chalk — graceful fallback when not installed or rich_output=false
 // ============================================================
+
+const NO_COLOR_HANDLER = {
+  get(target, prop) {
+    if (prop === Symbol.toPrimitive) return () => '';
+    if (prop === 'level') return 0;
+    return new Proxy((...args) => args.join(''), NO_COLOR_HANDLER);
+  },
+  apply(target, thisArg, args) {
+    return args.join('');
+  },
+};
+const noColorChalk = new Proxy((...args) => args.join(''), NO_COLOR_HANDLER);
 
 let chalk;
 try {
   chalk = require('chalk');
 } catch {
-  const handler = {
-    get(target, prop) {
-      if (prop === Symbol.toPrimitive) return () => '';
-      if (prop === 'level') return 0;
-      return new Proxy((...args) => args.join(''), handler);
-    },
-    apply(target, thisArg, args) {
-      return args.join('');
-    },
-  };
-  chalk = new Proxy((...args) => args.join(''), handler);
+  chalk = noColorChalk;
+}
+
+/**
+ * Check display.rich_output config and disable chalk if false.
+ * Called once at CLI startup with the resolved cwd.
+ */
+function applyRichOutputConfig(cwd) {
+  try {
+    const config = require('../forge-config/config');
+    const { config: effective } = config.loadConfig(cwd);
+    if (effective.display && effective.display.rich_output === false) {
+      chalk = noColorChalk;
+    }
+  } catch { /* config unavailable — keep current chalk */ }
 }
 
 // ============================================================
@@ -1418,6 +1434,9 @@ function printHelp() {
 function run() {
   const args = process.argv.slice(2);
 
+  // Apply display.rich_output config
+  applyRichOutputConfig(process.cwd());
+
   if (args.includes('--help') || args.length === 0) {
     printHelp();
     process.exit(0);
@@ -2438,6 +2457,7 @@ if (require.main === module) {
 
 module.exports = {
   GraphQuery,
+  applyRichOutputConfig,
   // Convenience wrappers
   getConsumers,
   getImpact,
