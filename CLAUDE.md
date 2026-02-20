@@ -70,6 +70,26 @@ Container entrypoints (baked into Docker images):
   agent-verifier.js — Lightweight: applies patches, runs verification steps (tsc, tests, lint),
     reports pass/fail. Auto-detects checks or uses explicit verification_steps from config.
 
+## Dynamic Agent Factory
+Builds specialized agent configurations from sub-plans:
+  node forge-agents/factory.js analyze <plan-file> --root .  — Show archetype, risk, context, verification
+  node forge-agents/factory.js build <plan-file> --root .    — Output full agent config as JSON
+  node forge-agents/factory.js build-all <dir> --root .      — Build configs for all .md plans in directory
+
+7-step pipeline:
+1. Analyze task — graph context (getContextForTask), capabilities, risk, ledger state
+2. Determine archetype — specialist (single module + strong cap), integrator (3+ modules),
+   careful (high/critical risk), general (fallback)
+3. Compose system prompt — base executor + archetype behavior + capability agent_context + session context
+4. Compose context package — always_load (plan + task files), task_specific (deps, consumers, tests),
+   reference (interfaces). Token budget: 70% of context window.
+5. Define verification — plan verify fields + capability-mapped checks (typescript, npm_test, etc.)
+6. Define container spec — image auto-selection (node/python/full), resource config
+7. Extract session context — decisions, warnings, preferences, rejected approaches from ledger
+
+Programmatic: require('forge-agents/factory').buildAgentConfig(planPath, cwd, opts)
+Returns: { agentConfig, containerParams, analysis }
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots
