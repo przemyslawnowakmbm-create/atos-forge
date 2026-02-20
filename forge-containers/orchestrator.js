@@ -493,36 +493,154 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const cmd = args[0];
   const cwd = args.includes('--root') ? args[args.indexOf('--root') + 1] : process.cwd();
+  const jsonOutput = args.includes('--json');
 
   if (cmd === 'status') {
     const docker = checkDocker();
     const config = resolveConfig(cwd);
     const containers = listContainers();
-    console.log('Docker:', docker.available ? `v${docker.version}` : 'NOT AVAILABLE');
-    console.log(`System: ${config.system.total_cores} cores, ${config.system.total_memory_str} RAM`);
-    console.log(`Limits: ${config.max_concurrent} concurrent, ${config.max_memory_per_container_str}/container, ${config.max_cpu_per_container} CPU/container`);
-    console.log(`Total budget: ${config.max_total_memory_str} RAM, ${config.max_total_cpu} CPU`);
-    if (containers.length > 0) {
-      console.log(`\nActive containers (${containers.length}):`);
-      for (const c of containers) {
-        console.log(`  ${c.name}: ${c.status}`);
+    if (jsonOutput) {
+      console.log(JSON.stringify({
+        docker, system: config.system,
+        limits: { max_concurrent: config.max_concurrent, max_memory_per_container: config.max_memory_per_container_str, max_cpu_per_container: config.max_cpu_per_container },
+        containers,
+      }));
+    } else {
+      console.log('Docker:', docker.available ? `v${docker.version}` : 'NOT AVAILABLE');
+      console.log(`System: ${config.system.total_cores} cores, ${config.system.total_memory_str} RAM`);
+      console.log(`Limits: ${config.max_concurrent} concurrent, ${config.max_memory_per_container_str}/container, ${config.max_cpu_per_container} CPU/container`);
+      console.log(`Total budget: ${config.max_total_memory_str} RAM, ${config.max_total_cpu} CPU`);
+      if (containers.length > 0) {
+        console.log(`\nActive containers (${containers.length}):`);
+        for (const c of containers) {
+          console.log(`  ${c.name}: ${c.status}`);
+        }
       }
     }
+
+  } else if (cmd === 'check-docker') {
+    // Simple Docker availability check — returns JSON
+    const result = checkDocker();
+    console.log(JSON.stringify(result));
+
+  } else if (cmd === 'resources') {
+    // Resource detection — returns JSON for workflow consumption
+    try {
+      const config = resolveConfig(cwd);
+      console.log(JSON.stringify({
+        cores: config.system.total_cores,
+        memory: config.system.total_memory_str,
+        max_concurrent: config.max_concurrent,
+        mem_per_container: config.max_memory_per_container_str,
+        cpu_per_container: config.max_cpu_per_container,
+        total_mem: config.max_total_memory_str,
+        total_cpu: config.max_total_cpu,
+      }));
+    } catch (err) {
+      console.log(JSON.stringify({
+        cores: 2, memory: '4.0g', max_concurrent: 1,
+        mem_per_container: '2.0g', cpu_per_container: 1,
+        total_mem: '4.0g', total_cpu: 2,
+        error: err.message,
+      }));
+    }
+
+  } else if (cmd === 'ensure-image') {
+    // Build or verify Docker image — returns JSON
+    const template = args[1] || detectTemplate(cwd);
+    const force = args.includes('--force');
+    try {
+      const result = ensureImage(template, { force });
+      console.log(JSON.stringify({ success: true, ...result, template }));
+    } catch (err) {
+      console.log(JSON.stringify({ success: false, error: err.message, template }));
+      process.exit(1);
+    }
+
+  } else if (cmd === 'launch-wave') {
+    // Launch a wave of containers from a JSON config file
+    // Usage: node orchestrator.js launch-wave <config.json> --root <cwd>
+    //
+    // config.json format:
+    // { "tasks": [{ "taskId": "...", "agentConfig": {...} }], "applyPatches": true }
+    const configPath = args[1];
+    if (!configPath || !fs.existsSync(configPath)) {
+      console.error(JSON.stringify({ success: false, error: `Config file not found: ${configPath}` }));
+      process.exit(1);
+    }
+
+    let waveConfig;
+    try {
+      waveConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (err) {
+      console.error(JSON.stringify({ success: false, error: `Invalid JSON in ${configPath}: ${err.message}` }));
+      process.exit(1);
+    }
+
+    const tasks = waveConfig.tasks || [];
+    if (tasks.length === 0) {
+      console.log(JSON.stringify({ success: true, results: [], message: 'No tasks in wave' }));
+      process.exit(0);
+    }
+
+    // First ensure image is built
+    const template = detectTemplate(cwd);
+    try {
+      const imgResult = ensureImage(template);
+      process.stderr.write(`Image: ${imgResult.image} (${imgResult.cached ? 'cached' : 'built'})\n`);
+    } catch (err) {
+      console.error(JSON.stringify({ success: false, error: `Image build failed: ${err.message}`, template }));
+      process.exit(1);
+    }
+
+    // Launch all containers
+    launchAll(tasks, {
+      cwd,
+      opts: {
+        applyPatches: waveConfig.applyPatches !== false,
+        dryRun: waveConfig.dryRun || false,
+      },
+    }).then(results => {
+      const passed = results.filter(r => r.status === 'success').length;
+      const failed = results.filter(r => r.status !== 'success').length;
+      console.log(JSON.stringify({
+        success: failed === 0,
+        total: results.length,
+        passed,
+        failed,
+        results,
+      }));
+      process.exit(failed > 0 ? 1 : 0);
+    }).catch(err => {
+      console.error(JSON.stringify({ success: false, error: err.message }));
+      process.exit(1);
+    });
+
   } else if (cmd === 'build') {
     const template = args[1] || 'node';
     console.log(`Building forge-agent:${template}...`);
     const r = ensureImage(template, { force: args.includes('--force') });
     console.log(r.cached ? `Image cached: ${r.image}` : `Image built: ${r.image}`);
+
   } else if (cmd === 'cleanup') {
     const r = cleanup();
-    console.log(`Cleaned up: ${r.containers} containers, ${r.images} images`);
+    if (jsonOutput) {
+      console.log(JSON.stringify({ success: true, ...r }));
+    } else {
+      console.log(`Cleaned up: ${r.containers} containers, ${r.images} images`);
+    }
+
   } else {
     console.log(`forge-containers/orchestrator.js — Container lifecycle management
 
 Usage:
-  node orchestrator.js status   [--root <cwd>]   — Show Docker status and resource limits
-  node orchestrator.js build    <template>        — Build agent image (node|python|full)
-  node orchestrator.js cleanup                    — Remove stopped containers and temp files
+  node orchestrator.js status        [--root <cwd>] [--json]  — Docker status and resource limits
+  node orchestrator.js check-docker                           — Docker availability (JSON)
+  node orchestrator.js resources     [--root <cwd>]           — System resources (JSON)
+  node orchestrator.js ensure-image  [template] [--root <cwd>] [--force]  — Build/verify agent image
+  node orchestrator.js launch-wave   <config.json> --root <cwd>           — Launch container wave
+  node orchestrator.js build         <template> [--force]     — Build agent image
+  node orchestrator.js cleanup       [--json]                 — Remove stopped containers
 `);
   }
 }

@@ -78,10 +78,22 @@ Execution modes: container (Docker), worktree (no Docker fallback), weak machine
 16 workflow steps, 15 modules consumed, 9 structural sections.
 
 ## Ephemeral Containers
-Containerized agent execution for isolated, parallel sub-plan work:
-  node forge-containers/orchestrator.js status  — Docker + resource status
-  node forge-containers/orchestrator.js build <template>  — Build image (node|python|full)
-  node forge-containers/orchestrator.js cleanup — Remove stopped containers
+Containerized agent execution for isolated, parallel sub-plan work.
+
+CLI commands (all return JSON when relevant):
+  node forge-containers/orchestrator.js status [--root .] [--json]  — Docker + resource status
+  node forge-containers/orchestrator.js check-docker                — Docker availability (JSON)
+  node forge-containers/orchestrator.js resources [--root .]        — System resources (JSON)
+  node forge-containers/orchestrator.js ensure-image [template] [--root .] [--force]  — Build/verify agent image
+  node forge-containers/orchestrator.js launch-wave <config.json> --root .  — Launch container wave
+  node forge-containers/orchestrator.js build <template> [--force]  — Build image (node|python|full)
+  node forge-containers/orchestrator.js cleanup [--json]            — Remove stopped containers
+
+Container mode requires: execution.container_backend = "docker" in .forge/config.json AND Docker available.
+Default is "worktree" (Task subagent fallback). Set via: forge-tools settings set execution.container_backend docker
+
+launch-wave config.json format:
+  { "tasks": [{ "taskId": "...", "agentConfig": {...} }], "applyPatches": true }
 
 Lifecycle: acquire slot → git worktree → build spec → run container → collect patches → log learnings → cleanup.
 Resource limits in .forge/config.json (containers section): max_concurrent, max_memory_per_container, timeout_seconds.

@@ -56,29 +56,13 @@ Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)
 
 ```bash
 # Docker availability
-DOCKER_CHECK=$(node -e "
-  try {
-    const { checkDocker } = require('$HOME/.claude/forge-containers/orchestrator');
-    console.log(JSON.stringify(checkDocker()));
-  } catch { console.log('{\"available\":false}'); }
-" 2>/dev/null)
+ORCH="$HOME/.claude/forge-containers/orchestrator.js"
+DOCKER_CHECK=$(node "$ORCH" check-docker)
 DOCKER_AVAILABLE=$(echo "$DOCKER_CHECK" | jq -r '.available')
 DOCKER_VERSION=$(echo "$DOCKER_CHECK" | jq -r '.version // "none"')
 
 # Resource detection
-RESOURCES=$(node -e "
-  try {
-    const { resolveConfig } = require('$HOME/.claude/forge-containers/config');
-    const c = resolveConfig('$(pwd)');
-    console.log(JSON.stringify({
-      cores: c.system.total_cores,
-      memory: c.system.total_memory_str,
-      max_concurrent: c.max_concurrent,
-      mem_per_container: c.max_memory_per_container_str,
-      total_mem: c.max_total_memory_str
-    }));
-  } catch { console.log('{\"cores\":2,\"memory\":\"4.0g\",\"max_concurrent\":1,\"mem_per_container\":\"2.0g\",\"total_mem\":\"4.0g\"}'); }
-" 2>/dev/null)
+RESOURCES=$(node "$ORCH" resources --root "$(pwd)")
 CORES=$(echo "$RESOURCES" | jq -r '.cores')
 MEMORY=$(echo "$RESOURCES" | jq -r '.memory')
 MAX_CONCURRENT=$(echo "$RESOURCES" | jq -r '.max_concurrent')
@@ -99,8 +83,16 @@ fi
 | No | any | **Worktree mode** — fallback: Task subagents in git worktrees, no isolation |
 
 ```bash
-EXECUTION_MODE="container"
-if [ "$DOCKER_AVAILABLE" != "true" ]; then
+# Read configured backend preference
+CONFIGURED_BACKEND=$(node ~/.claude/atos-forge/bin/forge-tools.cjs config-get execution.container_backend 2>/dev/null || echo "worktree")
+
+# Select execution mode based on config + Docker availability
+if [ "$CONFIGURED_BACKEND" = "docker" ] && [ "$DOCKER_AVAILABLE" = "true" ]; then
+  EXECUTION_MODE="container"
+elif [ "$CONFIGURED_BACKEND" = "docker" ] && [ "$DOCKER_AVAILABLE" != "true" ]; then
+  EXECUTION_MODE="worktree"
+  echo "⚠ container_backend=docker configured but Docker not available — falling back to worktree"
+else
   EXECUTION_MODE="worktree"
 fi
 ```
@@ -116,9 +108,10 @@ Display:
 
 **If worktree mode:**
 ```
-⚠ Docker not available — using worktree fallback mode
+⚠ Using worktree fallback mode (reason: {DOCKER_AVAILABLE != true ? "Docker not available" : "container_backend not set to 'docker'"})
   Agents will execute via Task subagents (no container isolation)
   Patches applied directly to working tree (sequential only)
+  To enable containers: set execution.container_backend = "docker" in .forge/config.json
 ```
 
 **Ledger:** Log execution mode:
@@ -373,20 +366,42 @@ Launching...
 The orchestrator handles the full lifecycle: acquire slot → git worktree → build spec → run container → collect patches.
 
 ```bash
-# Build Docker image if not cached
-node -e "
-  const { ensureImage, detectTemplate } = require('$HOME/.claude/forge-containers/orchestrator');
-  ensureImage(detectTemplate('$(pwd)')).then(() => console.log('Image ready'));
-" 2>/dev/null
+ORCH="$HOME/.claude/forge-containers/orchestrator.js"
 
-# Launch all agents in this wave
-WAVE_RESULTS=$(node -e "
-  const { launchAll } = require('$HOME/.claude/forge-containers/orchestrator');
-  const tasks = JSON.parse(process.env.WAVE_TASKS);
-  launchAll(tasks, { cwd: '$(pwd)' }).then(results => {
-    console.log(JSON.stringify(results));
-  });
-" 2>/dev/null)
+# Build Docker image if not cached
+IMAGE_RESULT=$(node "$ORCH" ensure-image --root "$(pwd)")
+IMAGE_OK=$(echo "$IMAGE_RESULT" | jq -r '.success')
+if [ "$IMAGE_OK" != "true" ]; then
+  IMAGE_ERR=$(echo "$IMAGE_RESULT" | jq -r '.error // "unknown"')
+  echo "⚠ Docker image build failed: $IMAGE_ERR — falling back to worktree mode for this wave"
+  # Fall through to worktree mode below
+  EXECUTION_MODE="worktree"
+fi
+
+# Write wave tasks to temp file for orchestrator input
+WAVE_CONFIG=$(mktemp /tmp/forge-wave-XXXXXX.json)
+# ... write JSON: { "tasks": [{ "taskId": "...", "agentConfig": {...} }], "applyPatches": true }
+echo "$WAVE_TASKS_JSON" > "$WAVE_CONFIG"
+
+# Launch all agents in this wave via CLI
+if [ "$EXECUTION_MODE" = "container" ]; then
+  WAVE_RESULTS=$(node "$ORCH" launch-wave "$WAVE_CONFIG" --root "$(pwd)")
+  WAVE_OK=$(echo "$WAVE_RESULTS" | jq -r '.success')
+  WAVE_PASSED=$(echo "$WAVE_RESULTS" | jq -r '.passed')
+  WAVE_FAILED=$(echo "$WAVE_RESULTS" | jq -r '.failed')
+
+  if [ "$WAVE_OK" != "true" ]; then
+    WAVE_ERR=$(echo "$WAVE_RESULTS" | jq -r '.error // "unknown"')
+    echo "⚠ Container wave failed: $WAVE_ERR"
+    echo "  Falling back to worktree mode for remaining agents in this wave"
+    # Set EXECUTION_MODE to worktree and fall through to worktree block below
+    EXECUTION_MODE="worktree"
+  else
+    echo "✓ Wave $WAVE_NUM: $WAVE_PASSED passed, $WAVE_FAILED failed (container mode)"
+  fi
+
+  rm -f "$WAVE_CONFIG"
+fi
 ```
 
 Each result from `launchAll` contains:
@@ -494,7 +509,7 @@ fi
 
 ```bash
 FIX_LOOPS=0
-MAX_FIX=$(node -e "const a = require('$HOME/.claude/forge-assess/assessor'); console.log(a.loadForgeConfig('$(pwd)').max_fix_loops || 3);" 2>/dev/null)
+MAX_FIX=$(node ~/.claude/atos-forge/bin/forge-tools.cjs config-get execution.max_fix_loops 2>/dev/null || echo "3")
 ```
 
 **5e. Update graph incrementally:**
@@ -781,15 +796,12 @@ node "$TOOLS_PATH" graph snapshot save > /dev/null 2>&1
 ```bash
 # Container cleanup (stopped containers, dangling images)
 if [ "$DOCKER_AVAILABLE" = "true" ]; then
-  node -e "
-    const { cleanup } = require('$HOME/.claude/forge-containers/orchestrator');
-    const r = cleanup();
-    console.log('Cleaned: ' + r.containers + ' containers, ' + r.worktrees + ' worktrees');
-  " 2>/dev/null
+  ORCH="$HOME/.claude/forge-containers/orchestrator.js"
+  node "$ORCH" cleanup
 fi
 
 # Temp file cleanup
-rm -rf /tmp/forge-subplans-* /tmp/forge-configs-* 2>/dev/null
+rm -rf /tmp/forge-subplans-* /tmp/forge-configs-* /tmp/forge-wave-* 2>/dev/null
 
 # Final graph update (ensure completeness)
 if [ "$GRAPH_EXISTS" = "true" ]; then
