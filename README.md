@@ -11,6 +11,29 @@ Optional:     Docker (for container isolation)
 
 ---
 
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/przemyslawnowakmbm-create/atos-forge.git
+cd atos-forge
+
+# Install dependencies (graph engine needs tree-sitter and better-sqlite3)
+cd forge-graph && npm install && cd ..
+
+# Initialize the code graph and full .forge/ environment
+node atos-forge/bin/forge-tools.cjs graph init
+
+# Verify everything is working
+node atos-forge/bin/forge-tools.cjs doctor
+```
+
+That's it. The `graph init` command builds the code graph, installs git hooks, generates the dashboard, creates config from the template, and sets up the session and snapshot directories.
+
+For use inside another project, copy or symlink the Forge directories into your repo root and run `graph init` from there.
+
+---
+
 ## What this is
 
 Most AI coding tools treat your codebase as a flat bag of files. Forge builds a graph of it: modules, dependencies, interfaces, capabilities, hotspots. Every operation — planning, execution, verification — uses this graph to understand what it's touching, what might break, and what to test.
