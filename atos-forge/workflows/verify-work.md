@@ -89,25 +89,103 @@ ls "$phase_dir"/*-SUMMARY.md 2>/dev/null
 Read each SUMMARY.md to extract testable deliverables.
 </step>
 
+<step name="classify_phase" depends="find_summaries">
+**Classify phase type from SUMMARY.md content:**
+
+For each SUMMARY.md, scan:
+1. **Frontmatter** `subsystem:` field (database, api, auth, infra, ui, etc.)
+2. **Frontmatter** `tags:` field (jwt, rls, celery, middleware, migration, etc.)
+3. **Body** accomplishments for infrastructure keywords
+
+**Infrastructure signal keywords** (in frontmatter tags, subsystem, or accomplishments):
+- Database: migration, RLS, row-level security, policy, tenant_id, FK, schema, column, table, constraint, backfill
+- Auth/Security: JWT, claim, token, RBAC, role, permission, guard, middleware, authentication, authorization
+- API wiring: dependency injection, get_db, get_tenant_db, API sweep, endpoint wiring, route handler
+- Task/Worker: Celery, task, worker, queue, async task, tenant context, task dispatch
+- Infrastructure: Docker, container, Redis, pub/sub, WebSocket, health check, connector
+
+**Classification output** (stored in memory, not written to file):
+- `has_backend_tests: true/false`
+- `backend_categories: []` — subset of [database, auth, api, worker, infra]
+
+**Rule:** If ANY SUMMARY.md in the phase has infrastructure signal keywords → `has_backend_tests: true`.
+Pure UI phases (all SUMMARYs have subsystem: ui, no infra keywords) → `has_backend_tests: false`.
+</step>
+
 <step name="extract_tests">
-**Extract testable deliverables from SUMMARY.md:**
+**Extract testable deliverables from SUMMARY.md files:**
+
+### Pass 1: UI & Observable Tests (existing behavior, unchanged)
 
 Parse for:
-1. **Accomplishments** - Features/functionality added
-2. **User-facing changes** - UI, workflows, interactions
+1. **Accomplishments** — Features/functionality added
+2. **User-facing changes** — UI, workflows, interactions
 
 Focus on USER-OBSERVABLE outcomes, not implementation details.
 
 For each deliverable, create a test:
+- type: ui
 - name: Brief test name
 - expected: What the user should see/experience (specific, observable)
 
 Examples:
 - Accomplishment: "Added comment threading with infinite nesting"
-  → Test: "Reply to a Comment"
-  → Expected: "Clicking Reply opens inline composer below comment. Submitting shows reply nested under parent with visual indentation."
+  → Test: { type: ui, name: "Reply to a Comment", expected: "Clicking Reply opens inline composer..." }
 
-Skip internal/non-observable items (refactors, type changes, etc.).
+Skip internal/non-observable items for UI tests.
+
+### Pass 2: Backend & Infrastructure Tests (NEW — only if has_backend_tests)
+
+If `has_backend_tests` is true from classify_phase, parse ALL SUMMARY.md accomplishments
+(including items that Pass 1 skipped) and generate verification tests.
+
+For each infrastructure accomplishment, create a test with:
+- type: database | api | auth | worker | infra
+- name: Brief verification name
+- expected: What the correct output looks like
+- command: |
+    Exact command(s) to verify this.
+    Claude will execute these via Bash tool — user reviews output.
+    Use project's docker compose service names.
+
+**Backend test generation rules by category:**
+
+**database** — For migration/schema/RLS accomplishments:
+- Verify table existence: `docker compose exec db psql -U <user> -d <db> -c "SELECT ..."`
+- Verify RLS policies: `... -c "SELECT polname, polcmd FROM pg_policy WHERE ..."`
+- Verify column constraints: `... -c "SELECT column_name, is_nullable FROM information_schema.columns WHERE ..."`
+- Verify seed data: `... -c "SELECT id, name FROM <table> WHERE ..."`
+
+**auth** — For JWT/RBAC/middleware accomplishments:
+- Verify JWT claims: `curl -s -X POST http://localhost:<port>/api/auth/login -H 'Content-Type: application/json' -d '{"email":"...","password":"..."}' | python3 -c "import sys,json,base64; t=json.load(sys.stdin)['access_token'].split('.')[1]; print(json.loads(base64.b64decode(t+'==')))"`
+- Verify role guards: `curl -s -o /dev/null -w '%{http_code}' http://localhost:<port>/api/admin/tenants -H 'Authorization: Bearer <non-admin-token>'` → expect 403
+
+**api** — For endpoint wiring/tenant isolation accomplishments:
+- Verify tenant-scoped responses: `curl -s http://localhost:<port>/api/<resource> -H 'Authorization: Bearer <token>'` → verify response contains only tenant's data
+- Verify cross-tenant isolation: Two curl calls with different tenant tokens, verify non-overlapping results
+
+**worker** — For Celery/task accomplishments:
+- Verify task dispatch: `docker compose logs --tail=20 celery-worker | grep tenant_id` or similar log inspection
+- Verify queue routing: `docker compose exec redis redis-cli LLEN <queue_name>`
+
+**infra** — For Docker/config/health accomplishments:
+- Verify service health: `curl -s http://localhost:<port>/health`
+- Verify config applied: `docker compose exec backend python -c "..."`
+
+**Important constraints for command generation:**
+- Use the project's actual service names from docker-compose.yml
+- Use actual credentials from .env or seeded defaults
+- Use actual port mappings (read from CLAUDE.md or docker-compose.yml)
+- Commands must work when services are running (`docker compose up`)
+- Prefer simple shell commands over complex scripts
+- Each command should verify ONE thing clearly
+
+### Test ordering: backend tests FIRST, then UI tests
+
+Backend tests verify the foundation. UI tests verify the surface.
+If the database is wrong, UI tests will fail for the wrong reasons.
+
+Numbering: backend tests 1..N, then UI tests N+1..M.
 </step>
 
 <step name="create_uat_file">
@@ -117,7 +195,7 @@ Skip internal/non-observable items (refactors, type changes, etc.).
 mkdir -p "$PHASE_DIR"
 ```
 
-Build test list from extracted deliverables.
+Build test list from extracted deliverables (backend tests first, then UI tests).
 
 Create file:
 
@@ -141,11 +219,25 @@ awaiting: user response
 
 ## Tests
 
-### 1. [Test Name]
-expected: [observable behavior]
+### 1. [Backend Test Name]
+type: database
+command: |
+  docker compose exec db psql -U l1auto -d l1auto -c "SELECT polname FROM pg_policy WHERE polrelid='tickets'::regclass"
+expected: Should show an RLS policy name like `tenant_isolation_tickets`
 result: [pending]
 
-### 2. [Test Name]
+### 2. [Backend Test Name]
+type: auth
+command: |
+  curl -s -X POST http://localhost:8001/api/auth/login -H 'Content-Type: application/json' \
+    -d '{"email":"admin@l1auto.local","password":"admin"}' | python3 -c "import sys,json,base64; t=json.load(sys.stdin)['access_token'].split('.')[1]; print(json.loads(base64.b64decode(t+'==')))"
+expected: JSON payload containing `tenant_id` field with a UUID value
+result: [pending]
+
+...
+
+### 8. [UI Test Name]
+type: ui
 expected: [observable behavior]
 result: [pending]
 
@@ -159,10 +251,24 @@ issues: 0
 pending: [N]
 skipped: 0
 
+### By Type
+database: 0/[N]
+auth: 0/[N]
+api: 0/[N]
+ui: 0/[N]
+
 ## Gaps
 
 [none yet]
 ```
+
+**Notes:**
+- Backend tests (type: database, auth, api, worker, infra) are numbered FIRST
+- UI tests (type: ui) follow after all backend tests
+- `type` field present on every test; defaults to `ui` if omitted (backward compat)
+- Backend tests include `command` field with executable verification command
+- By Type summary only shows categories that have tests
+- Pure UI phases omit the By Type section entirely
 
 Write to `.planning/phases/XX-name/{phase_num}-UAT.md`
 
@@ -174,7 +280,9 @@ Proceed to `present_test`.
 
 Read Current Test section from UAT file.
 
-Display using checkpoint box format:
+**If test has type: ui (or no type field — backward compat):**
+
+Display using existing checkpoint box format (unchanged):
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
@@ -191,6 +299,40 @@ Display using checkpoint box format:
 ```
 
 Wait for user response (plain text, no AskUserQuestion).
+
+**If test has type: database|api|auth|worker|infra:**
+
+Claude executes the command directly via Bash tool, then presents the result:
+
+1. Execute: `{command}` via Bash tool
+2. Capture output (stdout + stderr)
+3. Display:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  BACKEND CHECK [{type}]                                      ║
+╚══════════════════════════════════════════════════════════════╝
+
+**Test {number}: {name}**
+
+**Command executed:**
+{command}
+
+**Output:**
+{actual output from command}
+
+**Expected:** {expected}
+
+──────────────────────────────────────────────────────────────
+→ Type "pass" if output matches, or describe the issue
+──────────────────────────────────────────────────────────────
+```
+
+Wait for user response (plain text, no AskUserQuestion).
+
+**If command fails (non-zero exit code or error):**
+Display the error output and mark as a potential issue. Still wait for user
+confirmation — the user decides whether the error is expected or an actual failure.
 </step>
 
 <step name="process_response">
@@ -239,6 +381,8 @@ severity: {inferred}
 Append to Gaps section (structured YAML for plan-phase --gaps):
 ```yaml
 - truth: "{expected behavior from test}"
+  type: {test type: ui, database, api, auth, worker, or infra}
+  command: "{verification command, if backend test — omit for ui tests}"
   status: failed
   reason: "User reported: {verbatim user response}"
   severity: {inferred}
@@ -311,12 +455,27 @@ Present summary:
 ```
 ## UAT Complete: Phase {phase}
 
-| Result | Count |
-|--------|-------|
-| Passed | {N}   |
-| Issues | {N}   |
-| Skipped| {N}   |
+| Result  | Count |
+|---------|-------|
+| Passed  | {N}   |
+| Issues  | {N}   |
+| Skipped | {N}   |
+```
 
+**If phase had mixed test types (backend + UI), show per-category breakdown:**
+
+```
+| Category | Passed | Issues | Skipped |
+|----------|--------|--------|---------|
+| database | {N}    | {N}    | {N}     |
+| auth     | {N}    | {N}    | {N}     |
+| api      | {N}    | {N}    | {N}     |
+| ui       | {N}    | {N}    | {N}     |
+```
+
+Only show rows for categories that have tests. Pure UI phases show no breakdown table.
+
+```
 [If issues > 0:]
 ### Issues Found
 
@@ -569,9 +728,14 @@ Default to **major** if unclear. User can correct if needed.
 
 <success_criteria>
 - [ ] UAT file created with all tests from SUMMARY.md
+- [ ] Phase classified for backend test needs (subsystem/tags heuristic)
+- [ ] Backend tests generated with verification commands when phase has infra content
+- [ ] Backend tests executed by Claude via Bash — output shown to user for confirmation
+- [ ] Backend tests run BEFORE UI tests (foundation first)
 - [ ] Tests presented one at a time with expected behavior
 - [ ] User responses processed as pass/issue/skip
 - [ ] Severity inferred from description (never asked)
+- [ ] Summary shows per-category breakdown for mixed phases
 - [ ] Batched writes: on issue, every 5 passes, or completion
 - [ ] Committed on completion
 - [ ] If issues: parallel debug agents diagnose root causes
