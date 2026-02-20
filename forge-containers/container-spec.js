@@ -82,6 +82,7 @@ function buildSpec(params) {
     id: containerId,
     taskId,
     image,
+    mode: opts.mode || 'agent', // 'agent' or 'verify'
     volumes,
     env,
     memory: resourceConfig.max_memory_per_container_str,
@@ -154,9 +155,16 @@ function toDockerArgs(spec) {
     }
   }
 
-  // Image + command
-  args.push(spec.image);
-  args.push('node', '/config/agent.json');
+  // Image — entrypoint is baked in (agent-entrypoint.js or agent-verifier.js)
+  // Override entrypoint for verifier mode
+  if (spec.mode === 'verify') {
+    args.push('--entrypoint', 'node');
+    args.push(spec.image);
+    args.push('/entrypoint/agent-verifier.js');
+  } else {
+    args.push(spec.image);
+    // Default ENTRYPOINT in Dockerfile runs agent-entrypoint.js
+  }
 
   return args;
 }

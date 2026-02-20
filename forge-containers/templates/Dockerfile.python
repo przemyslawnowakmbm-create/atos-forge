@@ -25,15 +25,18 @@ RUN pip install --no-cache-dir \
     2>/dev/null || true
 
 # Create workspace directories
-RUN mkdir -p /workspace /output/patches /knowledge /config /graph
+RUN mkdir -p /workspace /output/patches /knowledge /config /graph /entrypoint
+
+# Copy entrypoint scripts (build context = forge-containers/)
+COPY agent-entrypoint.js /entrypoint/agent-entrypoint.js
+COPY agent-verifier.js /entrypoint/agent-verifier.js
 
 # Non-root user for safety
 RUN groupadd -r forge && useradd -r -g forge -d /workspace forge
 RUN chown -R forge:forge /workspace /output /knowledge
 
 WORKDIR /workspace
-
 USER forge
 
-ENTRYPOINT ["bash", "-c"]
-CMD ["echo 'No command provided. Mount agent config at /config/agent.json'"]
+# Default: run agent entrypoint
+ENTRYPOINT ["node", "/entrypoint/agent-entrypoint.js"]

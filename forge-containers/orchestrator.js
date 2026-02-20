@@ -58,8 +58,8 @@ function ensureImage(templateName, opts = {}) {
     } catch { /* not cached — build */ }
   }
 
-  // Build image
-  const contextDir = path.join(__dirname, 'templates');
+  // Build image — context is forge-containers/ so COPY can reach entrypoint scripts
+  const contextDir = __dirname;
   execSync(
     `docker build -f ${dockerfile} -t ${imageName} ${contextDir}`,
     { stdio: 'inherit', timeout: 300000 }

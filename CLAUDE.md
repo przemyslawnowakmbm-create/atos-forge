@@ -64,6 +64,12 @@ Auto-detection: max_concurrent = min(floor((cores-2)/cpu), floor((ram*0.7)/mem))
 Patches collected from /output/patches/, applied via git apply --3way.
 Agent warnings/discoveries written to session ledger on collection.
 
+Container entrypoints (baked into Docker images):
+  agent-entrypoint.js — Full agent: reads agent.json, copies repo, applies previous patches,
+    builds system prompt with session context, invokes `claude --print`, captures git diff as patch.
+  agent-verifier.js — Lightweight: applies patches, runs verification steps (tsc, tests, lint),
+    reports pass/fail. Auto-detects checks or uses explicit verification_steps from config.
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots
