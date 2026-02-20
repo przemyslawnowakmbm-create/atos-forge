@@ -90,6 +90,25 @@ Builds specialized agent configurations from sub-plans:
 Programmatic: require('forge-agents/factory').buildAgentConfig(planPath, cwd, opts)
 Returns: { agentConfig, containerParams, analysis }
 
+## Parallel Execution Planner
+Schedules agent execution in resource-aware waves:
+  node forge-agents/parallel-planner.js plan <dir> --root .       — Plan from .md plans directory
+  node forge-agents/parallel-planner.js dry-run <dir> --root .    — Plan without ledger write
+  node forge-agents/parallel-planner.js plan-configs <json> --root . — Plan from pre-built JSON
+
+Algorithm:
+1. Build dependency DAG from agentConfig.plan_meta.frontmatter.depends_on
+2. Topological sort (Kahn's) → independent groups (waves)
+3. Per wave, bin-pack respecting: max_concurrent, max_total_memory, max_total_cpu
+4. If wave exceeds limits → split into sub-waves
+5. Output ordered waves with resource allocation + time estimates
+
+Detects cycles. Logs plan to session ledger (waves_planned, total_agents, estimated_duration).
+Archetype time estimates: specialist 2-5min, integrator 4-8min, careful 5-10min, general 3-6min.
+
+Programmatic: require('forge-agents/parallel-planner').planExecution(factoryResults, cwd, opts)
+Returns: { waves[], summary, resources, dependencies }
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots
