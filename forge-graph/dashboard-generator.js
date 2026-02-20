@@ -853,12 +853,36 @@ function generateJS() {
     const fileMap = new Map(D.files.map(f => [f.p, f]));
     const select = $('#dep-file-select');
 
-    // Populate dropdown sorted by module then path
-    const sortedFiles = [...D.files].sort((a, b) => (a.m || '').localeCompare(b.m || '') || a.p.localeCompare(b.p));
-    for (const f of sortedFiles) {
+    // Calculate connection counts per file
+    const fileDeps = D.files.map(f => ({
+      ...f,
+      imports: (importsOf.get(f.p) || []).length,
+      consumers: (importedBy.get(f.p) || []).length,
+      total: (importsOf.get(f.p) || []).length + (importedBy.get(f.p) || []).length,
+    }));
+
+    // Sort: connected files first (by total desc), then unconnected by module+path
+    fileDeps.sort((a, b) => {
+      if (a.total > 0 && b.total === 0) return -1;
+      if (a.total === 0 && b.total > 0) return 1;
+      if (a.total !== b.total) return b.total - a.total;
+      return (a.m || '').localeCompare(b.m || '') || a.p.localeCompare(b.p);
+    });
+
+    // Add separator between connected and unconnected
+    let addedSeparator = false;
+    for (const f of fileDeps) {
+      if (f.total === 0 && !addedSeparator) {
+        const sep = document.createElement('option');
+        sep.disabled = true;
+        sep.textContent = '── no dependencies ──────────────────';
+        select.appendChild(sep);
+        addedSeparator = true;
+      }
       const opt = document.createElement('option');
       opt.value = f.p;
-      opt.textContent = (f.m ? '[' + f.m + '] ' : '') + f.p;
+      const depInfo = f.total > 0 ? ' (' + (f.imports > 0 ? '\\u2191' + f.imports : '') + (f.imports > 0 && f.consumers > 0 ? ' ' : '') + (f.consumers > 0 ? '\\u2193' + f.consumers : '') + ')' : '';
+      opt.textContent = (f.m ? '[' + f.m + '] ' : '') + f.p + depInfo;
       select.appendChild(opt);
     }
 
@@ -914,10 +938,16 @@ function generateJS() {
       }
 
       const svg = d3.select('#' + svgId);
-      const g = svg.append('g').attr('transform', 'translate(40, 20)');
+
+      // Zoom/pan container — all content goes inside zoomG
+      const zoomG = svg.append('g');
+      const g = zoomG.append('g').attr('transform', 'translate(40, 20)');
 
       const root = d3.hierarchy(data);
-      const treeLayout = d3.tree().size([H - 40, W - 100]);
+      // Scale tree height based on node count for better spacing
+      const nodeCount = root.descendants().length;
+      const treeH = Math.max(H - 40, nodeCount * 28);
+      const treeLayout = d3.tree().size([treeH, W - 100]);
       treeLayout(root);
 
       // Flip for left-to-right direction
@@ -967,6 +997,30 @@ function generateJS() {
         showTooltip(evt, '<span class="tt-value">' + esc(d.data.fullPath) + '</span>' +
           (d.data.importName ? '<br><span class="tt-label">Import:</span> ' + esc(d.data.importName) : ''));
       }).on('mouseout', hideTooltip);
+
+      // Enable zoom + pan on the SVG
+      const zoom = d3.zoom()
+        .scaleExtent([0.3, 4])
+        .on('zoom', (event) => { zoomG.attr('transform', event.transform); });
+      svg.call(zoom);
+
+      // Auto-fit: if tree is taller than viewport, scale down to fit
+      if (treeH > H - 40) {
+        const scale = Math.max(0.3, (H - 20) / (treeH + 40));
+        const tx = direction === 'right' ? W * (1 - scale) : 0;
+        svg.call(zoom.transform, d3.zoomIdentity.translate(tx, 0).scale(scale));
+      }
+
+      // Zoom hint
+      if (!window._depZoomHintShown) {
+        window._depZoomHintShown = true;
+        const hint = svg.append('text')
+          .attr('x', W/2).attr('y', H - 4)
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#666').attr('font-size', '10px')
+          .text('Scroll to zoom \\u00B7 Drag to pan');
+        setTimeout(() => hint.transition().duration(2000).attr('fill-opacity', 0).remove(), 4000);
+      }
     }
   }
 
