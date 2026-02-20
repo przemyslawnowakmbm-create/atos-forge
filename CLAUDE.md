@@ -138,12 +138,16 @@ Returns: { waves[], summary, resources, dependencies }
 Graph-aware, fail-fast verification pipeline:
   node forge-verify/engine.js --root . [--files f1,f2] [--plan plan.md] [--layer 1-6] [--json]
 
-Layers (fail-fast order):
+Layers (fail-fast order, each toggleable via config):
 1. STRUCTURAL (<5s) — syntax errors, stray console.log/debugger, merge conflict markers, bracket balance
 2. TYPE/COMPILE (10-30s) — tsc --noEmit, mypy, go build (auto-detected from file extensions + graph capabilities)
+   - Broad tsconfig.json discovery: cwd → parent dirs → src/ → packages/* (monorepo)
+   - Fallback: `tsc --noEmit --strict` on changed .ts files directly when no tsconfig found
+   - Override: `verification.type_check_command` in config
 3. INTERFACE CONTRACTS (5-15s) — graph contract_hash comparison, breaking change detection, consumer risk
 4. DEPENDENCY (<5s) — graph.getCycles() for new circular deps, orphaned imports
 5. TESTS (30s-5min) — graph-identified test files for changed code (getContextForTask → testFiles)
+   - Override: `verification.test_command` in config
 6. BEHAVIORAL (varies) — plan's custom verify steps from frontmatter
 
 Output: { overall, layers[], fix_suggestions[], auto_fixable, graph_diff }
@@ -152,7 +156,12 @@ Fix suggestions with auto_fixable flags for debugger/console.log removal.
 
 Ledger integration: logError() for each failure, updateState({ verification: "passed" }) on full pass.
 
+Configuration in .forge/config.json or .planning/config.json (verification section):
+  layers (per-layer boolean toggles), auto_fix (true/false), max_fix_loops,
+  type_check_command (override tsc), test_command (override test runner), test_timeout.
+
 Programmatic: require('forge-verify/engine').verify({ cwd, files, planPath, dbPath, ... })
+Additional exports: findTsConfig(cwd), loadVerificationConfig(cwd)
 CLI flags: --root, --files, --plan, --db, --baseline, --layer, --fail-fast, --json, --silent, --no-ledger
 
 ## Verification Loop (Auto-Fix)

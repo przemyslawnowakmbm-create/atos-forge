@@ -73,6 +73,50 @@ const COMPILE_COMMANDS = {
   go:         { detect: 'go.mod', command: 'go build ./...', label: 'Go build', timeout: 120 },
 };
 
+/**
+ * Search for tsconfig.json broadly: cwd, parent dirs, common subdirs.
+ * Returns { found: boolean, tsconfigPath?: string, projectDir?: string }.
+ */
+function findTsConfig(cwd) {
+  // 1. Check cwd itself
+  const direct = path.join(cwd, 'tsconfig.json');
+  if (fs.existsSync(direct)) return { found: true, tsconfigPath: direct, projectDir: cwd };
+
+  // 2. Walk up parent directories (max 5 levels)
+  let dir = cwd;
+  for (let i = 0; i < 5; i++) {
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+    const candidate = path.join(dir, 'tsconfig.json');
+    if (fs.existsSync(candidate)) return { found: true, tsconfigPath: candidate, projectDir: dir };
+  }
+
+  // 3. Check common subdirectories
+  const subdirs = ['src', 'lib', 'app', 'packages'];
+  for (const sub of subdirs) {
+    const subDir = path.join(cwd, sub);
+    if (!fs.existsSync(subDir)) continue;
+
+    const candidate = path.join(subDir, 'tsconfig.json');
+    if (fs.existsSync(candidate)) return { found: true, tsconfigPath: candidate, projectDir: subDir };
+
+    // Check packages/*/tsconfig.json (monorepo)
+    if (sub === 'packages') {
+      try {
+        const entries = fs.readdirSync(subDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          const pkgCandidate = path.join(subDir, entry.name, 'tsconfig.json');
+          if (fs.existsSync(pkgCandidate)) return { found: true, tsconfigPath: pkgCandidate, projectDir: path.join(subDir, entry.name) };
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  return { found: false };
+}
+
 const MAX_STRUCTURAL_ISSUES = 50; // cap per file scan
 
 // ============================================================
@@ -237,21 +281,52 @@ function layerTypeCompile(opts) {
     }
   }
 
+  // Allow config overrides for compile commands
+  const configOverrides = opts.config && opts.config.verification ? opts.config.verification : {};
+
   for (const lang of languages) {
     const spec = COMPILE_COMMANDS[lang];
     if (!spec) continue;
 
-    // Check if the project has the config file
-    if (!fs.existsSync(path.join(opts.cwd, spec.detect))) {
-      checks.push({
-        language: lang, label: spec.label, status: 'skip',
-        reason: `${spec.detect} not found`, duration_ms: 0,
-      });
+    // Check if this layer/language is disabled via config
+    if (configOverrides.layers && configOverrides.layers[lang] === false) {
+      checks.push({ language: lang, label: spec.label, status: 'skip', reason: 'disabled via config', duration_ms: 0 });
       continue;
     }
 
-    const result = spawnSync('bash', ['-c', spec.command], {
-      cwd: opts.cwd,
+    let command = configOverrides.type_check_command || null;
+    let runCwd = opts.cwd;
+
+    if (lang === 'typescript') {
+      // Broad tsconfig discovery
+      const tsResult = findTsConfig(opts.cwd);
+
+      if (tsResult.found) {
+        // Use --project flag pointing to discovered tsconfig
+        command = command || `npx tsc --noEmit --project ${tsResult.tsconfigPath}`;
+        runCwd = tsResult.projectDir;
+      } else {
+        // No tsconfig found — fall back to tsc --noEmit --strict on changed .ts files directly
+        const tsFiles = (opts.files || [])
+          .filter(f => /\.(ts|tsx)$/.test(f))
+          .map(f => path.isAbsolute(f) ? f : path.join(opts.cwd, f));
+        if (tsFiles.length === 0) {
+          checks.push({ language: lang, label: spec.label, status: 'skip', reason: 'no .ts files in changeset', duration_ms: 0 });
+          continue;
+        }
+        command = `npx tsc --noEmit --strict --esModuleInterop --resolveJsonModule ${tsFiles.join(' ')}`;
+      }
+    } else {
+      // Python, Go — simple root-level detect
+      if (!fs.existsSync(path.join(opts.cwd, spec.detect))) {
+        checks.push({ language: lang, label: spec.label, status: 'skip', reason: `${spec.detect} not found`, duration_ms: 0 });
+        continue;
+      }
+      command = command || spec.command;
+    }
+
+    const result = spawnSync('bash', ['-c', command], {
+      cwd: runCwd,
       timeout: spec.timeout * 1000,
       stdio: ['pipe', 'pipe', 'pipe'],
       encoding: 'utf8',
@@ -268,6 +343,7 @@ function layerTypeCompile(opts) {
       stdout: (result.stdout || '').slice(-3000),
       stderr: (result.stderr || '').slice(-3000),
       errors: parseCompileErrors(result.stderr || result.stdout || '', lang),
+      command_used: command,
     });
   }
 
@@ -510,7 +586,29 @@ function layerDependency(opts) {
  */
 function layerTests(opts) {
   const start = Date.now();
-  const timeout = (opts.timeout || 300) * 1000;
+  const timeout = (opts.timeout ?? 300) * 1000;
+  const configOverrides = opts.config || {};
+
+  // If config specifies a custom test_command, run it directly
+  if (configOverrides.test_command) {
+    const result = spawnSync('bash', ['-c', configOverrides.test_command], {
+      cwd: opts.cwd, timeout, stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 10 * 1024 * 1024,
+    });
+    return {
+      passed: result.status === 0,
+      testResults: [{
+        runner: 'config_override',
+        command: configOverrides.test_command,
+        passed: result.status === 0,
+        exit_code: result.status ?? 1,
+        timed_out: result.signal === 'SIGTERM',
+        stdout: (result.stdout || '').slice(-4000),
+        stderr: (result.stderr || '').slice(-4000),
+      }],
+      testFiles: [],
+      duration_ms: Date.now() - start,
+    };
+  }
 
   // Collect test files from graph
   let testFiles = [];
@@ -690,7 +788,7 @@ function runProjectTests(cwd, timeout, start) {
 function layerBehavioral(opts) {
   const start = Date.now();
   const steps = opts.verifySteps || [];
-  const timeout = (opts.timeout || 120) * 1000;
+  const timeout = (opts.timeout ?? 120) * 1000;
 
   if (steps.length === 0) {
     return { passed: true, steps: [], duration_ms: Date.now() - start, skipped: true, reason: 'No behavioral verify steps in plan' };
@@ -1091,6 +1189,30 @@ function collectGraphDiff(opts) {
 }
 
 // ============================================================
+// Config Loading
+// ============================================================
+
+/**
+ * Load verification config from .forge/config.json or .planning/config.json.
+ * Returns the `verification` section, or empty object if not found.
+ */
+function loadVerificationConfig(cwd) {
+  const candidates = [
+    path.join(cwd, '.forge', 'config.json'),
+    path.join(cwd, '.planning', 'config.json'),
+  ];
+  for (const configPath of candidates) {
+    try {
+      if (fs.existsSync(configPath)) {
+        const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (raw.verification) return raw.verification;
+      }
+    } catch { /* ignore parse errors */ }
+  }
+  return {};
+}
+
+// ============================================================
 // Ledger Integration
 // ============================================================
 
@@ -1168,8 +1290,11 @@ function logToLedger(cwd, result) {
 async function verify(opts) {
   const cwd = opts.cwd || process.cwd();
   const failFast = opts.failFast !== false;
-  const maxLayer = opts.maxLayer || 6;
+  const maxLayer = opts.maxLayer ?? 6;
   const logLedger = opts.logLedger !== false;
+
+  // Load verification config from .forge/config.json or .planning/config.json
+  const verifyConfig = loadVerificationConfig(cwd);
 
   // Resolve DB path
   const dbPath = opts.dbPath || path.join(cwd, '.forge', 'graph.db');
@@ -1232,7 +1357,7 @@ async function verify(opts) {
   const totalStart = Date.now();
 
   // Layer 1 — STRUCTURAL
-  if (maxLayer >= 1) {
+  if (maxLayer >= 1 && !(verifyConfig.layers && verifyConfig.layers.STRUCTURAL === false)) {
     const result = layerStructural({ cwd, files });
     layers.push({ index: 1, name: 'STRUCTURAL', passed: result.passed, skipped: false, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed && result.issues.some(i => i.severity === 'error')) {
@@ -1241,8 +1366,8 @@ async function verify(opts) {
   }
 
   // Layer 2 — TYPE/COMPILE
-  if (maxLayer >= 2) {
-    const result = layerTypeCompile({ cwd, files, capabilities });
+  if (maxLayer >= 2 && !(verifyConfig.layers && verifyConfig.layers.TYPE_COMPILE === false)) {
+    const result = layerTypeCompile({ cwd, files, capabilities, config: verifyConfig });
     const skipped = result.checks.length === 0;
     layers.push({ index: 2, name: 'TYPE_COMPILE', passed: result.passed, skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
@@ -1251,7 +1376,7 @@ async function verify(opts) {
   }
 
   // Layer 3 — INTERFACE CONTRACTS
-  if (maxLayer >= 3) {
+  if (maxLayer >= 3 && !(verifyConfig.layers && verifyConfig.layers.INTERFACE_CONTRACTS === false)) {
     const result = layerInterfaceContracts({ cwd, dbPath, files, baselineDbPath: opts.baselineDbPath });
     layers.push({ index: 3, name: 'INTERFACE_CONTRACTS', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
@@ -1260,7 +1385,7 @@ async function verify(opts) {
   }
 
   // Layer 4 — DEPENDENCY
-  if (maxLayer >= 4) {
+  if (maxLayer >= 4 && !(verifyConfig.layers && verifyConfig.layers.DEPENDENCY === false)) {
     const result = layerDependency({ cwd, dbPath, files, baselineCycleCount });
     layers.push({ index: 4, name: 'DEPENDENCY', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
@@ -1269,8 +1394,9 @@ async function verify(opts) {
   }
 
   // Layer 5 — TESTS
-  if (maxLayer >= 5) {
-    const result = layerTests({ cwd, dbPath, files, timeout: 300 });
+  if (maxLayer >= 5 && !(verifyConfig.layers && verifyConfig.layers.TESTS === false)) {
+    const testTimeout = (verifyConfig.test_timeout) || 300;
+    const result = layerTests({ cwd, dbPath, files, timeout: testTimeout, config: verifyConfig });
     layers.push({ index: 5, name: 'TESTS', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
       return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
@@ -1278,7 +1404,7 @@ async function verify(opts) {
   }
 
   // Layer 6 — BEHAVIORAL
-  if (maxLayer >= 6) {
+  if (maxLayer >= 6 && !(verifyConfig.layers && verifyConfig.layers.BEHAVIORAL === false)) {
     const result = layerBehavioral({ cwd, verifySteps, timeout: 120 });
     layers.push({ index: 6, name: 'BEHAVIORAL', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
   }
@@ -1366,6 +1492,8 @@ module.exports = {
   generateFixSuggestions,
   displayResults,
   checkBracketBalance,
+  findTsConfig,
+  loadVerificationConfig,
   LAYER_NAMES,
 };
 

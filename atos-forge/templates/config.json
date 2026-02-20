@@ -50,5 +50,20 @@
     "max_total_memory": "auto",
     "max_total_cpu": "auto",
     "timeout_seconds": 600
+  },
+  "verification": {
+    "layers": {
+      "STRUCTURAL": true,
+      "TYPE_COMPILE": true,
+      "INTERFACE_CONTRACTS": true,
+      "DEPENDENCY": true,
+      "TESTS": true,
+      "BEHAVIORAL": true
+    },
+    "auto_fix": true,
+    "max_fix_loops": 3,
+    "type_check_command": null,
+    "test_command": null,
+    "test_timeout": 300
   }
 }

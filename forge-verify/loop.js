@@ -82,6 +82,26 @@ const HUMAN_ONLY_LAYERS = new Set([
   'BEHAVIORAL',
 ]);
 
+/**
+ * Load verification config from .forge/config.json or .planning/config.json.
+ * Returns the `verification` section, or empty object if not found.
+ */
+function loadVerificationConfig(cwd) {
+  const candidates = [
+    path.join(cwd, '.forge', 'config.json'),
+    path.join(cwd, '.planning', 'config.json'),
+  ];
+  for (const configPath of candidates) {
+    try {
+      if (fs.existsSync(configPath)) {
+        const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (raw.verification) return raw.verification;
+      }
+    } catch { /* ignore parse errors */ }
+  }
+  return {};
+}
+
 // ============================================================
 // Fixability Analysis
 // ============================================================
@@ -617,9 +637,13 @@ function collectGraphDiff(cwd) {
  */
 async function verifyLoop(opts) {
   const cwd = opts.cwd || process.cwd();
-  const maxLoops = opts.maxLoops || DEFAULT_MAX_LOOPS;
   const dbPath = opts.dbPath || path.join(cwd, '.forge', 'graph.db');
-  const agentTimeout = opts.agentTimeout || 300;
+
+  // Load verification config for auto_fix toggle and max_fix_loops override
+  const verifyConfig = loadVerificationConfig(cwd);
+  const maxLoops = opts.maxLoops ?? verifyConfig.max_fix_loops ?? DEFAULT_MAX_LOOPS;
+  const agentTimeout = opts.agentTimeout ?? 300;
+  const autoFixEnabled = verifyConfig.auto_fix !== false; // default true
 
   const loopResult = {
     overall: 'PENDING',
@@ -749,6 +773,22 @@ async function verifyLoop(opts) {
 
       if (!opts.silent) {
         log(chalk.dim(`  [${loop}] `) + chalk.yellow(`\u26A0\uFE0F  Escalating — max ${maxLoops} loops exceeded`));
+      }
+
+      logLedger(cwd, { type: 'escalate', loop, reason: loopResult.escalation_reason, verifyResult });
+      break;
+    }
+
+    // 4c. Auto-fix disabled via config
+    if (!autoFixEnabled) {
+      loopEntry.duration_ms = Date.now() - iterStart;
+      loopResult.loops.push(loopEntry);
+      loopResult.overall = 'FAIL';
+      loopResult.escalated = true;
+      loopResult.escalation_reason = 'Auto-fix disabled via verification config (auto_fix: false)';
+
+      if (!opts.silent) {
+        log(chalk.dim(`  [${loop}] `) + chalk.yellow('\u26A0\uFE0F  Auto-fix disabled — reporting failures only'));
       }
 
       logLedger(cwd, { type: 'escalate', loop, reason: loopResult.escalation_reason, verifyResult });
@@ -1096,7 +1136,7 @@ function log(msg) {
 async function verifyAfterWave(opts) {
   return verifyLoop({
     ...opts,
-    maxLoops: opts.maxLoops || 2,  // Fewer loops for wave-level checks
+    maxLoops: opts.maxLoops ?? 2,  // Fewer loops for wave-level checks
     mode: 'wave',
   });
 }
@@ -1111,7 +1151,7 @@ async function verifyAfterWave(opts) {
 async function verifyFull(opts) {
   return verifyLoop({
     ...opts,
-    maxLoops: opts.maxLoops || DEFAULT_MAX_LOOPS,
+    maxLoops: opts.maxLoops ?? DEFAULT_MAX_LOOPS,
     mode: 'full',
   });
 }
