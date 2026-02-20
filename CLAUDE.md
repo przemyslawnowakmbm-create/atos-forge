@@ -1,5 +1,17 @@
 # Atos Forge — Agent Instructions
 
+## Module Layout & Path Resolution
+Forge consists of `atos-forge/` (CLI entry point) and 7 sibling engine modules:
+  forge-graph/, forge-config/, forge-session/, forge-verify/,
+  forge-assess/, forge-agents/, forge-containers/
+
+All modules must be siblings under the same parent directory (the "forge root").
+`forge-tools.cjs` resolves the forge root via `getForgeRoot()`:
+1. `FORGE_HOME` env var (if set)
+2. Default: 2 levels up from `atos-forge/bin/forge-tools.cjs`
+
+The installer (`bin/install.js`) copies all 8 directories to the target config dir.
+
 ## Code Graph
 Before modifying any file, query the code graph for context:
   node forge-graph/query.js context-for-task <file1> <file2> ...

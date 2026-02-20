@@ -171,7 +171,7 @@ function safeReadFile(filePath) {
 function loadConfig(cwd) {
   // Delegate to unified config system with fallback to inline defaults
   try {
-    const forgeConfig = require(path.join(cwd, 'forge-config', 'config'));
+    const forgeConfig = require(path.join(getForgeRoot(), 'forge-config', 'config'));
     return forgeConfig.getLegacyToolsConfig(cwd);
   } catch { /* fallback below */ }
 
@@ -2554,7 +2554,7 @@ function cmdVerifyKeyLinks(cwd, planFilePath, raw) {
 async function cmdVerifyWork(cwd, args, raw) {
   let verifyLoop;
   try {
-    verifyLoop = require(path.join(cwd, 'forge-verify', 'loop'));
+    verifyLoop = require(path.join(getForgeRoot(), 'forge-verify', 'loop'));
   } catch (e) {
     error('forge-verify/loop module not found: ' + e.message);
     return;
@@ -4284,17 +4284,20 @@ function getMilestoneInfo(cwd) {
 
 // ─── Graph Integration ────────────────────────────────────────────────────────
 
-function getForgeGraphDir() {
-  // Resolve forge-graph/ relative to this file's location (sibling directory)
+function getForgeRoot() {
+  // FORGE_HOME env var takes priority (e.g. FORGE_HOME=/path/to/atos-forge)
+  if (process.env.FORGE_HOME) return process.env.FORGE_HOME;
+  // Default: go up 2 levels from atos-forge/bin/forge-tools.cjs → parent of atos-forge/
   const toolsDir = path.dirname(__filename);
-  const forgeRoot = path.dirname(path.dirname(toolsDir));
-  return path.join(forgeRoot, 'forge-graph');
+  return path.dirname(path.dirname(toolsDir));
+}
+
+function getForgeGraphDir() {
+  return path.join(getForgeRoot(), 'forge-graph');
 }
 
 function getForgeSessionDir() {
-  const toolsDir = path.dirname(__filename);
-  const forgeRoot = path.dirname(path.dirname(toolsDir));
-  return path.join(forgeRoot, 'forge-session');
+  return path.join(getForgeRoot(), 'forge-session');
 }
 
 function getLedger(cwd) {
@@ -6026,8 +6029,8 @@ async function main() {
 
     case 'settings': {
       try {
-        const settings = require(path.join(cwd, 'forge-config', 'settings'));
-        const forgeConfig = require(path.join(cwd, 'forge-config', 'config'));
+        const settings = require(path.join(getForgeRoot(), 'forge-config', 'settings'));
+        const forgeConfig = require(path.join(getForgeRoot(), 'forge-config', 'config'));
         const sub = args[1];
         if (sub === 'recommend') {
           const result = settings.recommend(cwd, { json: raw });
@@ -6091,7 +6094,7 @@ async function main() {
 
     case 'doctor': {
       try {
-        const doctor = require(path.join(cwd, 'forge-config', 'doctor'));
+        const doctor = require(path.join(getForgeRoot(), 'forge-config', 'doctor'));
         const result = doctor.doctor(cwd, { json: raw });
         if (raw) output(result, raw);
       } catch (e) {

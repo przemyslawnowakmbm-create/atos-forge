@@ -885,6 +885,24 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
   }
 
+  // 3b. Remove forge-* engine modules
+  const forgeModules = [
+    'forge-graph', 'forge-config', 'forge-session', 'forge-verify',
+    'forge-assess', 'forge-agents', 'forge-containers'
+  ];
+  let modCount = 0;
+  for (const mod of forgeModules) {
+    const modDir = path.join(targetDir, mod);
+    if (fs.existsSync(modDir)) {
+      fs.rmSync(modDir, { recursive: true });
+      modCount++;
+    }
+  }
+  if (modCount > 0) {
+    removedCount++;
+    console.log(`  ${green}✓${reset} Removed ${modCount} forge engine modules`);
+  }
+
   // 4. Remove A-Forge hooks
   const hooksDir = path.join(targetDir, 'hooks');
   if (fs.existsSync(hooksDir)) {
@@ -1156,6 +1174,28 @@ function configureOpencodePermissions(isGlobal = true) {
 }
 
 /**
+ * Recursively copy a directory as-is (no path replacement).
+ * Used for forge-* engine modules which are Node.js code, not markdown.
+ * Clean install: removes existing destination first.
+ */
+function copyDirectoryRecursive(srcDir, destDir) {
+  if (fs.existsSync(destDir)) {
+    fs.rmSync(destDir, { recursive: true });
+  }
+  fs.mkdirSync(destDir, { recursive: true });
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyDirectoryRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+/**
  * Verify a directory exists and contains files
  */
 function verifyInstalled(dirPath, description) {
@@ -1245,6 +1285,20 @@ function writeManifest(configDir) {
     const cmdHashes = generateManifest(commandsDir);
     for (const [rel, hash] of Object.entries(cmdHashes)) {
       manifest.files['commands/forge/' + rel] = hash;
+    }
+  }
+  // Include forge-* engine modules in manifest
+  const forgeModules = [
+    'forge-graph', 'forge-config', 'forge-session', 'forge-verify',
+    'forge-assess', 'forge-agents', 'forge-containers'
+  ];
+  for (const mod of forgeModules) {
+    const modDir = path.join(configDir, mod);
+    if (fs.existsSync(modDir)) {
+      const modHashes = generateManifest(modDir);
+      for (const [rel, hash] of Object.entries(modHashes)) {
+        manifest.files[mod + '/' + rel] = hash;
+      }
     }
   }
   if (fs.existsSync(agentsDir)) {
@@ -1402,6 +1456,25 @@ function install(isGlobal, runtime = 'claude') {
     console.log(`  ${green}✓${reset} Installed atos-forge`);
   } else {
     failures.push('atos-forge');
+  }
+
+  // Copy forge-* engine modules (graph, config, session, verify, assess, agents, containers)
+  // These are Node.js modules required by forge-tools.cjs at runtime
+  const forgeModules = [
+    'forge-graph', 'forge-config', 'forge-session', 'forge-verify',
+    'forge-assess', 'forge-agents', 'forge-containers'
+  ];
+  for (const mod of forgeModules) {
+    const modSrc = path.join(src, mod);
+    if (fs.existsSync(modSrc)) {
+      const modDest = path.join(targetDir, mod);
+      copyDirectoryRecursive(modSrc, modDest);
+      if (verifyInstalled(modDest, mod)) {
+        console.log(`  ${green}✓${reset} Installed ${mod}`);
+      } else {
+        failures.push(mod);
+      }
+    }
   }
 
   // Copy agents to agents directory
