@@ -155,6 +155,30 @@ Ledger integration: logError() for each failure, updateState({ verification: "pa
 Programmatic: require('forge-verify/engine').verify({ cwd, files, planPath, dbPath, ... })
 CLI flags: --root, --files, --plan, --db, --baseline, --layer, --fail-fast, --json, --silent, --no-ledger
 
+## Verification Loop (Auto-Fix)
+Verify → fix → re-verify loop with loop detection and escalation:
+  node forge-verify/loop.js --root . [--files f1,f2] [--plan plan.md] [--max-loops 3] [--commit] [--json]
+  node atos-forge/bin/forge-tools.cjs verify work [--files f1,f2] [--max-loops 3] [--commit] [--no-agent]
+
+Flow: verify → PASS? done : analyze fixability → build fix agent → run via worktree → re-verify → max N loops → escalate.
+Auto-fixable: type errors (L2), missing imports (L4), assertion mismatches (L5), interface breaks (L3), syntax issues (L1).
+Not auto-fixable: behavioral failures (L6) → escalate to human.
+
+Loop prevention:
+- Same patch hash twice → stuck, escalate
+- Fix introduces NEW layer failures → revert changes, escalate
+- Max loops (default 3) exceeded → escalate
+
+Fix agents receive session_context from ledger (warnings, decisions, rejected approaches).
+Each fix attempt logged: ledger.logError({ error, fix_applied, auto_fixed: true, fix_loop: N }).
+
+Wave integration:
+- verifyAfterWave(opts) — lighter check (layers 1-4), max 2 loops, after each wave
+- verifyFull(opts) — all 6 layers, max 3 loops, after all waves complete
+
+Programmatic: require('forge-verify/loop').verifyLoop({ cwd, files, maxLoops, commit, ... })
+Returns: { overall, loops[], fix_summary[], graph_diff, learnings[], escalated, escalation_reason }
+
 ## Forge Commands
 - /forge:init — Build code graph and initialize project
 - /forge:graph-status — Show code graph health, stats, hotspots

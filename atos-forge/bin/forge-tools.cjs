@@ -2543,6 +2543,38 @@ function cmdVerifyKeyLinks(cwd, planFilePath, raw) {
   }, raw, verified === results.length ? 'valid' : 'invalid');
 }
 
+// ─── Verify Work (6-layer + loop) ────────────────────────────────────────────
+
+async function cmdVerifyWork(cwd, args, raw) {
+  let verifyLoop;
+  try {
+    verifyLoop = require(path.join(cwd, 'forge-verify', 'loop'));
+  } catch (e) {
+    error('forge-verify/loop module not found: ' + e.message);
+    return;
+  }
+
+  // Parse sub-args
+  const opts = { cwd };
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--files' && args[i + 1]) { opts.files = args[++i].split(','); }
+    else if (a === '--plan' && args[i + 1]) { opts.planPath = path.isAbsolute(args[i + 1]) ? args[++i] : path.join(cwd, args[++i]); }
+    else if (a === '--max-loops' && args[i + 1]) { opts.maxLoops = parseInt(args[++i], 10); }
+    else if (a === '--commit') { opts.commit = true; }
+    else if (a === '--json' || a === '--raw') { opts.json = true; }
+    else if (a === '--no-agent') { opts.noAgent = true; }
+  }
+
+  if (raw) opts.json = true;
+
+  const result = await verifyLoop.verifyLoop(opts);
+
+  if (raw) {
+    output(result, raw);
+  }
+}
+
 // ─── Roadmap Analysis ─────────────────────────────────────────────────────────
 
 function cmdRoadmapAnalyze(cwd, raw) {
@@ -5537,8 +5569,10 @@ async function main() {
         cmdVerifyArtifacts(cwd, args[2], raw);
       } else if (subcommand === 'key-links') {
         cmdVerifyKeyLinks(cwd, args[2], raw);
+      } else if (subcommand === 'work') {
+        await cmdVerifyWork(cwd, args.slice(2), raw);
       } else {
-        error('Unknown verify subcommand. Available: plan-structure, phase-completeness, references, commits, artifacts, key-links');
+        error('Unknown verify subcommand. Available: plan-structure, phase-completeness, references, commits, artifacts, key-links, work');
       }
       break;
     }
