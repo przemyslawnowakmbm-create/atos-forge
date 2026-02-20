@@ -13,18 +13,33 @@ Optional:     Docker (for container isolation)
 
 ## Installation
 
+Install the graph engine dependencies (tree-sitter, better-sqlite3, chalk):
+
 ```bash
-# Install dependencies (graph engine needs tree-sitter and better-sqlite3)
-cd forge-graph && npm install && cd ..
+cd forge-graph
+```
 
-# Initialize the code graph and full .forge/ environment
+```bash
+npm install
+```
+
+```bash
+cd ..
+```
+
+Initialize the code graph and the full `.forge/` environment:
+
+```bash
 node atos-forge/bin/forge-tools.cjs graph init
+```
 
-# Verify everything is working
+Verify everything is working:
+
+```bash
 node atos-forge/bin/forge-tools.cjs doctor
 ```
 
-`graph init` builds the code graph, installs git hooks, generates the dashboard, creates config from the template, and sets up the session and snapshot directories.
+`graph init` builds the code graph, installs git hooks, generates the dashboard, creates config from the template, and sets up the session, snapshot, and knowledge directories.
 
 ---
 
