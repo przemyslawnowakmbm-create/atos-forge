@@ -710,18 +710,22 @@ function cmdConfigSet(cwd, keyPath, value, raw) {
 }
 
 function cmdConfigGet(cwd, keyPath, raw) {
-  const configPath = path.join(cwd, '.planning', 'config.json');
-
   if (!keyPath) {
     error('Usage: config-get <key.path>');
   }
 
+  // Try unified config first (.forge/config.json), then legacy (.planning/config.json)
   let config = {};
+  const forgeConfigPath = path.join(cwd, '.forge', 'config.json');
+  const planningConfigPath = path.join(cwd, '.planning', 'config.json');
+
   try {
-    if (fs.existsSync(configPath)) {
-      config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (fs.existsSync(forgeConfigPath)) {
+      config = JSON.parse(fs.readFileSync(forgeConfigPath, 'utf-8'));
+    } else if (fs.existsSync(planningConfigPath)) {
+      config = JSON.parse(fs.readFileSync(planningConfigPath, 'utf-8'));
     } else {
-      error('No config.json found at ' + configPath);
+      error('No config.json found (checked .forge/ and .planning/)');
     }
   } catch (err) {
     if (err.message.startsWith('No config.json')) throw err;
