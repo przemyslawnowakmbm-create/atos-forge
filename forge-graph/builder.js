@@ -662,34 +662,83 @@ function estimateComplexity(source, language) {
 
 /**
  * Resolve an import path to an actual file path in the repo.
+ * Handles: relative (./foo), @/ alias, Python absolute (app.models.ticket),
+ * and bare path heuristics.
  */
 function resolveImport(importName, sourceFile, allFilePaths) {
-  // Skip external/npm packages
-  if (!importName.startsWith('.') && !importName.startsWith('/') && !importName.startsWith('@/')) {
+  const fileSet = allFilePaths instanceof Set ? allFilePaths : new Set(allFilePaths);
+  const sourceDir = path.dirname(sourceFile);
+  const exts = Object.keys(LANGUAGE_EXTENSIONS);
+
+  // Try a resolved base path with extension/index candidates
+  function tryResolve(base) {
+    const candidates = [
+      base,
+      ...exts.map(ext => base + ext),
+      ...exts.map(ext => base + '/index' + ext),
+    ];
+    for (const c of candidates) {
+      if (fileSet.has(c)) return c;
+    }
     return null;
   }
 
-  const sourceDir = path.dirname(sourceFile);
-  let resolved;
+  // 1. Relative imports: ./foo, ../bar
+  if (importName.startsWith('.')) {
+    const resolved = path.posix.normalize(path.posix.join(sourceDir, importName));
+    return tryResolve(resolved);
+  }
 
+  // 2. @/ alias — try common prefixes: src/, frontend/src/, client/src/, etc.
   if (importName.startsWith('@/')) {
-    // Alias — resolve from repo root src/
-    resolved = importName.replace('@/', 'src/');
-  } else {
-    resolved = path.posix.normalize(path.posix.join(sourceDir, importName));
+    const tail = importName.slice(2);
+    // Try direct src/ first
+    const direct = tryResolve('src/' + tail);
+    if (direct) return direct;
+    // Try with common frontend prefixes
+    for (const prefix of ['frontend/src/', 'client/src/', 'web/src/', 'app/src/']) {
+      const result = tryResolve(prefix + tail);
+      if (result) return result;
+    }
+    return null;
   }
 
-  // Try exact match, then with extensions, then as directory with index
-  const candidates = [
-    resolved,
-    ...Object.keys(LANGUAGE_EXTENSIONS).map(ext => resolved + ext),
-    ...Object.keys(LANGUAGE_EXTENSIONS).map(ext => resolved + '/index' + ext),
-  ];
-
-  const fileSet = new Set(allFilePaths);
-  for (const candidate of candidates) {
-    if (fileSet.has(candidate)) return candidate;
+  // 3. Python absolute imports: from app.models.ticket import Ticket
+  //    importName comes in as "app.models.ticket" or "app.database"
+  if (importName.includes('.') && !importName.startsWith('/')) {
+    const asDotPath = importName.replace(/\./g, '/');
+    // Try direct (e.g., app/models/ticket.py)
+    const direct = tryResolve(asDotPath);
+    if (direct) return direct;
+    // Try with backend/ prefix (common in full-stack repos)
+    for (const prefix of ['backend/', 'server/', 'api/', '']) {
+      const result = tryResolve(prefix + asDotPath);
+      if (result) return result;
+      // Also try as package __init__.py
+      const initResult = tryResolve(prefix + asDotPath + '/__init__');
+      if (initResult) return initResult;
+    }
+    return null;
   }
+
+  // 4. Absolute path
+  if (importName.startsWith('/')) {
+    return tryResolve(importName);
+  }
+
+  // 5. Bare name heuristic — could be a local module (e.g., "utils", "config")
+  //    Only try if it could plausibly be a project file (not an npm package)
+  //    Skip if it looks like an npm package (no slash, lowercase, common package names)
+  if (importName.includes('/')) {
+    // Scoped-ish path like "components/Button" — try from source root contexts
+    const fromRoot = tryResolve(importName);
+    if (fromRoot) return fromRoot;
+    for (const prefix of ['src/', 'frontend/src/', 'backend/']) {
+      const result = tryResolve(prefix + importName);
+      if (result) return result;
+    }
+  }
+
   return null;
 }
 
@@ -1137,23 +1186,29 @@ class GraphBuilder {
         }
       }
 
-      // Dependencies
+      // Dependencies — only insert if both source and target exist in files table
       for (const dep of dependencies) {
-        insertDep.run(dep.source_file, dep.target_file, dep.import_name, dep.import_type);
+        if (fileData.has(dep.source_file) && fileData.has(dep.target_file)) {
+          insertDep.run(dep.source_file, dep.target_file, dep.import_name, dep.import_type);
+        }
       }
 
-      // Modules
+      // Modules — pass 1: insert all module records first (FK targets must exist)
       for (const [modName, modInfo] of modules) {
         insertModule.run(modName, modInfo.rootPath, modInfo.fileCount || 0, modInfo.publicApiCount || 0, modInfo.internalCount || 0, modInfo.stability || 'medium');
+      }
 
-        // Module dependencies
+      // Modules — pass 2: dependencies and capabilities (after all modules exist)
+      const moduleNames = new Set(modules.keys());
+      for (const [modName, modInfo] of modules) {
         if (modInfo.moduleDeps) {
           for (const [target, count] of modInfo.moduleDeps) {
-            insertModDep.run(modName, target, count);
+            if (moduleNames.has(target)) {
+              insertModDep.run(modName, target, count);
+            }
           }
         }
 
-        // Capabilities
         if (modInfo.capabilities) {
           for (const cap of modInfo.capabilities) {
             insertCapability.run(modName, cap.capability, cap.confidence, cap.evidence);
