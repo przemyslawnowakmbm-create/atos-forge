@@ -54,6 +54,13 @@ function buildSpec(params) {
     volumes.push({ host: dbPath, container: '/graph/graph.db', mode: 'ro' });
   }
 
+  // System graph mount (cross-repo context — optional)
+  const systemDbPath = agentConfig?.system_context?.system_db_path
+    || path.join(cwd, '.forge', 'system-graph.db');
+  if (fs.existsSync(systemDbPath)) {
+    volumes.push({ host: systemDbPath, container: '/graph/system-graph.db', mode: 'ro' });
+  }
+
   // Knowledge directory (created on demand)
   fs.mkdirSync(knowledgeDir, { recursive: true });
   volumes.push({ host: knowledgeDir, container: '/knowledge', mode: 'rw' });
@@ -93,6 +100,7 @@ function buildSpec(params) {
     FORGE_OUTPUT_PATH: '/output',
     FORGE_CONFIG_PATH: '/config/agent.json',
     FORGE_GRAPH_PATH: fs.existsSync(dbPath) ? '/graph/graph.db' : '',
+    FORGE_SYSTEM_GRAPH_PATH: fs.existsSync(systemDbPath) ? '/graph/system-graph.db' : '',
     FORGE_KNOWLEDGE_PATH: '/knowledge',
     NODE_ENV: 'production',
     HOME: '/home/forge',

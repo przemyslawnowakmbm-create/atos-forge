@@ -15,7 +15,7 @@ const path = require('path');
 // ============================================================
 
 // Lazy-loaded dependencies
-let _containerConfig, _ledger;
+let _containerConfig, _ledger, _systemQuery;
 
 function containerConfig() {
   if (!_containerConfig) _containerConfig = require('../forge-containers/config');
@@ -24,6 +24,10 @@ function containerConfig() {
 function ledger() {
   if (!_ledger) _ledger = require('../forge-session/ledger');
   return _ledger;
+}
+function systemQuery() {
+  if (!_systemQuery) _systemQuery = require('../forge-system/query');
+  return _systemQuery;
 }
 
 // ============================================================
@@ -43,6 +47,32 @@ const DEFAULT_TIME_ESTIMATE = { min: 3, max: 6 };
 // ============================================================
 // Step 1: Build Dependency DAG
 // ============================================================
+
+/**
+ * Resolve a dependency name to a task_id, supporting fuzzy matching.
+ *
+ * Plans may reference deps as "PLAN-auth-service" while the actual task_id
+ * is "04-PLAN-auth-service" (prefixed with phase number from filename).
+ * This resolves by: exact match → suffix match → service-id match.
+ */
+function resolveDepName(dep, nodes) {
+  // Exact match
+  if (nodes.has(dep)) return dep;
+
+  // Suffix match: "PLAN-auth-service" matches "04-PLAN-auth-service"
+  for (const id of nodes.keys()) {
+    if (id.endsWith(dep) || id.endsWith('-' + dep)) return id;
+  }
+
+  // Service-id match: "auth-service" matches any task with that service in frontmatter
+  const depLower = dep.replace(/^PLAN-/i, '').toLowerCase();
+  for (const [id, result] of nodes) {
+    const svc = result.agentConfig?.plan_meta?.frontmatter?.service;
+    if (svc && svc.toLowerCase() === depLower) return id;
+  }
+
+  return null;
+}
 
 /**
  * Build a dependency graph from an array of factory results.
@@ -67,20 +97,72 @@ function buildDAG(factoryResults) {
     reverseEdges.set(id, []);
   }
 
-  // Build edges from depends_on
+  // Build edges from depends_on (with fuzzy matching for cross-repo plans)
   for (const result of factoryResults) {
     const id = result.agentConfig.task_id;
     const deps = result.agentConfig.plan_meta?.frontmatter?.depends_on || [];
     for (const dep of deps) {
-      if (nodes.has(dep)) {
-        edges.get(id).push(dep);
-        reverseEdges.get(dep).push(id);
+      const resolvedDep = resolveDepName(dep, nodes);
+      if (resolvedDep) {
+        edges.get(id).push(resolvedDep);
+        reverseEdges.get(resolvedDep).push(id);
       }
       // Silently ignore unknown deps (may reference tasks outside this batch)
     }
   }
 
+  // Cross-repo ordering: provider changes before consumer changes
+  // If task A modifies a service that task B's service imports from,
+  // task A must run first (B depends_on A).
+  addCrossRepoDependencies(factoryResults, nodes, edges, reverseEdges);
+
   return { nodes, edges, reverseEdges };
+}
+
+/**
+ * Add implicit cross-repo dependency edges based on system graph.
+ *
+ * Rule: If task A touches a provider service and task B touches a consumer
+ * of that service, then B depends on A (provider changes first).
+ *
+ * Only applies when tasks have system_context from the agent factory.
+ */
+function addCrossRepoDependencies(factoryResults, nodes, edges, reverseEdges) {
+  // Build service → taskId mapping
+  const serviceToTask = new Map(); // serviceId → taskId
+  const taskToService = new Map(); // taskId → serviceId
+
+  for (const result of factoryResults) {
+    const id = result.agentConfig.task_id;
+    const serviceId = result.agentConfig.system_context?.service_id;
+    if (serviceId) {
+      serviceToTask.set(serviceId, id);
+      taskToService.set(id, serviceId);
+    }
+  }
+
+  // Skip if less than 2 services (no cross-repo to order)
+  if (serviceToTask.size < 2) return;
+
+  // For each task, check if its service is consumed by another task's service
+  for (const result of factoryResults) {
+    const id = result.agentConfig.task_id;
+    const sc = result.agentConfig.system_context;
+    if (!sc || !sc.consumers) continue;
+
+    // This task's service is a provider — find consumer tasks
+    for (const consumer of sc.consumers) {
+      const consumerTaskId = serviceToTask.get(consumer.consumer_id);
+      if (consumerTaskId && consumerTaskId !== id) {
+        // Consumer task depends on this provider task
+        const existingDeps = edges.get(consumerTaskId);
+        if (existingDeps && !existingDeps.includes(id)) {
+          existingDeps.push(id);
+          reverseEdges.get(id).push(consumerTaskId);
+        }
+      }
+    }
+  }
 }
 
 // ============================================================

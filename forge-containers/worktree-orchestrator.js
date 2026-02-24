@@ -161,6 +161,49 @@ function prepareWorktree(worktreePath, cwd, agentConfig) {
     fs.copyFileSync(ledgerSrc, path.join(ledgerDir, 'ledger.md'));
   }
 
+  // Copy system-graph.db if available (cross-repo context)
+  const systemDbPath = agentConfig.system_context?.system_db_path
+    || path.join(cwd, '.forge', 'system-graph.db');
+  if (fs.existsSync(systemDbPath)) {
+    const forgeDest = path.join(worktreePath, '.forge');
+    fs.mkdirSync(forgeDest, { recursive: true });
+    fs.copyFileSync(systemDbPath, path.join(forgeDest, 'system-graph.db'));
+  }
+
+  // Copy neighbor interfaces.yaml files for cross-repo reference
+  if (agentConfig.system_context) {
+    const neighborDir = path.join(worktreePath, '.forge', 'neighbor-interfaces');
+    let hasNeighbors = false;
+    const sc = agentConfig.system_context;
+    const neighborServices = [
+      ...(sc.consumers || []).map(c => c.consumer_id),
+      ...(sc.imports || []).map(i => i.provider_id),
+    ];
+    for (const svcId of new Set(neighborServices)) {
+      // Try to find the neighbor's interfaces.yaml via system graph
+      try {
+        const SQ = require('../forge-system/query');
+        const sq = new SQ.SystemQuery(systemDbPath);
+        sq.open();
+        try {
+          const svc = sq.service(svcId);
+          if (svc && svc.service && svc.service.repo_path) {
+            const neighborYaml = path.join(svc.service.repo_path, '.forge', 'interfaces.yaml');
+            if (fs.existsSync(neighborYaml)) {
+              if (!hasNeighbors) {
+                fs.mkdirSync(neighborDir, { recursive: true });
+                hasNeighbors = true;
+              }
+              fs.copyFileSync(neighborYaml, path.join(neighborDir, `${svcId}.yaml`));
+            }
+          }
+        } finally {
+          sq.close();
+        }
+      } catch { /* non-fatal */ }
+    }
+  }
+
   // Git identity for the worktree
   try {
     execSync('git config user.email "forge-agent@localhost"', { cwd: worktreePath, stdio: 'pipe' });
@@ -212,6 +255,26 @@ function buildPrompt(agentConfig) {
     if (gc.cycles_count > 0) {
       parts.push(`WARNING: ${gc.cycles_count} circular dependency cycle(s) detected`);
     }
+    parts.push('');
+  }
+
+  // System graph context (cross-repo)
+  if (agentConfig.system_context) {
+    const sc = agentConfig.system_context;
+    parts.push('## Cross-Repo Context');
+    parts.push(`Service: ${sc.service_id}`);
+    if (sc.exports && sc.exports.length > 0) {
+      parts.push(`Exports: ${sc.exports.map(e => `${e.type}/${e.name}`).join(', ')}`);
+    }
+    if (sc.consumers && sc.consumers.length > 0) {
+      parts.push(`Consumers: ${sc.consumers.map(c => c.consumer_id).join(', ')}`);
+      parts.push(`WARNING: Do NOT change exported interfaces — ${sc.consumers.length} service(s) depend on them.`);
+    }
+    if (sc.imports && sc.imports.length > 0) {
+      parts.push(`Dependencies: ${sc.imports.map(i => `${i.provider_id}(${i.type})`).join(', ')}`);
+    }
+    parts.push('System graph available at: .forge/system-graph.db');
+    parts.push('Neighbor interfaces at: .forge/neighbor-interfaces/');
     parts.push('');
   }
 

@@ -585,7 +585,22 @@ function archive(cwd, label) {
  * @param {string} [label]
  */
 function archiveAndReset(cwd, label) {
+  // Capture content before archiving for knowledge promotion
+  const contentBeforeReset = readRaw(cwd);
+
   const result = archive(cwd, label);
+
+  // Auto-promote learnings to persistent knowledge base
+  if (contentBeforeReset) {
+    try {
+      const knowledge = require('./knowledge');
+      const promoteResult = knowledge.promote(cwd, contentBeforeReset);
+      if (promoteResult.promoted > 0) {
+        result.knowledge_promoted = promoteResult.promoted;
+        result.knowledge_skipped = promoteResult.skipped;
+      }
+    } catch { /* knowledge module not available or promotion failed */ }
+  }
 
   // Create fresh ledger
   const header = {
@@ -599,9 +614,8 @@ function archiveAndReset(cwd, label) {
   }
 
   // Carry forward user preferences from old ledger
-  const old = readRaw(cwd);
-  if (old) {
-    const parsed = parseLedger(old);
+  if (contentBeforeReset) {
+    const parsed = parseLedger(contentBeforeReset);
     if (parsed.sections['User Preferences']) {
       sections['User Preferences'] = parsed.sections['User Preferences'];
     }

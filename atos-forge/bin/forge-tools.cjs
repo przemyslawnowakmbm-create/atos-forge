@@ -4305,6 +4305,10 @@ function getForgeGraphDir() {
   return path.join(getForgeRoot(), 'forge-graph');
 }
 
+function getForgeSystemDir() {
+  return path.join(getForgeRoot(), 'forge-system');
+}
+
 function getForgeSessionDir() {
   return path.join(getForgeRoot(), 'forge-session');
 }
@@ -4458,6 +4462,19 @@ function cmdGraphInit(cwd, args, raw) {
     capabilitiesDetected = 1; // success flag
   } catch {}
 
+  // Run interface detection (forge-system)
+  let interfacesDetected = 0;
+  let interfacesPath = null;
+  try {
+    const detectMod = require(path.join(getForgeSystemDir(), 'detect'));
+    const detection = detectMod.detectInterfaces(rootArg);
+    if (detection.exports.length > 0 || detection.imports.length > 0) {
+      const yaml = detectMod.generateYAML(detection);
+      interfacesPath = detectMod.writeInterfacesYAML(rootArg, yaml);
+      interfacesDetected = detection.exports.length + detection.imports.length;
+    }
+  } catch { /* non-fatal — forge-system may not be installed */ }
+
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   // Read stats from the freshly built graph
@@ -4530,6 +4547,8 @@ function cmdGraphInit(cwd, args, raw) {
     config_created: configCreated,
     snapshot_saved: snapshotSaved,
     dashboard_generated: dashboardGenerated,
+    interfaces_detected: interfacesDetected,
+    interfaces_path: interfacesPath,
     directories_created: ['session', 'snapshots', 'knowledge'],
     db_path: graphDbPath(cwd),
   };
@@ -4772,6 +4791,241 @@ function cmdGraphQuery(cwd, command, args, raw) {
     if (stderr) process.stderr.write(stderr + '\n');
     if (!stdout && !stderr) error(`graph ${command} failed: ${e.message}`);
   }
+}
+
+// ─── System Graph Commands ────────────────────────────────────────────────────
+
+/**
+ * Run a forge-system module via child process, streaming output.
+ */
+function runSystemModule(cwd, moduleName, cliArgs, raw) {
+  const systemDir = getForgeSystemDir();
+  const modulePath = path.join(systemDir, moduleName);
+  if (!fs.existsSync(modulePath)) {
+    error(`Module not found: ${modulePath}`);
+  }
+  const jsonFlag = raw ? ' --json' : '';
+  const cmd = `node "${modulePath}" ${cliArgs.join(' ')}${jsonFlag}`;
+  try {
+    const result = execSync(cmd, {
+      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 300000, // 5 min for system-init
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    if (raw) {
+      try { output(JSON.parse(result), raw); }
+      catch { process.stdout.write(result); }
+    } else {
+      process.stdout.write(result);
+    }
+  } catch (e) {
+    const stderr = e.stderr ? e.stderr.trim() : '';
+    const stdout = e.stdout ? e.stdout.trim() : '';
+    if (stdout) process.stdout.write(stdout + '\n');
+    if (stderr) process.stderr.write(stderr + '\n');
+    if (!stdout && !stderr) error(`system command failed: ${e.message}`);
+  }
+}
+
+function cmdSystemInit(cwd, args, raw) {
+  const cliArgs = [];
+  // Pass through known flags
+  const pathIdx = args.indexOf('--path');
+  if (pathIdx !== -1 && args[pathIdx + 1]) cliArgs.push('--path', args[pathIdx + 1]);
+  const reposIdx = args.indexOf('--repos');
+  if (reposIdx !== -1 && args[reposIdx + 1]) cliArgs.push('--repos', args[reposIdx + 1]);
+  const orgIdx = args.indexOf('--github-org');
+  if (orgIdx !== -1 && args[orgIdx + 1]) cliArgs.push('--github-org', args[orgIdx + 1]);
+  const outputIdx = args.indexOf('--output');
+  if (outputIdx !== -1 && args[outputIdx + 1]) cliArgs.push('--output', args[outputIdx + 1]);
+  const workersIdx = args.indexOf('--workers');
+  if (workersIdx !== -1 && args[workersIdx + 1]) cliArgs.push('--workers', args[workersIdx + 1]);
+  if (args.includes('--force')) cliArgs.push('--force');
+  if (args.includes('--dry-run')) cliArgs.push('--dry-run');
+  if (args.includes('--workspace')) cliArgs.push('--workspace');
+
+  // Default: use cwd parent as discovery path if no source specified
+  if (!cliArgs.some(a => a === '--path' || a === '--repos' || a === '--github-org')) {
+    cliArgs.push('--path', path.dirname(cwd));
+  }
+
+  runSystemModule(cwd, 'system-init.js', cliArgs, raw);
+}
+
+function cmdSystemRebuild(cwd, args, raw) {
+  // Rebuild = force re-init
+  cmdSystemInit(cwd, [...args, '--force'], raw);
+}
+
+function cmdSystemSync(cwd, args, raw) {
+  const cliArgs = [];
+  // Resolve system DB
+  const dbIdx = args.indexOf('--db');
+  if (dbIdx !== -1 && args[dbIdx + 1]) {
+    cliArgs.push('--db', args[dbIdx + 1]);
+  } else {
+    // Auto-resolve system DB
+    const candidates = [
+      path.join(cwd, '.forge', 'system-graph.db'),
+      path.join(path.dirname(cwd), '.forge', 'system-graph.db'),
+      path.join(path.dirname(cwd), 'system-graph.db'),
+    ];
+    const home = process.env.HOME || '';
+    if (home) candidates.push(path.join(home, '.forge', 'system-graph.db'));
+    const found = candidates.find(c => fs.existsSync(c));
+    if (found) cliArgs.push('--db', found);
+    else error('System graph not found. Run system-init first, or specify --db <path>.');
+  }
+  const repoIdx = args.indexOf('--repo');
+  if (repoIdx !== -1 && args[repoIdx + 1]) cliArgs.push('--repo', args[repoIdx + 1]);
+  else cliArgs.push('--repo', cwd);
+
+  runSystemModule(cwd, 'sync.js', cliArgs, raw);
+}
+
+function cmdSystemStatus(cwd, args, raw) {
+  // Resolve system DB
+  const dbPath = resolveSystemDbPath(cwd, args);
+  if (!dbPath) {
+    if (raw) {
+      output({ found: false, message: 'No system graph found. Run system-init first.' }, raw);
+    } else {
+      console.log('No system graph found. Run `forge-tools system init` first.');
+    }
+    return;
+  }
+
+  const systemDir = getForgeSystemDir();
+  try {
+    const SQ = require(path.join(systemDir, 'query')).SystemQuery;
+    const sq = new SQ(dbPath);
+    sq.open();
+    const overview = sq.overview();
+    const cycles = sq.cycles();
+    sq.close();
+
+    // Add file info
+    const stat = fs.statSync(dbPath);
+    const ageMs = Date.now() - stat.mtimeMs;
+    const ageH = Math.floor(ageMs / 3600000);
+    const freshness = ageH < 1 ? 'just now' : ageH < 24 ? `${ageH}h ago` : `${Math.floor(ageH / 24)}d ago`;
+    const sizeKB = Math.round(stat.size / 1024);
+
+    const result = {
+      found: true,
+      db_path: dbPath,
+      size_kb: sizeKB,
+      freshness,
+      stale: ageH >= 24,
+      ...overview,
+      cycles: cycles.count,
+    };
+
+    if (raw) {
+      output(result, raw);
+    } else {
+      console.log('');
+      console.log('  System Graph Status');
+      console.log('  ──────────────────────────────');
+      console.log(`  DB:           ${dbPath}`);
+      console.log(`  Size:         ${sizeKB} KB`);
+      console.log(`  Built:        ${freshness}${result.stale ? ' (STALE)' : ''}`);
+      console.log(`  Services:     ${result.services}`);
+      console.log(`  Interfaces:   ${result.interfaces}`);
+      console.log(`  Dependencies: ${result.dependencies}`);
+      console.log(`  Teams:        ${result.teams}`);
+      console.log(`  Cycles:       ${result.cycles === 0 ? '0 (clean)' : `${result.cycles} (WARNING)`}`);
+      if (result.interface_types && result.interface_types.length > 0) {
+        console.log('');
+        console.log('  Interface Types:');
+        for (const t of result.interface_types) {
+          console.log(`    ${t.type.padEnd(12)} ${t.count}`);
+        }
+      }
+      if (result.risk_distribution && result.risk_distribution.length > 0) {
+        console.log('');
+        console.log('  Risk Distribution:');
+        for (const r of result.risk_distribution) {
+          console.log(`    ${r.risk_level.padEnd(12)} ${r.count}`);
+        }
+      }
+      console.log('');
+    }
+  } catch (e) {
+    error(`Failed to read system graph: ${e.message}`);
+  }
+}
+
+function cmdSystemImpact(cwd, args, raw) {
+  const service = args.find(a => !a.startsWith('--'));
+  if (!service) {
+    error('Usage: system impact <service-id> [--depth N] [--interface name] [--db path]');
+  }
+  const cliArgs = ['impact', service];
+  const depthIdx = args.indexOf('--depth');
+  if (depthIdx !== -1 && args[depthIdx + 1]) cliArgs.push('--depth', args[depthIdx + 1]);
+  const ifaceIdx = args.indexOf('--interface');
+  if (ifaceIdx !== -1 && args[ifaceIdx + 1]) cliArgs.push('--interface', args[ifaceIdx + 1]);
+
+  const dbPath = resolveSystemDbPath(cwd, args);
+  if (dbPath) cliArgs.push('--db', dbPath);
+
+  runSystemModule(cwd, 'query.js', cliArgs, raw);
+}
+
+function cmdSystemValidate(cwd, args, raw) {
+  // Validate interfaces.yaml in cwd
+  const interfacesPath = path.join(cwd, '.forge', 'interfaces.yaml');
+  if (!fs.existsSync(interfacesPath)) {
+    if (raw) {
+      output({ valid: false, error: 'No interfaces.yaml found' }, raw);
+    } else {
+      console.log('No .forge/interfaces.yaml found. Run forge:init first.');
+    }
+    return;
+  }
+  const cliArgs = [interfacesPath];
+  if (args.includes('--strict')) cliArgs.push('--strict');
+
+  // If system DB exists, also run cross-repo validation
+  const dbPath = resolveSystemDbPath(cwd, args);
+  if (dbPath) cliArgs.push('--db', dbPath);
+
+  runSystemModule(cwd, 'validate.js', cliArgs, raw);
+}
+
+function cmdSystemDashboard(cwd, args, raw) {
+  const dbPath = resolveSystemDbPath(cwd, args);
+  if (!dbPath) {
+    error('No system graph found. Run system-init first, or specify --db <path>.');
+  }
+  const cliArgs = ['--db', dbPath];
+  const outputIdx = args.indexOf('--output');
+  if (outputIdx !== -1 && args[outputIdx + 1]) cliArgs.push('--output', args[outputIdx + 1]);
+  if (args.includes('--no-open')) cliArgs.push('--no-open');
+
+  runSystemModule(cwd, 'dashboard.js', cliArgs, raw);
+}
+
+/**
+ * Resolve system-graph.db path from args or common locations.
+ */
+function resolveSystemDbPath(cwd, args) {
+  const dbIdx = (args || []).indexOf('--db');
+  if (dbIdx !== -1 && args[dbIdx + 1] && fs.existsSync(args[dbIdx + 1])) {
+    return args[dbIdx + 1];
+  }
+  const candidates = [
+    path.join(cwd, '.forge', 'system-graph.db'),
+    path.join(path.dirname(cwd), '.forge', 'system-graph.db'),
+    path.join(path.dirname(cwd), 'system-graph.db'),
+  ];
+  const home = process.env.HOME || '';
+  if (home) candidates.push(path.join(home, '.forge', 'system-graph.db'));
+  if (process.env.FORGE_SYSTEM_GRAPH_PATH && fs.existsSync(process.env.FORGE_SYSTEM_GRAPH_PATH)) {
+    return process.env.FORGE_SYSTEM_GRAPH_PATH;
+  }
+  return candidates.find(c => fs.existsSync(c)) || null;
 }
 
 // ─── Compound Init Commands ───────────────────────────────────────────────────
@@ -5526,7 +5780,7 @@ async function main() {
   const cwd = process.cwd();
 
   if (!command) {
-    error('Usage: forge-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, init');
+    error('Usage: forge-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, init, graph, ledger, system, settings, doctor');
   }
 
   switch (command) {
@@ -6101,6 +6355,29 @@ async function main() {
       break;
     }
 
+    case 'system': {
+      const sub = args[1];
+      const subArgs = args.slice(2);
+      if (sub === 'init') {
+        cmdSystemInit(cwd, subArgs, raw);
+      } else if (sub === 'rebuild') {
+        cmdSystemRebuild(cwd, subArgs, raw);
+      } else if (sub === 'sync') {
+        cmdSystemSync(cwd, subArgs, raw);
+      } else if (sub === 'status') {
+        cmdSystemStatus(cwd, subArgs, raw);
+      } else if (sub === 'impact') {
+        cmdSystemImpact(cwd, subArgs, raw);
+      } else if (sub === 'validate') {
+        cmdSystemValidate(cwd, subArgs, raw);
+      } else if (sub === 'dashboard') {
+        cmdSystemDashboard(cwd, subArgs, raw);
+      } else {
+        error('Unknown system subcommand. Available: init, rebuild, sync, status, impact, validate, dashboard');
+      }
+      break;
+    }
+
     case 'doctor': {
       try {
         const doctor = require(path.join(getForgeRoot(), 'forge-config', 'doctor'));
@@ -6108,6 +6385,163 @@ async function main() {
         if (raw) output(result, raw);
       } catch (e) {
         error('Doctor error: ' + e.message);
+      }
+      break;
+    }
+
+    case 'knowledge': {
+      try {
+        const knowledge = require(path.join(getForgeRoot(), 'forge-session', 'knowledge'));
+        const sub = args[1];
+        if (!sub || sub === 'list') {
+          const data = knowledge.load(cwd);
+          if (raw) {
+            output(data, raw);
+          } else if (data.learnings.length === 0) {
+            console.log('No learnings in knowledge base.');
+          } else {
+            console.log(`\nKnowledge base: ${data.learnings.length} entries\n`);
+            for (const l of data.learnings) {
+              const mods = l.modules && l.modules.length > 0 ? ` [${l.modules.join(', ')}]` : '';
+              const src = l.source_milestone ? ` (${l.source_milestone}${l.source_phase ? ', phase ' + l.source_phase : ''})` : '';
+              console.log(`  ${l.id}  [${l.type}] ${(l.relevance || 'medium').toUpperCase()}${mods}${src}`);
+              console.log(`         ${l.text}`);
+              console.log('');
+            }
+          }
+        } else if (sub === 'add') {
+          const text = args[2];
+          if (!text) {
+            error('Usage: knowledge add <text> [--type <type>] [--modules <m1,m2>] [--relevance <level>]');
+            break;
+          }
+          const typeIdx = args.indexOf('--type');
+          const modIdx = args.indexOf('--modules');
+          const relIdx = args.indexOf('--relevance');
+          const type = typeIdx >= 0 ? args[typeIdx + 1] : 'convention';
+          const modules = modIdx >= 0 ? args[modIdx + 1].split(',') : [];
+          const relevance = relIdx >= 0 ? args[relIdx + 1] : 'medium';
+          const result = knowledge.add(cwd, { text, type, modules, relevance });
+          if (raw) {
+            output(result, raw);
+          } else if (result.added) {
+            console.log(`Added learning ${result.id}`);
+          } else {
+            console.log(`Skipped: ${result.reason} (existing: ${result.id})`);
+          }
+        } else if (sub === 'prune') {
+          const ids = args.slice(2).filter(a => !a.startsWith('--'));
+          if (ids.length === 0) {
+            error('Usage: knowledge prune <id1> [id2 ...]');
+            break;
+          }
+          const result = knowledge.prune(cwd, ids);
+          if (raw) {
+            output(result, raw);
+          } else {
+            console.log(`Removed ${result.removed} entries, ${result.remaining} remaining.`);
+          }
+        } else if (sub === 'promote') {
+          const ledger = require(path.join(getForgeRoot(), 'forge-session', 'ledger'));
+          const content = ledger.read(cwd);
+          if (!content) {
+            error('No ledger found at ' + cwd);
+            break;
+          }
+          const result = knowledge.promote(cwd, content);
+          if (raw) {
+            output(result, raw);
+          } else {
+            console.log(`Promoted ${result.promoted} learnings, skipped ${result.skipped} duplicates.`);
+            if (result.entries.length > 0) {
+              for (const e of result.entries) {
+                console.log(`  ${e.id} [${e.type}] ${e.text.substring(0, 60)}...`);
+              }
+            }
+          }
+        } else {
+          error('Unknown knowledge subcommand. Available: list, add, prune, promote');
+        }
+      } catch (e) {
+        error('Knowledge error: ' + e.message);
+      }
+      break;
+    }
+
+    case 'impact': {
+      try {
+        const analyzer = require(path.join(getForgeRoot(), 'forge-analyze', 'analyzer'));
+        const sub = args[1];
+        if (!sub || sub === 'analyze') {
+          const phaseIdx = args.indexOf('--phase');
+          const goalIdx = args.indexOf('--goal');
+          const dbIdx = args.indexOf('--db');
+          const phaseNumber = phaseIdx >= 0 ? parseInt(args[phaseIdx + 1], 10) : null;
+          const goalText = goalIdx >= 0 ? args[goalIdx + 1] : '';
+          const dbPath = dbIdx >= 0 ? args[dbIdx + 1] : undefined;
+
+          // Auto-read phase goal from ROADMAP.md
+          let phaseGoal = goalText;
+          if (!phaseGoal && phaseNumber) {
+            try {
+              const roadmap = require('fs').readFileSync(path.join(cwd, '.planning', 'ROADMAP.md'), 'utf8');
+              // Match "## Phase N: Title" and grab the title + first paragraph
+              const re = new RegExp(`##\\s*Phase\\s+${phaseNumber}[:\\s]+([^\\n]+)(?:\\n([\\s\\S]*?)(?=\\n##|$))`, 'i');
+              const m = roadmap.match(re);
+              if (m) {
+                const title = m[1].trim();
+                const body = (m[2] || '').trim().split('\n').slice(0, 5).join('\n'); // first 5 lines
+                phaseGoal = title + (body ? '\n' + body : '');
+              }
+            } catch { /* no roadmap */ }
+          }
+
+          // Auto-read requirements
+          let requirements = '';
+          try {
+            const reqPath = path.join(cwd, '.planning', 'REQUIREMENTS.md');
+            if (require('fs').existsSync(reqPath)) {
+              requirements = require('fs').readFileSync(reqPath, 'utf8');
+            }
+          } catch { /* no requirements */ }
+
+          const result = analyzer.analyzeRequirement(cwd, {
+            phase_goal: phaseGoal,
+            phase_requirements: requirements,
+            system_db: dbPath,
+          });
+
+          // Write IMPACT files if --write flag or phase specified
+          if (phaseNumber && args.includes('--write')) {
+            const written = analyzer.writeImpact(cwd, phaseNumber, result, phaseGoal);
+            if (written) result._written = written;
+          }
+
+          if (raw || args.includes('--json')) {
+            output(result, true);
+          } else {
+            const md = analyzer.generateImpactMarkdown(result, phaseNumber, phaseGoal || 'Unknown');
+            console.log(md);
+          }
+        } else if (sub === 'show') {
+          const phaseIdx = args.indexOf('--phase');
+          const phaseNumber = phaseIdx >= 0 ? parseInt(args[phaseIdx + 1], 10) : null;
+          if (!phaseNumber) {
+            error('Usage: impact show --phase <N>');
+            break;
+          }
+          const padded = String(phaseNumber).padStart(2, '0');
+          const mdPath = path.join(cwd, '.planning', 'phases', padded, `${padded}-IMPACT.md`);
+          if (require('fs').existsSync(mdPath)) {
+            console.log(require('fs').readFileSync(mdPath, 'utf8'));
+          } else {
+            error(`No IMPACT.md found for phase ${phaseNumber}`);
+          }
+        } else {
+          error('Unknown impact subcommand. Available: analyze, show');
+        }
+      } catch (e) {
+        error('Impact analysis error: ' + e.message);
       }
       break;
     }

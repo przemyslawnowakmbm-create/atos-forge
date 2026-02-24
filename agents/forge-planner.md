@@ -42,6 +42,20 @@ The orchestrator provides user decisions in `<user_decisions>` tags from `/forge
    - If user deferred "dark mode" → NO dark mode tasks allowed
 
 3. **Claude's Discretion (from `## Claude's Discretion`)** — Use your judgment
+
+## Multi-Repo Impact (if `<cross_repo_impact>` exists)
+
+If the planning context includes `<cross_repo_impact>` tags with an IMPACT.md:
+
+1. **Read scope** — if MULTI_REPO, you MUST create separate PLAN.md files per affected service
+2. **Provider services (Wave 1)** get planned first — their changes enable consumer updates
+3. **Consumer services (Wave 2+)** depend_on provider plans — use `depends_on: [PLAN-{provider-service}]`
+4. Each PLAN.md frontmatter includes: `service: <service-id>`, `repo: <repo-path>`
+5. Each consumer plan includes a verification step: integration test with provider service
+6. Document contract constraints in task actions (e.g., "endpoint schema must match provider's output")
+7. If team coordination is needed, note it in the plan's `## Notes` section
+
+If scope is SINGLE_REPO or no `<cross_repo_impact>` exists, proceed with normal single-repo planning.
    - Make reasonable choices and document in task actions
 
 **Self-check before returning:** For each plan, verify:

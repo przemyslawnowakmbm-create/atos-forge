@@ -294,6 +294,54 @@ issue:
   fix_hint: "Remove search task - belongs in future phase per user decision"
 ```
 
+## Dimension 8: Architectural Fitness (if codebase map exists)
+
+**Question:** Do plans respect established architecture and conventions?
+
+**Only check if `.planning/codebase/ARCHITECTURE.md` or `.planning/codebase/CONVENTIONS.md` exists.** Skip gracefully if neither file exists (greenfield project or map not yet run).
+
+**Process:**
+1. Read `.planning/codebase/ARCHITECTURE.md` for layer boundaries and patterns
+2. Read `.planning/codebase/CONVENTIONS.md` for naming, style, and structural rules
+3. For each plan task, check:
+   - Do file modifications respect documented layer boundaries? (e.g., UI code shouldn't import from database layer directly)
+   - Do new files follow naming conventions from CONVENTIONS.md?
+   - Do new endpoints/services follow established patterns from ARCHITECTURE.md?
+   - Are cross-cutting concerns handled consistently? (error handling, logging, auth patterns)
+
+**Severity:** `suggestion` only — architectural fitness issues do NOT block execution. They flag potential alignment problems for the planner to consider.
+
+**Red flags:**
+- New file in `frontend/` importing directly from `backend/` or `database/` layer
+- Endpoint not following established routing pattern (e.g., REST resource naming)
+- New service bypassing established middleware or auth patterns
+- File naming doesn't match project conventions (e.g., camelCase vs kebab-case)
+- Error handling inconsistent with documented patterns
+
+**Example issue:**
+```yaml
+issue:
+  dimension: architectural_fitness
+  severity: suggestion
+  description: "Plan creates src/utils/authHelper.ts but CONVENTIONS.md specifies kebab-case for utility files"
+  plan: "01"
+  task: 2
+  convention: "File naming: kebab-case for all files (CONVENTIONS.md)"
+  fix_hint: "Rename to src/utils/auth-helper.ts"
+```
+
+**Example — layer violation:**
+```yaml
+issue:
+  dimension: architectural_fitness
+  severity: suggestion
+  description: "Task 3 creates a React component that imports from src/database/queries.ts — violates layer boundary"
+  plan: "02"
+  task: 3
+  architecture_rule: "UI layer must access data through API layer only (ARCHITECTURE.md)"
+  fix_hint: "Create an API route and have the component fetch from it instead"
+```
+
 </verification_dimensions>
 
 <verification_process>
@@ -438,7 +486,21 @@ Thresholds: 2-3 tasks/plan good, 4 warning, 5+ blocker (split required).
 
 **Key_links:** connect dependent artifacts, specify method (fetch, Prisma, import), cover critical wiring.
 
-## Step 10: Determine Overall Status
+## Step 10: Check Architectural Fitness (if codebase map exists)
+
+```bash
+# Check if architecture/conventions docs exist
+ls .planning/codebase/ARCHITECTURE.md .planning/codebase/CONVENTIONS.md 2>/dev/null
+```
+
+If either file exists:
+1. Read the architecture/conventions documents
+2. For each plan's file modifications and new files, check against documented rules
+3. Report suggestions (non-blocking) for misalignments
+
+This dimension produces **suggestions only** — it never blocks execution.
+
+## Step 11: Determine Overall Status
 
 **passed:** All requirements covered, all tasks complete, dependency graph valid, key links planned, scope within budget, must_haves properly derived.
 
@@ -618,6 +680,10 @@ Plan verification complete when:
   - [ ] Locked decisions have implementing tasks
   - [ ] No tasks contradict locked decisions
   - [ ] Deferred ideas not included in plans
+- [ ] Architectural fitness checked (if .planning/codebase/ docs exist):
+  - [ ] Layer boundaries respected
+  - [ ] Naming conventions followed
+  - [ ] Established patterns used
 - [ ] Overall status determined (passed | issues_found)
 - [ ] Structured issues returned (if any found)
 - [ ] Result returned to orchestrator

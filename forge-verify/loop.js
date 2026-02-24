@@ -75,6 +75,7 @@ const AUTO_FIXABLE_LAYERS = new Set([
   'INTERFACE_CONTRACTS',
   'DEPENDENCY',
   'TESTS',
+  'CONTRACT',
 ]);
 
 // Layers that need human intervention
@@ -215,6 +216,20 @@ function getLayerErrorDetails(layer) {
       errors.push({ type: 'behavioral_failure', label: 'Behavioral check failed', message: layer.result.reason || '' });
     }
   }
+  if (layer.name === 'CONTRACT') {
+    for (const issue of (layer.result.drift || []).filter(d => d.severity === 'error')) {
+      errors.push({ type: 'contract_drift', name: issue.name, message: issue.message, suggestion: issue.suggestion });
+    }
+    for (const issue of (layer.result.compatibility || []).filter(c => c.severity === 'error')) {
+      errors.push({ type: 'contract_compat', name: issue.name, message: issue.message, suggestion: issue.suggestion });
+    }
+    for (const issue of (layer.result.ripple || []).filter(r => r.severity === 'error')) {
+      errors.push({
+        type: 'contract_ripple', name: issue.name, message: issue.message,
+        affected_consumers: issue.affected_consumers || [], suggestion: issue.suggestion,
+      });
+    }
+  }
 
   return errors;
 }
@@ -269,6 +284,21 @@ function buildFixPrompt(autoFixable, verifyResult) {
             parts.push(`  \`\`\`\n${lastLines}\n  \`\`\``);
           }
           break;
+        case 'contract_drift':
+          parts.push(`- **Contract drift**: ${err.message}`);
+          if (err.suggestion) parts.push(`  ${err.suggestion}`);
+          break;
+        case 'contract_compat':
+          parts.push(`- **Backward compatibility**: ${err.message}`);
+          if (err.suggestion) parts.push(`  ${err.suggestion}`);
+          break;
+        case 'contract_ripple':
+          parts.push(`- **Cross-repo ripple**: ${err.message}`);
+          if (err.affected_consumers && err.affected_consumers.length > 0) {
+            parts.push(`  Affected: ${err.affected_consumers.map(c => c.id || c).slice(0, 5).join(', ')}`);
+          }
+          if (err.suggestion) parts.push(`  ${err.suggestion}`);
+          break;
       }
       parts.push('');
     }
@@ -289,6 +319,7 @@ function buildFixPrompt(autoFixable, verifyResult) {
     if (group.layer === 'INTERFACE_CONTRACTS') parts.push('- No interface contract breaks');
     if (group.layer === 'DEPENDENCY') parts.push('- No new circular dependencies or orphaned imports');
     if (group.layer === 'TESTS') parts.push('- All tests pass');
+    if (group.layer === 'CONTRACT') parts.push('- No cross-repo contract violations (code matches interfaces.yaml, backward-compatible)');
   }
 
   return parts.join('\n');

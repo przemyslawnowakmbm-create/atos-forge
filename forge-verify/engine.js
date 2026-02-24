@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * 6-Layer Verification Engine — graph-aware, fail-fast verification pipeline.
+ * 7-Layer Verification Engine — graph-aware, fail-fast verification pipeline.
  *
  * Layers (run in order, fail-fast):
  *   1. STRUCTURAL   (<5s)    — syntax errors, stray console.log/debugger
@@ -11,12 +11,14 @@
  *   4. DEPENDENCY    (<5s)    — new circular deps, orphaned imports
  *   5. TESTS         (30s-5m) — graph-identified test files + integration
  *   6. BEHAVIORAL    (varies) — plan's custom verify steps (curl, CLI, etc.)
+ *   7. CONTRACT      (5-30s)  — cross-repo contract verification (code↔YAML drift,
+ *                                backward compat, consumer ripple via system-graph.db)
  *
  * Output: { overall, layers[], fix_suggestions[], auto_fixable, graph_diff }
  *
  * Usage:
  *   node forge-verify/engine.js --root . [--files f1,f2] [--plan plan.md]
- *       [--db path] [--layer 1-6] [--fail-fast] [--json] [--baseline db]
+ *       [--db path] [--layer 1-7] [--fail-fast] [--json] [--baseline db]
  *   Programmatic:
  *     const { verify } = require('./engine');
  *     const result = await verify({ cwd, files, plan, dbPath, ... });
@@ -56,6 +58,8 @@ const LAYER_NAMES = [
   'DEPENDENCY',
   'TESTS',
   'BEHAVIORAL',
+  'CONTRACT',
+  'ARCHITECTURAL',
 ];
 
 const LAYER_ICONS = { pass: '\u2705', fail: '\u274C', skip: '\u23ED\uFE0F' };
@@ -840,6 +844,171 @@ function isBuiltInCheck(cmd) {
 }
 
 // ============================================================
+// Layer 7 — CONTRACT (lazy-loaded)
+// ============================================================
+
+let _contractLayer;
+function contractLayer() {
+  if (!_contractLayer) {
+    try { _contractLayer = require('./contract-layer'); }
+    catch { _contractLayer = null; }
+  }
+  return _contractLayer;
+}
+
+// ============================================================
+// Layer 8 — ARCHITECTURAL (optional, agent-based)
+// ============================================================
+
+/**
+ * Architectural verification layer.
+ * Reads ARCHITECTURE.md and CONVENTIONS.md, then uses a Claude agent
+ * to check changed files against documented rules.
+ *
+ * This layer is optional (off by default) and expensive (LLM call).
+ * Enable via config: verification.layers.architectural = true
+ *
+ * @param {object} opts
+ * @param {string} opts.cwd
+ * @param {string[]} opts.files - Changed files
+ * @returns {{ passed: boolean, skipped: boolean, issues: Array, duration_ms: number }}
+ */
+function layerArchitectural(opts) {
+  const start = Date.now();
+  const { cwd, files } = opts;
+
+  // Load architecture and conventions docs
+  const archPath = path.join(cwd, '.planning', 'codebase', 'ARCHITECTURE.md');
+  const convPath = path.join(cwd, '.planning', 'codebase', 'CONVENTIONS.md');
+
+  const hasArch = fs.existsSync(archPath);
+  const hasConv = fs.existsSync(convPath);
+
+  if (!hasArch && !hasConv) {
+    return {
+      passed: true,
+      skipped: true,
+      reason: 'No ARCHITECTURE.md or CONVENTIONS.md found',
+      issues: [],
+      duration_ms: Date.now() - start,
+    };
+  }
+
+  if (!files || files.length === 0) {
+    return {
+      passed: true,
+      skipped: true,
+      reason: 'No files to check',
+      issues: [],
+      duration_ms: Date.now() - start,
+    };
+  }
+
+  const archContent = hasArch ? fs.readFileSync(archPath, 'utf-8') : '';
+  const convContent = hasConv ? fs.readFileSync(convPath, 'utf-8') : '';
+
+  // Read changed file contents (limit to avoid huge prompts)
+  const fileContents = [];
+  let totalSize = 0;
+  const MAX_CONTENT = 50000; // ~12k tokens
+  for (const f of files.slice(0, 20)) {
+    const abs = path.isAbsolute(f) ? f : path.join(cwd, f);
+    if (fs.existsSync(abs)) {
+      const content = fs.readFileSync(abs, 'utf-8');
+      if (totalSize + content.length <= MAX_CONTENT) {
+        fileContents.push({ path: f, content });
+        totalSize += content.length;
+      }
+    }
+  }
+
+  if (fileContents.length === 0) {
+    return {
+      passed: true,
+      skipped: true,
+      reason: 'No readable files to check',
+      issues: [],
+      duration_ms: Date.now() - start,
+    };
+  }
+
+  // Build prompt for Claude agent
+  const prompt = buildArchitecturalPrompt(archContent, convContent, fileContents);
+
+  // Invoke Claude CLI
+  try {
+    const result = spawnSync('claude', ['--print', '-p', prompt], {
+      cwd,
+      timeout: 120000,
+      encoding: 'utf-8',
+      env: { ...process.env, TERM: 'dumb' },
+    });
+
+    if (result.status !== 0 || !result.stdout) {
+      return {
+        passed: true,
+        skipped: true,
+        reason: 'Claude CLI not available or failed',
+        issues: [],
+        duration_ms: Date.now() - start,
+      };
+    }
+
+    // Parse JSON response
+    const issues = parseArchitecturalResponse(result.stdout);
+    return {
+      passed: issues.length === 0,
+      skipped: false,
+      issues,
+      duration_ms: Date.now() - start,
+    };
+  } catch {
+    return {
+      passed: true,
+      skipped: true,
+      reason: 'Architectural review agent failed',
+      issues: [],
+      duration_ms: Date.now() - start,
+    };
+  }
+}
+
+function buildArchitecturalPrompt(archContent, convContent, fileContents) {
+  let prompt = `You are an architectural review agent. Check the following changed files against the project's architecture and conventions.
+
+Reply ONLY with a JSON array of issues found. If no issues, reply with an empty array: []
+
+Each issue should be: { "file": "path", "issue": "description", "severity": "suggestion|warning", "suggestion": "how to fix" }
+
+`;
+  if (archContent) {
+    prompt += `## ARCHITECTURE.md\n${archContent.substring(0, 8000)}\n\n`;
+  }
+  if (convContent) {
+    prompt += `## CONVENTIONS.md\n${convContent.substring(0, 8000)}\n\n`;
+  }
+  prompt += `## Changed Files\n\n`;
+  for (const f of fileContents) {
+    prompt += `### ${f.path}\n\`\`\`\n${f.content.substring(0, 3000)}\n\`\`\`\n\n`;
+  }
+  return prompt;
+}
+
+function parseArchitecturalResponse(output) {
+  try {
+    // Extract JSON from response (may have markdown wrapping)
+    const jsonMatch = output.match(/\[[\s\S]*?\]/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(i => i && i.file && i.issue);
+      }
+    }
+  } catch { /* parse failure */ }
+  return [];
+}
+
+// ============================================================
 // Plan Parser
 // ============================================================
 
@@ -1020,6 +1189,42 @@ function generateFixSuggestions(layers) {
     }
   }
 
+  // Layer 7 — contract
+  const contract = layers.find(l => l.name === 'CONTRACT');
+  if (contract && !contract.passed) {
+    for (const issue of (contract.result.drift || [])) {
+      if (issue.severity === 'error') {
+        suggestions.push({
+          layer: 7,
+          suggestion: `Contract drift: ${issue.message}`,
+          auto_fixable: issue.type === 'undeclared_export' || issue.type === 'undeclared_endpoint',
+          detail: issue.suggestion,
+        });
+      }
+    }
+    for (const issue of (contract.result.compatibility || [])) {
+      if (issue.severity === 'error') {
+        suggestions.push({
+          layer: 7,
+          suggestion: `Backward compat: ${issue.message}`,
+          auto_fixable: false,
+          detail: issue.suggestion,
+        });
+      }
+    }
+    for (const issue of (contract.result.ripple || [])) {
+      if (issue.severity === 'error') {
+        suggestions.push({
+          layer: 7,
+          suggestion: `Cross-repo ripple: ${issue.message}`,
+          auto_fixable: false,
+          detail: issue.suggestion,
+          affected_files: (issue.affected_consumers || []).map(c => c.id),
+        });
+      }
+    }
+  }
+
   return suggestions;
 }
 
@@ -1072,6 +1277,13 @@ function displayResults(result) {
     if (layer.name === 'BEHAVIORAL' && layer.result.steps) {
       const failed = layer.result.steps.filter(s => !s.passed);
       if (failed.length > 0) detail = ` (${failed.length} failed)`;
+    }
+    if (layer.name === 'CONTRACT') {
+      const parts = [];
+      if (layer.result.drift && layer.result.drift.length > 0) parts.push(`${layer.result.drift.length} drift`);
+      if (layer.result.compatibility && layer.result.compatibility.length > 0) parts.push(`${layer.result.compatibility.length} compat`);
+      if (layer.result.ripple && layer.result.ripple.length > 0) parts.push(`${layer.result.ripple.length} ripple`);
+      if (parts.length > 0) detail = ` (${parts.join(', ')})`;
     }
     if (layer.skipped && layer.result.reason) {
       detail = ` (${layer.result.reason})`;
@@ -1155,6 +1367,17 @@ function getLayerErrors(layer) {
   if (layer.name === 'BEHAVIORAL') {
     for (const step of (layer.result.steps || []).filter(s => !s.passed)) {
       errors.push(`${step.label}: exit ${step.exit_code}`);
+    }
+  }
+  if (layer.name === 'CONTRACT') {
+    for (const issue of (layer.result.drift || []).filter(d => d.severity === 'error')) {
+      errors.push(`drift: ${issue.message}`);
+    }
+    for (const issue of (layer.result.compatibility || []).filter(c => c.severity === 'error')) {
+      errors.push(`compat: ${issue.message}`);
+    }
+    for (const issue of (layer.result.ripple || []).filter(r => r.severity === 'error')) {
+      errors.push(`ripple: ${issue.message}`);
     }
   }
   return errors;
@@ -1285,7 +1508,7 @@ function logToLedger(cwd, result) {
  * @param {string}   [opts.planPath]     - Path to plan .md (for verify steps + file list)
  * @param {string}   [opts.dbPath]       - Path to graph.db
  * @param {string}   [opts.baselineDbPath] - Previous graph.db for diff
- * @param {number}   [opts.maxLayer=6]   - Stop after this layer (1-6)
+ * @param {number}   [opts.maxLayer=7]   - Stop after this layer (1-7)
  * @param {boolean}  [opts.failFast=true] - Stop on first layer failure
  * @param {boolean}  [opts.json=false]   - Output JSON instead of display
  * @param {boolean}  [opts.silent=false] - No terminal output
@@ -1295,7 +1518,7 @@ function logToLedger(cwd, result) {
 async function verify(opts) {
   const cwd = opts.cwd || process.cwd();
   const failFast = opts.failFast !== false;
-  const maxLayer = opts.maxLayer ?? 6;
+  const maxLayer = opts.maxLayer ?? 7;
   const logLedger = opts.logLedger !== false;
 
   // Load verification config from .forge/config.json or .planning/config.json
@@ -1412,6 +1635,31 @@ async function verify(opts) {
   if (maxLayer >= 6 && !(verifyConfig.layers && verifyConfig.layers.BEHAVIORAL === false)) {
     const result = layerBehavioral({ cwd, verifySteps, timeout: 120 });
     layers.push({ index: 6, name: 'BEHAVIORAL', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
+    if (failFast && !result.passed) {
+      return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+    }
+  }
+
+  // Layer 7 — CONTRACT (cross-repo contract verification)
+  if (maxLayer >= 7 && !(verifyConfig.layers && verifyConfig.layers.CONTRACT === false)) {
+    const cl = contractLayer();
+    if (cl) {
+      const systemDbPath = opts.systemDbPath
+        || process.env.FORGE_SYSTEM_GRAPH_PATH
+        || process.env.FORGE_SYSTEM_GRAPH
+        || cl.resolveSystemDb(cwd);
+      const result = cl.layerContract({ cwd, files, systemDbPath, config: verifyConfig });
+      layers.push({ index: 7, name: 'CONTRACT', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
+    } else {
+      layers.push({ index: 7, name: 'CONTRACT', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'contract-layer.js not available', drift: [], compatibility: [], ripple: [], duration_ms: 0 }, duration_ms: 0 });
+    }
+  }
+
+  // Layer 8 — ARCHITECTURAL (optional, agent-based, off by default)
+  if (maxLayer >= 8 && verifyConfig.layers && verifyConfig.layers.ARCHITECTURAL === true) {
+    const result = layerArchitectural({ cwd, files });
+    layers.push({ index: 8, name: 'ARCHITECTURAL', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
+    // Architectural issues are suggestions, don't fail-fast
   }
 
   return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
@@ -1465,6 +1713,7 @@ function parseArgs(argv) {
     else if (arg === '--db' && argv[i + 1]) { args.dbPath = path.resolve(argv[++i]); }
     else if (arg === '--baseline' && argv[i + 1]) { args.baselineDbPath = path.resolve(argv[++i]); }
     else if (arg === '--layer' && argv[i + 1]) { args.maxLayer = parseInt(argv[++i], 10); }
+    else if (arg === '--system-db' && argv[i + 1]) { args.systemDbPath = path.resolve(argv[++i]); }
     else if (arg === '--fail-fast') { args.failFast = true; }
     else if (arg === '--no-fail-fast') { args.failFast = false; }
     else if (arg === '--json') { args.json = true; }
@@ -1492,6 +1741,8 @@ module.exports = {
   layerDependency,
   layerTests,
   layerBehavioral,
+  get layerContract() { const cl = contractLayer(); return cl ? cl.layerContract : null; },
+  layerArchitectural,
   parsePlanVerifySteps,
   parsePlanFiles,
   generateFixSuggestions,

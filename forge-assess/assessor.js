@@ -102,6 +102,14 @@ function parsePlan(planPath) {
     plan.frontmatter.depends_on = depsMatch ? depsMatch[1].split(',').map(s => s.trim()).filter(Boolean) : [];
     plan.frontmatter.autonomous = autoMatch ? autoMatch[1] === 'true' : true;
 
+    // Multi-repo plan fields
+    const serviceMatch = fm.match(/^service:\s*(.+)/m);
+    const repoMatch = fm.match(/^repo:\s*(.+)/m);
+    const roleMatch = fm.match(/^role:\s*(.+)/m);
+    if (serviceMatch) plan.frontmatter.service = serviceMatch[1].trim().replace(/^["']|["']$/g, '');
+    if (repoMatch) plan.frontmatter.repo = repoMatch[1].trim().replace(/^["']|["']$/g, '');
+    if (roleMatch) plan.frontmatter.role = roleMatch[1].trim();
+
     // Extract files_modified (can be multiline YAML list)
     const filesSection = fm.match(/^files_modified:\s*\n((?:\s+-\s+.+\n?)*)/m);
     if (filesSection) {

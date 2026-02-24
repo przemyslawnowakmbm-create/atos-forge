@@ -18,7 +18,7 @@ const path = require('path');
 // ============================================================
 
 // Lazy-loaded dependencies (only resolved when called)
-let _graphQuery, _ledger, _assessor, _capDetector, _containerSpec, _containerConfig;
+let _graphQuery, _ledger, _assessor, _capDetector, _containerSpec, _containerConfig, _systemQuery, _knowledge;
 
 function graphQuery() {
   if (!_graphQuery) _graphQuery = require('../forge-graph/query');
@@ -43,6 +43,14 @@ function containerSpec() {
 function containerConfig() {
   if (!_containerConfig) _containerConfig = require('../forge-containers/config');
   return _containerConfig;
+}
+function systemQuery() {
+  if (!_systemQuery) _systemQuery = require('../forge-system/query');
+  return _systemQuery;
+}
+function knowledge() {
+  if (!_knowledge) _knowledge = require('../forge-session/knowledge');
+  return _knowledge;
 }
 
 // ============================================================
@@ -169,6 +177,60 @@ function analyzeTask(plan, cwd) {
     }
   }
 
+  // System graph context (cross-repo)
+  let systemContext = null;
+  const systemDbCandidates = [
+    path.join(cwd, '.forge', 'system-graph.db'),
+    process.env.FORGE_SYSTEM_GRAPH_PATH,
+    process.env.FORGE_SYSTEM_GRAPH,
+  ].filter(Boolean);
+  const systemDbPath = systemDbCandidates.find(p => fs.existsSync(p));
+
+  if (systemDbPath) {
+    try {
+      const SQ = systemQuery();
+      const sq = new SQ.SystemQuery(systemDbPath);
+      sq.open();
+      try {
+        // Determine target service: prefer plan frontmatter, fall back to CWD
+        let serviceId = plan.frontmatter?.service || null;
+
+        // If frontmatter specifies a service, verify it exists in the system graph
+        if (serviceId) {
+          try {
+            const svcCheck = sq.service(serviceId);
+            if (!svcCheck?.service) serviceId = null; // service not found, fall back
+          } catch { serviceId = null; }
+        }
+
+        // Fall back to CWD-based lookup
+        if (!serviceId) {
+          serviceId = sq.findServiceByRepoPath(plan.frontmatter?.repo || cwd);
+        }
+
+        if (serviceId) {
+          const serviceInfo = sq.service(serviceId);
+          const consumers = sq.consumers(serviceId);
+          const exports = sq.exports(serviceId);
+          const imports = sq.imports(serviceId);
+          const impact = sq.impact(serviceId, { depth: 1 });
+
+          systemContext = {
+            service_id: serviceId,
+            service: serviceInfo,
+            exports: exports || [],
+            imports: imports || [],
+            consumers: consumers || [],
+            impact,
+            system_db_path: systemDbPath,
+          };
+        }
+      } finally {
+        sq.close();
+      }
+    } catch { /* system graph not available or query failed */ }
+  }
+
   // Ledger state
   let ledgerState = { exists: false };
   let ledgerContent = '';
@@ -187,6 +249,7 @@ function analyzeTask(plan, cwd) {
     affectedModules,
     cycles,
     moduleBoundaries,
+    systemContext,
     ledgerState,
     ledgerContent,
     hasGraph,
@@ -339,6 +402,41 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
     }
   }
 
+  // Cross-repo context from system graph
+  if (analysis.systemContext) {
+    const sc = analysis.systemContext;
+    parts.push(`\n## Cross-Repo Context (System Graph)`);
+    parts.push(`This repo is service: ${sc.service_id}`);
+
+    if (sc.exports.length > 0) {
+      parts.push(`\nExported Interfaces (${sc.exports.length}):`);
+      for (const exp of sc.exports) {
+        const consumerNote = sc.consumers.length > 0
+          ? ` — consumed by ${sc.consumers.length} service(s)`
+          : '';
+        parts.push(`  ▸ ${exp.type}/${exp.protocol || ''} ${exp.name}${consumerNote}`);
+      }
+    }
+
+    if (sc.consumers.length > 0) {
+      parts.push(`\nConsuming Services (${sc.consumers.length}):`);
+      for (const c of sc.consumers) {
+        parts.push(`  ▸ ${c.consumer_id} via ${c.type}${c.interface_name ? ': ' + c.interface_name : ''}`);
+      }
+      parts.push(`\n⚠ CRITICAL: Do NOT change exported interfaces without coordination.`);
+      parts.push(`If you modify an exported API, event schema, or package interface,`);
+      parts.push(`the consuming services listed above will break.`);
+      parts.push(`Document any interface changes and flag them for cross-repo updates.`);
+    }
+
+    if (sc.imports.length > 0) {
+      parts.push(`\nImported Dependencies (${sc.imports.length}):`);
+      for (const imp of sc.imports) {
+        parts.push(`  ▸ ${imp.provider_id} (${imp.type}${imp.deprecated ? ' — DEPRECATED' : ''})`);
+      }
+    }
+  }
+
   // Cycles warning
   if (analysis.cycles.count > 0) {
     parts.push(`\n## Circular Dependencies Warning`);
@@ -374,6 +472,30 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
       parts.push('\nRejected approaches (do NOT retry):');
       for (const r of sessionContext.rejected_approaches) {
         parts.push(`- ${r}`);
+      }
+    }
+
+    if (sessionContext.knowledge_base && sessionContext.knowledge_base.length > 0) {
+      parts.push('\n## Persistent Knowledge (from previous milestones)');
+      parts.push('These learnings were captured from prior work. Account for them:');
+      for (const k of sessionContext.knowledge_base) {
+        const src = k.source_milestone
+          ? ` (${k.source_milestone}${k.source_phase ? ', phase ' + k.source_phase : ''})`
+          : '';
+        parts.push(`- [${k.type}] ${k.text}${src}`);
+      }
+    }
+
+    if (sessionContext.impact_analysis && sessionContext.impact_analysis.scope === 'MULTI_REPO') {
+      parts.push('\n## Cross-Repo Impact');
+      parts.push('This task is part of a multi-repo change. Affected services:');
+      for (const svc of sessionContext.impact_analysis.affected_services || []) {
+        const current = svc.is_current ? ' (this repo)' : '';
+        parts.push(`- ${svc.id} (${svc.role}) — ${svc.team || 'unknown team'}${current} — risk: ${svc.risk}`);
+      }
+      parts.push('Ensure your changes maintain backward compatibility with consumers.');
+      if (sessionContext.impact_analysis.team_coordination && sessionContext.impact_analysis.team_coordination.length > 1) {
+        parts.push(`Team coordination required: ${sessionContext.impact_analysis.team_coordination.join(', ')}`);
       }
     }
   }
@@ -496,6 +618,34 @@ function composeContextPackage(analysis, config) {
     for (const iface of sorted.slice(0, 10)) {
       if (iface.file && fs.existsSync(iface.file)) {
         addFile(reference, iface.file);
+      }
+    }
+  }
+
+  // Reference: cross-repo neighbor interfaces.yaml from system graph
+  if (analysis.systemContext) {
+    // This repo's own interfaces.yaml (use repo_path from system context or plan dir)
+    const repoRoot = analysis.systemContext.service?.service?.repo_path
+      || (analysis.plan.path ? path.dirname(analysis.plan.path) : null);
+    if (repoRoot) {
+      const ownInterfaces = path.join(repoRoot, '.forge', 'interfaces.yaml');
+      if (fs.existsSync(ownInterfaces)) {
+        addFile(reference, ownInterfaces);
+      }
+    }
+
+    // Consumer and provider interfaces.yaml files (if repo_path known)
+    const neighborPaths = new Set();
+    const sc = analysis.systemContext;
+    for (const c of (sc.consumers || [])) {
+      if (c.repo_path) neighborPaths.add(path.join(c.repo_path, '.forge', 'interfaces.yaml'));
+    }
+    for (const imp of (sc.imports || [])) {
+      if (imp.repo_path) neighborPaths.add(path.join(imp.repo_path, '.forge', 'interfaces.yaml'));
+    }
+    for (const np of neighborPaths) {
+      if (fs.existsSync(np)) {
+        addFile(reference, np);
       }
     }
   }
@@ -628,6 +778,7 @@ function extractSessionContext(analysis) {
     warnings: [],
     user_preferences: [],
     rejected_approaches: [],
+    knowledge_base: [],
     active_phase: null,
   };
 
@@ -684,6 +835,29 @@ function extractSessionContext(analysis) {
     ctx.warnings = filterRelevant(ctx.warnings);
     ctx.rejected_approaches = filterRelevant(ctx.rejected_approaches);
   }
+
+  // Load persistent knowledge base
+  try {
+    const kb = knowledge();
+    const learnings = kb.relevantFor(
+      analysis.plan.path ? path.dirname(analysis.plan.path) : process.cwd(),
+      analysis.affectedModules || [],
+      analysis.plan.all_files || []
+    );
+    ctx.knowledge_base = learnings;
+  } catch { /* knowledge module not available */ }
+
+  // Load impact analysis if available
+  try {
+    const analyzerMod = require('../forge-analyze/analyzer');
+    const impactPath = analyzerMod.findImpactFile(
+      analysis.plan.path ? path.dirname(analysis.plan.path) : process.cwd(),
+      analysis.plan.path
+    );
+    if (impactPath && fs.existsSync(impactPath)) {
+      ctx.impact_analysis = JSON.parse(fs.readFileSync(impactPath, 'utf8'));
+    }
+  } catch { /* impact analysis not available */ }
 
   return ctx;
 }
@@ -817,6 +991,15 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
       cycles_count: analysis.cycles.count,
     } : null,
 
+    // System graph context for cross-repo awareness
+    system_context: analysis.systemContext ? {
+      service_id: analysis.systemContext.service_id,
+      exports: analysis.systemContext.exports.map(e => ({ type: e.type, name: e.name, protocol: e.protocol })),
+      consumers: analysis.systemContext.consumers.map(c => ({ consumer_id: c.consumer_id, type: c.type })),
+      imports: analysis.systemContext.imports.map(i => ({ provider_id: i.provider_id, type: i.type, deprecated: !!i.deprecated })),
+      system_db_path: analysis.systemContext.system_db_path,
+    } : null,
+
     // Session context for the agent entrypoint
     session_context: sessionContext,
 
@@ -854,6 +1037,9 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
       contextBudget: contextPackage.budget,
       verificationSteps: verification,
       hasGraph: analysis.hasGraph,
+      hasSystemGraph: !!analysis.systemContext,
+      systemService: analysis.systemContext?.service_id || null,
+      systemConsumers: analysis.systemContext?.consumers?.length || 0,
       ledgerActive: analysis.ledgerState.exists,
     },
   };
@@ -942,8 +1128,9 @@ function formatAnalysis(result) {
   }
   lines.push('');
 
-  // Session
+  // Session & System
   lines.push(`Graph:      ${analysis.hasGraph ? 'available' : 'not found'}`);
+  lines.push(`System:     ${analysis.hasSystemGraph ? `service: ${analysis.systemService}, ${analysis.systemConsumers} consumer(s)` : 'not found'}`);
   lines.push(`Ledger:     ${analysis.ledgerActive ? 'active' : 'not found'}`);
 
   // System prompt preview

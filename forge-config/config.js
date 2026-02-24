@@ -87,12 +87,26 @@ const DEFAULTS = {
       dependency_analysis: true,
       tests: true,
       behavioral: true,
+      contract: true,
+      architectural: false,
     },
     auto_fix: true,
     max_fix_loops: 3,
     test_command: null,
     type_check_command: null,
     test_timeout: 300,
+  },
+  knowledge: {
+    enabled: true,
+    auto_promote: true,
+    max_entries: 200,
+    promote_severity_threshold: 'medium',
+  },
+  impact_analysis: {
+    enabled: true,
+    auto_detect: true,
+    max_depth: 2,
+    scope_threshold: 1,
   },
   session: {
     ledger_enabled: true,
@@ -114,12 +128,24 @@ const DEFAULTS = {
     phase_branch_template: 'forge/phase-{phase}-{slug}',
     milestone_branch_template: 'forge/{milestone}-{slug}',
   },
+  system: {
+    enabled: true,
+    auto_detect_interfaces: true,
+    workers: 'auto',
+    discovery_depth: 2,
+    default_delivery: 'local',
+    sync_on_commit: false,
+    graph_path: null,
+    registry_path: null,
+    ignore_repos: [],
+  },
   // Legacy compat sections (for .planning/config.json backward compatibility)
   workflow: {
     research: true,
     plan_check: true,
     verifier: true,
     auto_advance: false,
+    arch_review: true,
   },
   parallelization: {
     enabled: true,
@@ -313,6 +339,9 @@ function validate(config) {
     ['verification.test_timeout', config.verification?.test_timeout, v => v > 0],
     ['session.ledger_max_tokens', config.session?.ledger_max_tokens, v => v > 0],
     ['graph.snapshot_retention', config.graph?.snapshot_retention, v => v > 0],
+    ['knowledge.max_entries', config.knowledge?.max_entries, v => v > 0 && v <= 10000],
+    ['impact_analysis.max_depth', config.impact_analysis?.max_depth, v => v >= 1 && v <= 10],
+    ['impact_analysis.scope_threshold', config.impact_analysis?.scope_threshold, v => v >= 1 && v <= 20],
   ];
 
   for (const [keyPath, value, rangeFn] of numberChecks) {
@@ -331,6 +360,7 @@ function validate(config) {
     ['agents.active_profile', config.agents?.active_profile, ['quality', 'balanced', 'budget']],
     ['agents.default_archetype', config.agents?.default_archetype, ['specialist', 'integrator', 'careful', 'general']],
     ['git.branching_strategy', config.git?.branching_strategy, ['none', 'phase', 'milestone', 'feature']],
+    ['knowledge.promote_severity_threshold', config.knowledge?.promote_severity_threshold, ['low', 'medium', 'high', 'critical']],
   ];
 
   for (const [keyPath, value, allowed] of enumChecks) {
@@ -349,6 +379,29 @@ function validate(config) {
 
   if (config.graph?.ignore_patterns && !Array.isArray(config.graph.ignore_patterns)) {
     errors.push('graph.ignore_patterns: expected array');
+  }
+
+  // System section validation
+  if (config.system) {
+    const sw = config.system.workers;
+    if (sw !== undefined && sw !== null && sw !== 'auto') {
+      if (typeof sw !== 'number' || sw < 1 || !Number.isInteger(sw)) {
+        errors.push(`system.workers: must be 'auto' or a positive integer, got ${sw}`);
+      }
+    }
+    const dd = config.system.discovery_depth;
+    if (dd !== undefined && dd !== null) {
+      if (typeof dd !== 'number' || dd < 1 || dd > 5 || !Number.isInteger(dd)) {
+        errors.push(`system.discovery_depth: must be integer 1-5, got ${dd}`);
+      }
+    }
+    const del = config.system.default_delivery;
+    if (del !== undefined && del !== null && !['local', 'pr', 'commit', 'dry-run'].includes(del)) {
+      errors.push(`system.default_delivery: invalid value '${del}', must be one of: local, pr, commit, dry-run`);
+    }
+    if (config.system.ignore_repos && !Array.isArray(config.system.ignore_repos)) {
+      errors.push('system.ignore_repos: expected array');
+    }
   }
 
   // Validate containers.max_concurrent: must be 'auto' or a positive integer
@@ -402,6 +455,8 @@ function getVerification(cwd) {
       DEPENDENCY: get('dependency_analysis', 'DEPENDENCY'),
       TESTS: get('tests', 'TESTS'),
       BEHAVIORAL: get('behavioral', 'BEHAVIORAL'),
+      CONTRACT: get('contract', 'CONTRACT'),
+      ARCHITECTURAL: layers.architectural === true,
     },
     auto_fix: config.verification.auto_fix,
     max_fix_loops: config.verification.max_fix_loops,
@@ -425,6 +480,37 @@ function getContainers(cwd) {
 function getExecution(cwd) {
   const { config } = loadConfig(cwd);
   return { ...config.execution };
+}
+
+/**
+ * Get system graph config for forge-system modules.
+ */
+function getSystem(cwd) {
+  const { config } = loadConfig(cwd);
+  const sys = config.system || {};
+  const workers = sys.workers === 'auto'
+    ? Math.max(1, Math.min(16, os.cpus().length - 2))
+    : (sys.workers || Math.max(1, Math.min(16, os.cpus().length - 2)));
+  return {
+    ...sys,
+    _resolved_workers: workers,
+  };
+}
+
+/**
+ * Get knowledge config.
+ */
+function getKnowledge(cwd) {
+  const { config } = loadConfig(cwd);
+  return { ...(config.knowledge || {}) };
+}
+
+/**
+ * Get impact analysis config.
+ */
+function getImpactAnalysis(cwd) {
+  const { config } = loadConfig(cwd);
+  return { ...(config.impact_analysis || {}) };
 }
 
 /**
@@ -471,6 +557,9 @@ module.exports = {
   getVerification,
   getContainers,
   getExecution,
+  getSystem,
+  getKnowledge,
+  getImpactAnalysis,
   getLegacyToolsConfig,
   loadGlobalConfig,
   loadProjectConfig,

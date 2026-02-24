@@ -319,6 +319,87 @@ function checkSystem(cwd) {
   }
 }
 
+function checkSystemGraph(cwd) {
+  // Search for system-graph.db
+  const candidates = [
+    path.join(cwd, '.forge', 'system-graph.db'),
+    path.join(path.dirname(cwd), '.forge', 'system-graph.db'),
+    path.join(path.dirname(cwd), 'system-graph.db'),
+  ];
+  const home = os.homedir();
+  if (home) candidates.push(path.join(home, '.forge', 'system-graph.db'));
+
+  const dbPath = candidates.find(c => fs.existsSync(c));
+  if (!dbPath) {
+    return { name: 'System Graph', status: 'skip', detail: 'not found (run system-init to create)' };
+  }
+
+  try {
+    const stat = fs.statSync(dbPath);
+    const ageMs = Date.now() - stat.mtimeMs;
+    const ageH = Math.floor(ageMs / 3600000);
+    const freshness = ageH < 1 ? 'fresh' : ageH < 24 ? `${ageH}h ago` : `${Math.floor(ageH / 24)}d ago`;
+    const sizeKB = Math.round(stat.size / 1024);
+    const stale = ageH >= 24;
+
+    // Try to query for stats
+    let detail = `${sizeKB}KB, built ${freshness}`;
+    let extra;
+    try {
+      const systemQueryPath = path.join(cwd, 'forge-system', 'query');
+      const { SystemQuery } = require(systemQueryPath);
+      const sq = new SystemQuery(dbPath);
+      sq.open();
+      const overview = sq.overview();
+      const cycles = sq.cycles();
+      sq.close();
+      detail = `${overview.services} services, ${overview.interfaces} interfaces, ${overview.dependencies} deps (${freshness})`;
+      if (cycles.count > 0) {
+        extra = `${cycles.count} cycle(s) detected — review with system impact`;
+      }
+    } catch { /* query failed, use basic info */ }
+
+    const status = stale ? 'warn' : 'ok';
+    return { name: 'System Graph', status, detail, extra: extra || (stale ? 'graph is stale — run system-init or system-sync' : undefined) };
+  } catch (e) {
+    return { name: 'System Graph', status: 'fail', detail: `error: ${e.message.slice(0, 60)}` };
+  }
+}
+
+function checkInterfaces(cwd) {
+  const interfacesPath = path.join(cwd, '.forge', 'interfaces.yaml');
+  if (!fs.existsSync(interfacesPath)) {
+    return { name: 'Interfaces', status: 'skip', detail: 'no interfaces.yaml (run forge:init)' };
+  }
+
+  try {
+    const stat = fs.statSync(interfacesPath);
+    const sizeKB = (stat.size / 1024).toFixed(1);
+
+    // Try validation
+    let validationDetail = '';
+    try {
+      const validatePath = path.join(cwd, 'forge-system', 'validate');
+      const validate = require(validatePath);
+      const result = validate.validateFile(interfacesPath);
+      if (result.valid) {
+        validationDetail = ', valid';
+      } else {
+        return {
+          name: 'Interfaces',
+          status: 'warn',
+          detail: `${sizeKB}KB, ${result.errors.length} error(s)`,
+          extra: result.errors[0]?.message,
+        };
+      }
+    } catch { /* validate module not available */ }
+
+    return { name: 'Interfaces', status: 'ok', detail: `${sizeKB}KB${validationDetail}` };
+  } catch (e) {
+    return { name: 'Interfaces', status: 'warn', detail: `error: ${e.message.slice(0, 60)}` };
+  }
+}
+
 // ============================================================
 // Main Doctor
 // ============================================================
@@ -336,7 +417,7 @@ function doctor(cwd, opts = {}) {
   checks.push(checkBetterSqlite3(root));
   checks.push(checkChalk(root));
 
-  // Section 2: Project Health (indices 7-13)
+  // Section 2: Project Health (indices 7-15)
   checks.push(checkConfig(root));
   checks.push(checkGraph(root));
   checks.push(checkDashboard(root));
@@ -344,8 +425,10 @@ function doctor(cwd, opts = {}) {
   checks.push(checkSnapshots(root));
   checks.push(checkGitHooks(root));
   checks.push(checkDockerImages());
+  checks.push(checkSystemGraph(root));
+  checks.push(checkInterfaces(root));
 
-  // Section 3: System (index 14)
+  // Section 3: System (last index)
   checks.push(checkSystem(root));
 
   const summary = { ok: 0, warn: 0, fail: 0, skip: 0 };
@@ -382,7 +465,7 @@ function displayDoctor(checks, summary) {
   }
   boxLine('');
 
-  // Project Health (indices 7-13)
+  // Project Health (indices 7 through second-to-last)
   boxSection('  Project Health');
   for (let i = 7; i < checks.length - 1; i++) {
     const c = checks[i];
@@ -455,5 +538,7 @@ module.exports = {
   checkSnapshots,
   checkGitHooks,
   checkDockerImages,
+  checkSystemGraph,
+  checkInterfaces,
   checkSystem,
 };

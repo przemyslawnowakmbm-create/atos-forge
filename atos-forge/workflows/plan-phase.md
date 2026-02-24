@@ -211,6 +211,46 @@ fi
 ◇ No code graph — run /forge:init for dependency-aware planning
 ```
 
+## 7.6. Requirement Impact Analysis (if system-graph.db exists)
+
+Check if system-graph.db is available (resolve from `.forge/system-graph.db`, parent dirs, `~/.forge/system-graph.db`, or `FORGE_SYSTEM_GRAPH_PATH` env).
+
+**If system graph exists AND `impact_analysis.enabled` is true:**
+
+```bash
+IMPACT_RESULT=$(node "$FORGE_ROOT/forge-analyze/analyzer.js" analyze \
+  --phase "$PHASE_NUMBER" \
+  --goal "$PHASE_NAME" \
+  --root "$PROJECT_ROOT" \
+  --json --write 2>/dev/null || echo '{"scope":"SINGLE_REPO","reason":"analyzer_error"}')
+
+IMPACT_SCOPE=$(echo "$IMPACT_RESULT" | jq -r '.scope // "SINGLE_REPO"')
+IMPACT_COUNT=$(echo "$IMPACT_RESULT" | jq -r '.affected_services | length // 0')
+```
+
+**If `IMPACT_SCOPE` is `MULTI_REPO`:**
+
+Display impact summary and ask user:
+```
+⚠ Cross-Repo Impact Detected
+
+This phase affects {IMPACT_COUNT} services:
+{list affected services with roles}
+
+Options:
+  1. Plan across all repos (recommended)
+  2. Plan single-repo only (consumer repos need separate planning)
+```
+
+If user chooses multi-repo: Load `{PADDED}-IMPACT.md` content as `IMPACT_CONTEXT` and include it in planner prompt.
+
+**If `IMPACT_SCOPE` is `SINGLE_REPO`:** Proceed normally, log to ledger:
+```
+◇ Impact analysis: single-repo scope confirmed
+```
+
+**If system graph not available:** Skip silently — this step is opt-in for multi-repo projects.
+
 ## 8. Spawn forge-planner Agent
 
 Display banner:
@@ -246,6 +286,8 @@ IMPORTANT: If context exists below, it contains USER DECISIONS from /forge:discu
 **Gap Closure (if --gaps):** {verification_content} {uat_content}
 
 {graph_context}
+
+{impact_context — if IMPACT_SCOPE is MULTI_REPO, include the full IMPACT.md content here wrapped in <cross_repo_impact> tags; otherwise omit}
 </planning_context>
 
 <downstream_consumer>
