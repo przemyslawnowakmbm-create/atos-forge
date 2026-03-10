@@ -1036,6 +1036,22 @@ Returns JSON: `{ valid, missing, present, schema }`
 Required plan frontmatter fields:
 - `phase`, `plan`, `type`, `wave`, `depends_on`, `files_modified`, `autonomous`, `must_haves`
 
+### Locked Decisions & Verification Must-Check
+
+After creating each plan, extract 3-5 key technical decisions and list them in the frontmatter as:
+
+```yaml
+locked_decisions:
+  - "Key decision 1 (e.g., Use JWT for auth, not sessions)"
+  - "Key decision 2 (e.g., PostgreSQL as database)"
+verification_must_check:
+  - "What to verify exists in code (e.g., JWT token generation)"
+  - "What should NOT exist (e.g., No session-based auth)"
+```
+
+These locked decisions will be enforced during execution — agents cannot deviate from them.
+The `verification_must_check` items are verified by the engine's behavioral layer (Layer 6) against changed files.
+
 Also validate plan structure:
 
 ```bash

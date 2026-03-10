@@ -134,6 +134,22 @@ node ~/.claude/atos-forge/bin/forge-tools.cjs phases list --type summaries --raw
 If previous SUMMARY has unresolved "Issues Encountered" or "Next Phase Readiness" blockers: AskUserQuestion(header="Previous Issues", options: "Proceed anyway" | "Address first" | "Review previous").
 </step>
 
+<step name="generate_test_stubs">
+**Test-First: Generate verification stubs before execution**
+
+If the plan has `verification_must_check` in frontmatter or a `## Verify` section:
+
+1. Run the test stub generator:
+   ```bash
+   node -e "const g = require('forge-verify/test-stub-generator'); console.log(JSON.stringify(g.generateStubs('${PLAN_PATH}', '.')))"
+   ```
+2. The generated test stubs define SUCCESS CRITERIA for the executor agent
+3. Include the stub files in the agent's context package (always_load)
+4. Instruct the agent: "These test stubs must PASS after your implementation"
+
+If no verification criteria exist in the plan, skip this step.
+</step>
+
 <step name="execute">
 Deviations are normal — handle via rules below.
 

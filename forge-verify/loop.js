@@ -730,6 +730,7 @@ async function verifyLoop(opts) {
       planPath: opts.planPath,
       dbPath,
       baselineDbPath: opts.baselineDbPath,
+      incremental: opts.incremental || false,
       failFast: false,
       silent: true,
       logLedger: false, // We log ourselves
@@ -874,6 +875,9 @@ async function verifyLoop(opts) {
       duration_ms: fixResult.duration_ms,
     };
 
+    // Invalidate verification cache after fix attempt
+    try { require('./cache').invalidate(cwd); } catch { /* ignore */ }
+
     // Collect learnings
     if (fixResult.learnings) {
       if (fixResult.learnings.warnings) loopResult.learnings.push(...fixResult.learnings.warnings);
@@ -930,7 +934,7 @@ async function verifyLoop(opts) {
 
     // 6b. Peek: did the fix introduce NEW failures?
     const peekResult = await engine().verify({
-      cwd, files: opts.files, dbPath, failFast: false, silent: true, logLedger: false,
+      cwd, files: opts.files, dbPath, incremental: opts.incremental || false, failFast: false, silent: true, logLedger: false,
     });
 
     const prevFailures = countFailures(verifyResult);
@@ -1173,6 +1177,7 @@ async function verifyAfterWave(opts) {
   return verifyLoop({
     ...opts,
     maxLoops: opts.maxLoops ?? 2,  // Fewer loops for wave-level checks
+    incremental: true,             // Only verify changed files + consumers
     mode: 'wave',
   });
 }

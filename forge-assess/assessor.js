@@ -228,10 +228,12 @@ function assessPlan(planPath, cwd, opts = {}) {
     const absPath = path.isAbsolute(f) ? f : path.join(cwd, f);
     const tokens = estimateFileTokens(absPath);
     fileTokens += tokens;
-    fileDetails.push({ path: f, tokens, exists: fs.existsSync(absPath) });
+    fileDetails.push({ path: f, tokens, exists: fs.existsSync(absPath), is_plan_file: true });
   }
 
-  const graphContextEstimate = plan.all_files.length * 1500; // ~1500 tokens per file for graph context
+  // Interface-only deps: estimate ~20 tokens per export instead of full file size
+  // This reflects 3-level context compression (FULL for plan files, INTERFACE for deps)
+  const graphContextEstimate = plan.all_files.length * 800; // reduced: deps use interface-level loading
   const sessionContextEstimate = 2000; // Ledger entries
   const totalEstimated = planTokens + fileTokens + graphContextEstimate + sessionContextEstimate + OVERHEAD_PER_SUBTASK;
 

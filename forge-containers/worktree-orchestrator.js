@@ -576,7 +576,22 @@ async function launch(agentConfig, params) {
       }
     }
 
-    // 9. Extract and log learnings to session ledger
+    // 9. Parse structured agent output from stdout
+    try {
+      const { parseAgentOutput, validateOutput } = require('../forge-agents/agent-output-schema');
+      const stdoutContent = collection.stdout || '';
+      const agentOutput = parseAgentOutput(stdoutContent);
+      if (agentOutput) {
+        const { valid, output: parsed } = validateOutput(agentOutput);
+        if (valid && parsed) {
+          result.agentFindings = parsed.findings;
+          result.agentDecisions = parsed.decisions_made;
+          result.agentConfidence = parsed.confidence;
+        }
+      }
+    } catch { /* structured output parsing is best-effort */ }
+
+    // 10. Extract and log learnings to session ledger
     const learnings = extractLearnings(collection.agentResult);
     result.learnings = learnings;
 

@@ -294,6 +294,100 @@ function detectParallelizable(groups) {
 // ============================================================
 
 /**
+ * CONNECTED_COMPONENT SPLIT: Use code graph edges (imports + consumers)
+ * to discover connected components among plan files. If the file set
+ * decomposes into 2+ disjoint sub-graphs, each component becomes one group.
+ * Returns null when the graph is unavailable or all files are connected.
+ */
+function splitByConnectedComponents(plan, recommendation, cwd) {
+  const gq = getGraphQuery(cwd);
+  if (!gq) return null;
+
+  try {
+    const files = plan.all_files;
+    if (files.length <= 1) return null;
+
+    const fileSet = new Set(files);
+    const adjacency = new Map();
+
+    for (const f of files) {
+      const neighbors = new Set();
+      // Forward edges: files this file imports
+      try {
+        const imports = gq.importsOf(f);
+        for (const imp of imports) {
+          const p = imp.target_file || imp;
+          if (fileSet.has(p)) neighbors.add(p);
+        }
+      } catch { /* file may not be in graph */ }
+      // Reverse edges: files that consume this file
+      try {
+        const result = gq.getConsumers(f);
+        const consumers = result.consumers || [];
+        for (const c of consumers) {
+          const p = c.source_file || c;
+          if (fileSet.has(p)) neighbors.add(p);
+        }
+      } catch { /* ignore */ }
+      adjacency.set(f, neighbors);
+    }
+
+    // BFS to discover connected components
+    const visited = new Set();
+    const components = [];
+    for (const f of files) {
+      if (visited.has(f)) continue;
+      const component = [];
+      const queue = [f];
+      while (queue.length > 0) {
+        const node = queue.shift();
+        if (visited.has(node)) continue;
+        visited.add(node);
+        component.push(node);
+        for (const neighbor of (adjacency.get(node) || new Set())) {
+          if (!visited.has(neighbor)) queue.push(neighbor);
+        }
+      }
+      if (component.length > 0) components.push(component);
+    }
+
+    // Only useful when there are multiple disjoint components
+    if (components.length <= 1) return null;
+
+    // Build groups from components, reusing module/concern metadata
+    const groups = components.map((comp, idx) => {
+      const modules = new Set();
+      const concerns = new Set();
+      let hasInterface = false;
+      for (const f of comp) {
+        const mod = getFileModule(gq, f);
+        if (mod) modules.add(mod);
+        concerns.add(classifyFile(f));
+        if (INTERFACE_PATTERNS.test(f)) hasInterface = true;
+        if (!hasInterface) hasInterface = isInterfaceProducer(gq, f, plan.all_files);
+      }
+
+      const modLabel = modules.size > 0
+        ? [...modules].filter(m => m !== '<root>' && m !== '<unknown>').join('+') || `component-${idx + 1}`
+        : `component-${idx + 1}`;
+
+      return {
+        label: `cc:${modLabel}`,
+        files: comp,
+        module: modules.size === 1 ? [...modules][0] : null,
+        concern: concerns.size === 1 ? [...concerns][0] : 'implementation',
+        is_interface_producer: hasInterface,
+      };
+    });
+
+    // Sort: interface producers first, then topological
+    groups.sort((a, b) => (b.is_interface_producer ? 1 : 0) - (a.is_interface_producer ? 1 : 0));
+    return topoSortGroups(groups, gq, plan.all_files);
+  } catch { return null; }
+  finally { safeClose(gq); }
+}
+
+/**
  * MODULE SPLIT: Group files by module boundaries.
  * Interface-producing modules come first. Consumer modules after.
  */
@@ -779,18 +873,33 @@ function splitPlan(plan, recommendation, cwd, opts = {}) {
 
   // Select splitting strategy
   let groups;
-  switch (strategy) {
-    case 'module':
-      groups = splitByModule(plan, recommendation, cwd);
-      break;
-    case 'concern':
-      groups = splitByConcern(plan, recommendation, cwd);
-      break;
-    case 'file':
-      groups = splitByFile(plan, recommendation, cwd);
-      break;
-    default:
-      groups = splitByConcern(plan, recommendation, cwd);
+
+  // Try graph-aware connected component split first (unless a specific strategy is requested)
+  if (!strategy || strategy === 'connected_component') {
+    const components = splitByConnectedComponents(plan, recommendation, cwd);
+    if (components) {
+      groups = components;
+    }
+  }
+
+  if (!groups) {
+    switch (strategy) {
+      case 'module':
+        groups = splitByModule(plan, recommendation, cwd);
+        break;
+      case 'concern':
+        groups = splitByConcern(plan, recommendation, cwd);
+        break;
+      case 'file':
+        groups = splitByFile(plan, recommendation, cwd);
+        break;
+      case 'connected_component':
+        // Already tried above and returned null — fall through to module
+        groups = splitByModule(plan, recommendation, cwd);
+        break;
+      default:
+        groups = splitByConcern(plan, recommendation, cwd);
+    }
   }
 
   // Cascading split: subdivide groups that still exceed context budget
@@ -906,6 +1015,7 @@ module.exports = {
   splitByModule,
   splitByConcern,
   splitByFile,
+  splitByConnectedComponents,
   topoSortGroups,
   detectParallelizable,
   inferGraphContext,
@@ -936,7 +1046,7 @@ Usage:
 Options:
   --root <path>     Repository root (default: cwd)
   --format <fmt>    Output format: xml (default) or json
-  --strategy <s>    Override split strategy (default: auto-detect)
+  --strategy <s>    Override split strategy: connected_component|module|concern|file (default: auto-detect)
   --test            Run built-in pipeline test
 `);
     process.exit(0);

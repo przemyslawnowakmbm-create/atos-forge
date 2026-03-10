@@ -28,6 +28,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync, execSync } = require('child_process');
 
+let cache; try { cache = require('./cache'); } catch { cache = null; }
+
 // ============================================================
 // Chalk — graceful fallback
 // ============================================================
@@ -828,6 +830,46 @@ function layerBehavioral(opts) {
     });
   }
 
+  // Check plan must_check items (from verification_must_check frontmatter)
+  if (opts.planPath) {
+    try {
+      const planContent = fs.readFileSync(path.resolve(opts.cwd, opts.planPath), 'utf8');
+      const fmMatch = planContent.match(/^---\n([\s\S]*?)\n---/);
+      if (fmMatch) {
+        const mustChecks = [];
+        const lines = fmMatch[1].split('\n');
+        let inMustCheck = false;
+        for (const line of lines) {
+          if (line.startsWith('verification_must_check:')) { inMustCheck = true; continue; }
+          if (inMustCheck && line.match(/^\s+-\s+/)) {
+            mustChecks.push(line.replace(/^\s+-\s+["']?/, '').replace(/["']?\s*$/, ''));
+          } else if (inMustCheck && !line.match(/^\s/)) { inMustCheck = false; }
+        }
+        for (const check of mustChecks) {
+          const keyword = check.toLowerCase().split(' ').find(w => w.length > 3) || check.toLowerCase();
+          const checkFiles = opts.files || [];
+          const found = checkFiles.some(f => {
+            try {
+              const content = fs.readFileSync(path.resolve(opts.cwd, f), 'utf8').toLowerCase();
+              return content.includes(keyword);
+            } catch { return false; }
+          });
+          if (!found) {
+            results.push({
+              label: `must_check: ${check}`,
+              command: `(plan verification_must_check)`,
+              passed: false,
+              exit_code: 1,
+              timed_out: false,
+              stdout: `Plan must_check not verified: "${check}" — keyword "${keyword}" not found in changed files`,
+              stderr: '',
+            });
+          }
+        }
+      }
+    } catch { /* plan read error — skip must_check */ }
+  }
+
   return {
     passed: results.every(r => r.passed),
     steps: results,
@@ -1513,8 +1555,35 @@ function logToLedger(cwd, result) {
  * @param {boolean}  [opts.json=false]   - Output JSON instead of display
  * @param {boolean}  [opts.silent=false] - No terminal output
  * @param {boolean}  [opts.logLedger=true] - Log results to session ledger
+ * @param {boolean}  [opts.incremental=false] - Only verify changed files + their consumers
  * @returns {object} Full verification result
  */
+
+/**
+ * Resolve affected files: changed files + their graph consumers.
+ * Used in incremental mode to limit verification scope.
+ */
+function resolveAffectedFiles(changedFiles, cwd) {
+  const affected = new Set(changedFiles);
+  try {
+    const dbPath = path.join(cwd, '.forge', 'graph.db');
+    if (!fs.existsSync(dbPath)) return [...affected];
+    const { GraphQuery } = require('../forge-graph/query');
+    const gq = new GraphQuery(dbPath);
+    gq.open();
+    for (const f of changedFiles) {
+      try {
+        const consumers = gq.getConsumers(f);
+        if (Array.isArray(consumers)) {
+          consumers.forEach(c => affected.add(typeof c === 'string' ? c : (c.path || c)));
+        }
+      } catch { /* file may not be in graph */ }
+    }
+    gq.close();
+  } catch { /* graph not available, fall back to changed files only */ }
+  return [...affected];
+}
+
 async function verify(opts) {
   const cwd = opts.cwd || process.cwd();
   const failFast = opts.failFast !== false;
@@ -1548,6 +1617,11 @@ async function verify(opts) {
       });
       files = diff.trim().split('\n').filter(Boolean);
     } catch { /* ignore */ }
+  }
+
+  // Incremental mode: expand files to include graph consumers
+  if (opts.incremental && files.length > 0) {
+    files = resolveAffectedFiles(files, cwd);
   }
 
   // Collect graph context for capabilities
@@ -1586,7 +1660,9 @@ async function verify(opts) {
 
   // Layer 1 — STRUCTURAL
   if (maxLayer >= 1 && !(verifyConfig.layers && verifyConfig.layers.STRUCTURAL === false)) {
-    const result = layerStructural({ cwd, files });
+    const cached1 = cache ? cache.get('STRUCTURAL', files, cwd) : null;
+    const result = cached1 || layerStructural({ cwd, files });
+    if (!cached1 && cache) cache.set('STRUCTURAL', files, cwd, result);
     layers.push({ index: 1, name: 'STRUCTURAL', passed: result.passed, skipped: false, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed && result.issues.some(i => i.severity === 'error')) {
       return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
@@ -1595,7 +1671,9 @@ async function verify(opts) {
 
   // Layer 2 — TYPE/COMPILE
   if (maxLayer >= 2 && !(verifyConfig.layers && verifyConfig.layers.TYPE_COMPILE === false)) {
-    const result = layerTypeCompile({ cwd, files, capabilities, config: verifyConfig });
+    const cached2 = cache ? cache.get('TYPE_COMPILE', files, cwd) : null;
+    const result = cached2 || layerTypeCompile({ cwd, files, capabilities, config: verifyConfig });
+    if (!cached2 && cache) cache.set('TYPE_COMPILE', files, cwd, result);
     const skipped = result.checks.length === 0;
     layers.push({ index: 2, name: 'TYPE_COMPILE', passed: result.passed, skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
@@ -1605,7 +1683,9 @@ async function verify(opts) {
 
   // Layer 3 — INTERFACE CONTRACTS
   if (maxLayer >= 3 && !(verifyConfig.layers && verifyConfig.layers.INTERFACE_CONTRACTS === false)) {
-    const result = layerInterfaceContracts({ cwd, dbPath, files, baselineDbPath: opts.baselineDbPath });
+    const cached3 = cache ? cache.get('INTERFACE_CONTRACTS', files, cwd) : null;
+    const result = cached3 || layerInterfaceContracts({ cwd, dbPath, files, baselineDbPath: opts.baselineDbPath });
+    if (!cached3 && cache) cache.set('INTERFACE_CONTRACTS', files, cwd, result);
     layers.push({ index: 3, name: 'INTERFACE_CONTRACTS', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
       return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
@@ -1614,7 +1694,9 @@ async function verify(opts) {
 
   // Layer 4 — DEPENDENCY
   if (maxLayer >= 4 && !(verifyConfig.layers && verifyConfig.layers.DEPENDENCY === false)) {
-    const result = layerDependency({ cwd, dbPath, files, baselineCycleCount });
+    const cached4 = cache ? cache.get('DEPENDENCY', files, cwd) : null;
+    const result = cached4 || layerDependency({ cwd, dbPath, files, baselineCycleCount });
+    if (!cached4 && cache) cache.set('DEPENDENCY', files, cwd, result);
     layers.push({ index: 4, name: 'DEPENDENCY', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
       return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
@@ -1624,7 +1706,9 @@ async function verify(opts) {
   // Layer 5 — TESTS
   if (maxLayer >= 5 && !(verifyConfig.layers && verifyConfig.layers.TESTS === false)) {
     const testTimeout = (verifyConfig.test_timeout) || 300;
-    const result = layerTests({ cwd, dbPath, files, timeout: testTimeout, config: verifyConfig });
+    const cached5 = cache ? cache.get('TESTS', files, cwd) : null;
+    const result = cached5 || layerTests({ cwd, dbPath, files, timeout: testTimeout, config: verifyConfig });
+    if (!cached5 && cache) cache.set('TESTS', files, cwd, result);
     layers.push({ index: 5, name: 'TESTS', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
       return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
@@ -1633,7 +1717,9 @@ async function verify(opts) {
 
   // Layer 6 — BEHAVIORAL
   if (maxLayer >= 6 && !(verifyConfig.layers && verifyConfig.layers.BEHAVIORAL === false)) {
-    const result = layerBehavioral({ cwd, verifySteps, timeout: 120 });
+    const cached6 = cache ? cache.get('BEHAVIORAL', files, cwd) : null;
+    const result = cached6 || layerBehavioral({ cwd, verifySteps, timeout: 120, planPath: opts.planPath, files });
+    if (!cached6 && cache) cache.set('BEHAVIORAL', files, cwd, result);
     layers.push({ index: 6, name: 'BEHAVIORAL', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     if (failFast && !result.passed) {
       return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
@@ -1648,7 +1734,9 @@ async function verify(opts) {
         || process.env.FORGE_SYSTEM_GRAPH_PATH
         || process.env.FORGE_SYSTEM_GRAPH
         || cl.resolveSystemDb(cwd);
-      const result = cl.layerContract({ cwd, files, systemDbPath, config: verifyConfig });
+      const cached7 = cache ? cache.get('CONTRACT', files, cwd) : null;
+      const result = cached7 || cl.layerContract({ cwd, files, systemDbPath, config: verifyConfig });
+      if (!cached7 && cache) cache.set('CONTRACT', files, cwd, result);
       layers.push({ index: 7, name: 'CONTRACT', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     } else {
       layers.push({ index: 7, name: 'CONTRACT', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'contract-layer.js not available', drift: [], compatibility: [], ripple: [], duration_ms: 0 }, duration_ms: 0 });
@@ -1657,7 +1745,9 @@ async function verify(opts) {
 
   // Layer 8 — ARCHITECTURAL (optional, agent-based, off by default)
   if (maxLayer >= 8 && verifyConfig.layers && verifyConfig.layers.ARCHITECTURAL === true) {
-    const result = layerArchitectural({ cwd, files });
+    const cached8 = cache ? cache.get('ARCHITECTURAL', files, cwd) : null;
+    const result = cached8 || layerArchitectural({ cwd, files });
+    if (!cached8 && cache) cache.set('ARCHITECTURAL', files, cwd, result);
     layers.push({ index: 8, name: 'ARCHITECTURAL', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration_ms });
     // Architectural issues are suggestions, don't fail-fast
   }
@@ -1750,6 +1840,7 @@ module.exports = {
   checkBracketBalance,
   findTsConfig,
   loadVerificationConfig,
+  resolveAffectedFiles,
   LAYER_NAMES,
 };
 

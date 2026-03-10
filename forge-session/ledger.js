@@ -251,6 +251,12 @@ function logDecision(cwd, entry) {
     }
   }
   appendToSection(cwd, 'Decisions', line);
+
+  // Dual-write to decisions.db
+  try {
+    const decisions = require('./decisions');
+    decisions.add(cwd, { type: 'decision', text: entry.decision, rationale: entry.rationale || '', scope: entry.scope || 'global', source: entry.source || 'user', module: entry.module || null, tags: entry.tags || [] });
+  } catch { /* decisions module not available */ }
 }
 
 // ============================================================
@@ -311,6 +317,12 @@ function logUserPreference(cwd, entry) {
   const line = `- ${entry.preference}`;
   sections['User Preferences'] = existing ? existing + '\n' + line : line;
   save(cwd, header, sections);
+
+  // Dual-write to decisions.db
+  try {
+    const decisions = require('./decisions');
+    decisions.add(cwd, { type: 'preference', text: entry.preference, rationale: '', scope: 'global', source: entry.source || 'user', module: entry.module || null, tags: entry.tags || [] });
+  } catch { /* decisions module not available */ }
 }
 
 // ============================================================
@@ -600,6 +612,11 @@ function archiveAndReset(cwd, label) {
         result.knowledge_skipped = promoteResult.skipped;
       }
     } catch { /* knowledge module not available or promotion failed */ }
+
+    // Promote decisions to decisions.db
+    try {
+      require('./decisions').promoteFromLedger(cwd);
+    } catch { /* decisions module not available */ }
   }
 
   // Create fresh ledger

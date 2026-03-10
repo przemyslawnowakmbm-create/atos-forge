@@ -355,6 +355,38 @@ You are a general-purpose execution agent.
 };
 
 /**
+ * Build a grounding section with verified facts from the code graph.
+ * Helps agents avoid hallucinating function signatures, parameters, etc.
+ */
+function buildGroundingSection(cwd, planFiles) {
+  try {
+    const dbPath = path.join(cwd, '.forge', 'graph.db');
+    if (!fs.existsSync(dbPath)) return '';
+    const GQ = graphQuery();
+    const q = new GQ.GraphQuery(dbPath);
+    q.open();
+    const lines = ['## Grounded Facts (VERIFIED from code graph — TRUST over training data)\n'];
+    for (const f of (planFiles || [])) {
+      const fileInfo = q.file(f);
+      if (!fileInfo) { lines.push(`WARNING: NEW FILE: ${f} — will be created by this plan\n`); continue; }
+      const symbols = (q.symbolsInFile(f) || []).filter(s => s.exported);
+      let imports = [], consumers = [];
+      try { imports = q.importsOf(f) || []; } catch {}
+      try { const cr = q.getConsumers(f); consumers = cr && cr.consumers ? cr.consumers : []; } catch {}
+      lines.push(`FILE: ${f} (module: ${fileInfo.module || '?'}, ${fileInfo.loc} LOC)`);
+      if (symbols.length) lines.push(`  Exports: ${symbols.map(s => s.name + (s.signature || '')).join(', ')}`);
+      if (imports.length) lines.push(`  Imports: ${imports.slice(0, 10).map(i => i.target_file || i).join(', ')}`);
+      if (consumers.length) lines.push(`  Consumers: ${consumers.slice(0, 10).map(c => c.source_file || c).join(', ')}`);
+      lines.push('');
+    }
+    q.close();
+    lines.push('IMPORTANT: If your training data contradicts these facts, TRUST the grounded facts.');
+    lines.push('Do NOT invent function signatures, parameters, or return types not listed above.\n');
+    return lines.join('\n');
+  } catch { return ''; }
+}
+
+/**
  * Compose a full system prompt for the agent.
  *
  * @param {object} analysis - From analyzeTask()
@@ -500,6 +532,69 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
     }
   }
 
+  // Locked decisions from plan frontmatter (enforced during execution)
+  const locked = analysis.plan?.frontmatter?.locked_decisions || [];
+  if (locked.length > 0) {
+    parts.push('\n## LOCKED DECISIONS (from approved plan — deviation is FAILURE)');
+    locked.forEach((d, i) => parts.push(`${i + 1}. ${d}`));
+    parts.push('Deviating from locked decisions is equivalent to a verification failure.\n');
+  }
+
+  // Grounded facts from code graph (anti-hallucination)
+  const groundingCwd = analysis.plan?.path ? path.dirname(path.dirname(analysis.plan.path)) : process.cwd();
+  const grounding = buildGroundingSection(groundingCwd, analysis.plan?.all_files);
+  if (grounding) parts.push(grounding);
+
+  // Project conventions (auto-detected)
+  try {
+    const convDbPath = path.join(groundingCwd, '.forge', 'graph.db');
+    if (fs.existsSync(convDbPath)) {
+      const GQ = graphQuery();
+      const q = new GQ.GraphQuery(convDbPath);
+      q.open();
+      const allMeta = q.meta();
+      q.close();
+      const convRaw = allMeta ? allMeta.conventions : null;
+      if (convRaw) {
+        const c = JSON.parse(convRaw);
+        const convLines = ['## Project Conventions (auto-detected — follow these)'];
+        if (c.naming && c.naming !== 'unknown') convLines.push(`- Naming: ${c.naming}`);
+        if (c.importStyle && c.importStyle !== 'unknown') convLines.push(`- Imports: ${c.importStyle}`);
+        if (c.exportStyle && c.exportStyle !== 'unknown') convLines.push(`- Exports: ${c.exportStyle}`);
+        if (c.testFramework && c.testFramework !== 'unknown') convLines.push(`- Test framework: ${c.testFramework}`);
+        if (convLines.length > 1) {
+          convLines.push('Follow these conventions in ALL generated code.\n');
+          parts.push(convLines.join('\n'));
+        }
+      }
+    }
+  } catch { /* conventions not available */ }
+
+  // Previous agent findings (propagated from earlier waves)
+  if (sessionContext && sessionContext.previous_findings && sessionContext.previous_findings.length > 0) {
+    const findingsLines = ['## Previous Agent Findings\n'];
+    for (const f of sessionContext.previous_findings) {
+      findingsLines.push(`- [${(f.severity || 'info').toUpperCase()}] ${f.file || '?'}${f.line ? ':' + f.line : ''} — ${f.description}`);
+    }
+    findingsLines.push('');
+    parts.push(findingsLines.join('\n'));
+  }
+
+  // Agent output format instruction
+  parts.push('\n## Structured Output (optional but recommended)');
+  parts.push('After completing your work, include a structured summary block:');
+  parts.push('');
+  parts.push('```' + 'json:agent-output');
+  parts.push(JSON.stringify({
+    findings: [{ type: 'bug|convention|risk|note', file: 'path', line: 0, description: 'what', severity: 'info|warning|critical' }],
+    decisions_made: [{ text: 'what was decided', rationale: 'why' }],
+    files_created: ['path1'],
+    files_modified: ['path2'],
+    confidence: 0.85,
+  }, null, 2));
+  parts.push('```');
+  parts.push('');
+
   return parts.join('\n');
 }
 
@@ -577,7 +672,20 @@ function composeContextPackage(analysis, config) {
     }
   }
 
-  // Task-specific: direct dependencies
+  // Include test stubs if they exist (RED→GREEN pipeline)
+  try {
+    const stubGen = require('../forge-verify/test-stub-generator');
+    const testDir = stubGen.detectTestDir(config.cwd || process.cwd());
+    const planBase = path.basename(analysis.plan.path || '', '.md').replace(/^\d+-\d+-/, '');
+    const fw = stubGen.detectTestFramework(config.cwd || process.cwd());
+    const stubFile = path.join(testDir, `plan-${planBase}${fw.ext}`);
+    const stubFullPath = path.resolve(config.cwd || process.cwd(), stubFile);
+    if (fs.existsSync(stubFullPath)) {
+      addFile(always_load, stubFullPath);
+    }
+  } catch { /* test-stub-generator not available — skip */ }
+
+  // Task-specific: direct dependencies (INTERFACE level — only exported symbols)
   if (analysis.graphContext) {
     const depFiles = new Set();
     for (const dep of (analysis.graphContext.directDependencies || [])) {
@@ -585,11 +693,70 @@ function composeContextPackage(analysis, config) {
         depFiles.add(dep.target_file);
       }
     }
-    for (const f of depFiles) {
-      if (fs.existsSync(f)) {
-        addFile(task_specific, f);
+
+    // 3-level context compression:
+    // FULL — plan files (always_load above)
+    // INTERFACE — direct dependencies (exported symbols only, ~20 tokens per export)
+    // SUMMARY — transitive deps (1-line summary)
+    const cwd = analysis.plan?.path ? path.dirname(path.dirname(analysis.plan.path)) : process.cwd();
+    const dbPath = path.join(cwd, '.forge', 'graph.db');
+    let gq = null;
+    try {
+      if (fs.existsSync(dbPath)) {
+        const GQ = graphQuery();
+        gq = new GQ.GraphQuery(dbPath);
+        gq.open();
       }
+    } catch { gq = null; }
+
+    // INTERFACE level for direct dependencies
+    for (const f of depFiles) {
+      if (!fs.existsSync(f)) continue;
+      if (gq) {
+        try {
+          const symbols = (gq.symbolsInFile(f) || []).filter(s => s.exported);
+          if (symbols.length > 0) {
+            const interfaceContent = `// Interface: ${f} (${symbols.length} exports)\n` +
+              symbols.map(s => `export ${s.kind} ${s.name}${s.signature || ''};`).join('\n');
+            const interfaceTokens = Math.ceil(interfaceContent.length / 4);
+            if (usedTokens + interfaceTokens <= maxTokens) {
+              task_specific.push({ path: f, level: 'interface', content: interfaceContent });
+              usedTokens += interfaceTokens;
+              continue;
+            }
+          }
+        } catch { /* fall through to full file */ }
+      }
+      addFile(task_specific, f);
     }
+
+    // SUMMARY level for transitive dependencies (depth 2+)
+    if (gq) {
+      try {
+        const transitiveFiles = new Set();
+        for (const f of depFiles) {
+          const chain = gq.dependencyChain(f, 1);
+          for (const edge of chain) {
+            if (!depFiles.has(edge.to) && !analysis.plan.all_files.includes(edge.to)) {
+              transitiveFiles.add(edge.to);
+            }
+          }
+        }
+        for (const f of transitiveFiles) {
+          const fileInfo = gq.file(f);
+          if (fileInfo) {
+            const summaryLine = `// Summary: ${f} (${fileInfo.module || '?'}, ${fileInfo.loc} LOC, ${fileInfo.language})`;
+            const summaryTokens = Math.ceil(summaryLine.length / 4);
+            if (usedTokens + summaryTokens <= maxTokens) {
+              task_specific.push({ path: f, level: 'summary', content: summaryLine });
+              usedTokens += summaryTokens;
+            }
+          }
+        }
+      } catch { /* transitive analysis not critical */ }
+    }
+
+    if (gq) { try { gq.close(); } catch {} }
 
     // Task-specific: consumers (files that import our task files)
     const consumerFiles = new Set();
@@ -782,6 +949,19 @@ function extractSessionContext(analysis) {
     active_phase: null,
   };
 
+  // Load structured decisions from decisions.db (preferred over markdown parsing)
+  try {
+    const dec = require('../forge-session/decisions');
+    const phase = analysis.ledgerState?.active_phase || null;
+    const cwd = analysis.plan?.path ? path.dirname(path.dirname(analysis.plan.path)) : process.cwd();
+    const structured = dec.forAgent(cwd, phase, analysis.affectedModules || [], analysis.plan?.all_files || []);
+    if (structured && structured.length > 0) {
+      ctx.decisions = structured.filter(d => d.type === 'decision').map(d => d.text);
+      ctx.user_preferences = structured.filter(d => d.type === 'preference').map(d => d.text);
+      ctx.rejected_approaches = structured.filter(d => d.type === 'rejection').map(d => d.text);
+    }
+  } catch { /* decisions module not available — fallback to markdown parsing below */ }
+
   if (!analysis.ledgerState.exists) return ctx;
 
   const content = analysis.ledgerContent;
@@ -858,6 +1038,11 @@ function extractSessionContext(analysis) {
       ctx.impact_analysis = JSON.parse(fs.readFileSync(impactPath, 'utf8'));
     }
   } catch { /* impact analysis not available */ }
+
+  // Inject previous agent findings (from earlier wave results)
+  if (analysis.previousFindings && analysis.previousFindings.length > 0) {
+    ctx.previous_findings = analysis.previousFindings;
+  }
 
   return ctx;
 }

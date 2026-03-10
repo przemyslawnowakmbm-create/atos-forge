@@ -296,6 +296,16 @@ Output consumed by /forge:execute-phase. Plans need:
 - Tasks in XML format
 - Verification criteria
 - must_haves for goal-backward verification
+- locked_decisions for enforced technical decisions (optional)
+- verification_must_check for automated code verification (optional)
+
+Plans should include `locked_decisions` (3-5 key technical decisions that agents cannot deviate from) and `verification_must_check` (items the verification engine checks in changed files). Example:
+```yaml
+locked_decisions:
+  - "Use JWT for auth, not sessions"
+verification_must_check:
+  - "JWT token generation"
+```
 </downstream_consumer>
 
 <quality_gate>

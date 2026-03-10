@@ -1244,6 +1244,9 @@ class GraphBuilder {
     });
 
     writeAll();
+
+    // Detect and persist project conventions into graph_meta
+    try { const { detectConventions } = require('./convention-detector'); detectConventions(this.repoRoot); } catch {}
   }
 
   finalize(startTime) {

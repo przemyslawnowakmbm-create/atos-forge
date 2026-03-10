@@ -102,6 +102,10 @@ const DEFAULTS = {
     max_entries: 200,
     promote_severity_threshold: 'medium',
   },
+  decisions: {
+    enabled: true,
+    dedup_threshold: 0.80,
+  },
   impact_analysis: {
     enabled: true,
     auto_detect: true,
