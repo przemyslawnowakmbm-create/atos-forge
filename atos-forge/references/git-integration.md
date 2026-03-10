@@ -1,5 +1,5 @@
 <overview>
-Git integration for A-Forge framework.
+Git integration for Forge framework.
 </overview>
 
 <core_principle>
@@ -29,7 +29,7 @@ The git log should read like a changelog of what shipped, not a diary of plannin
 [ -d .git ] && echo "GIT_EXISTS" || echo "NO_GIT"
 ```
 
-If NO_GIT: Run `git init` silently. A-Forge projects always get their own repo.
+If NO_GIT: Run `git init` silently. Forge projects always get their own repo.
 </git_check>
 
 <commit_formats>

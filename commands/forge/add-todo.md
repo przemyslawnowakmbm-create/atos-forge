@@ -10,7 +10,7 @@ allowed-tools:
 ---
 
 <objective>
-Capture an idea, task, or issue that surfaces during a A-Forge session as a structured todo for later work.
+Capture an idea, task, or issue that surfaces during a Forge session as a structured todo for later work.
 
 Routes to the add-todo workflow which handles:
 - Directory structure creation

@@ -1,6 +1,6 @@
 <ui_patterns>
 
-Visual patterns for user-facing A-Forge output. Orchestrators @-reference this file.
+Visual patterns for user-facing Forge output. Orchestrators @-reference this file.
 
 ## Stage Banners
 
@@ -8,7 +8,7 @@ Use for major workflow transitions.
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► {STAGE NAME}
+ Forge ► {STAGE NAME}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -153,7 +153,7 @@ Always at end of major completions.
 
 - Varying box/banner widths
 - Mixing banner styles (`===`, `---`, `***`)
-- Skipping `A-Forge ►` prefix in banners
+- Skipping `Forge ►` prefix in banners
 - Random emoji (`🚀`, `✨`, `💫`)
 - Missing Next Up block after completions
 

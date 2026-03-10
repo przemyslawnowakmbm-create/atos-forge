@@ -1,5 +1,5 @@
 <purpose>
-Check for A-Forge updates via npm, display changelog for versions between installed and latest, obtain user confirmation, and execute clean installation with cache clearing.
+Check for Forge updates via npm, display changelog for versions between installed and latest, obtain user confirmation, and execute clean installation with cache clearing.
 </purpose>
 
 <required_reading>
@@ -9,7 +9,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 <process>
 
 <step name="get_installed_version">
-Detect whether A-Forge is installed locally or globally by checking both locations:
+Detect whether Forge is installed locally or globally by checking both locations:
 
 ```bash
 # Check local first (takes priority)
@@ -32,7 +32,7 @@ Parse output:
 
 **If VERSION file missing:**
 ```
-## A-Forge Update
+## Forge Update
 
 **Installed version:** Unknown
 
@@ -66,7 +66,7 @@ Compare installed vs latest:
 
 **If installed == latest:**
 ```
-## A-Forge Update
+## Forge Update
 
 **Installed:** X.Y.Z
 **Latest:** X.Y.Z
@@ -78,7 +78,7 @@ Exit.
 
 **If installed > latest:**
 ```
-## A-Forge Update
+## Forge Update
 
 **Installed:** X.Y.Z
 **Latest:** A.B.C
@@ -97,7 +97,7 @@ Exit.
 3. Display preview and ask for confirmation:
 
 ```
-## A-Forge Update Available
+## Forge Update Available
 
 **Installed:** 1.5.10
 **Latest:** 1.5.15
@@ -117,7 +117,7 @@ Exit.
 
 ────────────────────────────────────────────────────────────
 
-⚠️  **Note:** The installer performs a clean install of A-Forge folders:
+⚠️  **Note:** The installer performs a clean install of Forge folders:
 - `commands/forge/` will be wiped and replaced
 - `atos-forge/` will be wiped and replaced
 - `agents/forge-*` files will be replaced
@@ -130,7 +130,7 @@ Your custom files in other locations are preserved:
 - Custom hooks ✓
 - Your CLAUDE.md files ✓
 
-If you've modified any A-Forge files directly, they'll be automatically backed up to `forge-local-patches/` and can be reapplied with `/forge:reapply-patches` after the update.
+If you've modified any Forge files directly, they'll be automatically backed up to `forge-local-patches/` and can be reapplied with `/forge:reapply-patches` after the update.
 ```
 
 Use AskUserQuestion:
@@ -176,12 +176,12 @@ Format completion message (changelog was already shown in confirmation step):
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
-║  A-Forge Updated: v1.5.10 → v1.5.15                           ║
+║  Forge Updated: v1.5.10 → v1.5.15                           ║
 ╚═══════════════════════════════════════════════════════════╝
 
 ⚠️  Restart Claude Code to pick up the new commands.
 
-[View full changelog](https://github.com/przemyslawnowakmbm-create/atos-forge/blob/main/CHANGELOG.md)
+[View full changelog](TBD)
 ```
 </step>
 

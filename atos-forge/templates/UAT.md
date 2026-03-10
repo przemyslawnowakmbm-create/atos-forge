@@ -316,7 +316,7 @@ result: pass
 type: auth
 command: |
   curl -s -X POST http://localhost:8001/api/auth/login -H 'Content-Type: application/json' \
-    -d '{"email":"admin@eurocontrol.int","password":"admin"}' | python3 -c "import sys,json,base64; t=json.load(sys.stdin)['access_token'].split('.')[1]; print(json.loads(base64.b64decode(t+'==')))"
+    -d '{"email":"admin@example.com","password":"admin"}' | python3 -c "import sys,json,base64; t=json.load(sys.stdin)['access_token'].split('.')[1]; print(json.loads(base64.b64decode(t+'==')))"
 expected: JSON with tenant_id field containing a UUID
 result: issue
 reported: "token decodes but no tenant_id field present"

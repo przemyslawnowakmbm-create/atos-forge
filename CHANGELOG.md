@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to A-Forge will be documented in this file.
+All notable changes to Forge will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
@@ -62,7 +62,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.19.2] - 2026-02-15
 
 ### Added
-- User-level default settings via `~/.forge/defaults.json` — set A-Forge defaults across all projects
+- User-level default settings via `~/.forge/defaults.json` — set Forge defaults across all projects
 - Per-agent model overrides — customize which Claude model each agent uses
 
 ### Changed
@@ -127,8 +127,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **forge-tools frontmatter CRUD**: `frontmatter get/set/merge/validate` — safe YAML frontmatter operations with schema validation
 - **forge-tools template fill**: `template fill summary/plan/verification` — pre-filled document skeletons
 - **forge-tools state progression**: `state advance-plan`, `state update-progress`, `state record-metric`, `state add-decision`, `state add-blocker`, `state resolve-blocker`, `state record-session` — automates STATE.md updates
-- **Local patch preservation**: Installer now detects locally modified A-Forge files, backs them up to `forge-local-patches/`, and creates a manifest for restoration
-- `/forge:reapply-patches` command to merge local modifications back after A-Forge updates
+- **Local patch preservation**: Installer now detects locally modified Forge files, backs them up to `forge-local-patches/`, and creates a manifest for restoration
+- `/forge:reapply-patches` command to merge local modifications back after Forge updates
 
 ### Changed
 - Agents (executor, planner, plan-checker, verifier) now use forge-tools for state updates and verification instead of manual markdown parsing
@@ -287,7 +287,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.9.8] - 2025-01-22
 
 ### Added
-- Uninstall flag (`--uninstall`) to cleanly remove A-Forge from global or local installations
+- Uninstall flag (`--uninstall`) to cleanly remove Forge from global or local installations
 
 ### Fixed
 - Context file detection now matches filename variants (handles both `CONTEXT.md` and `{phase}-CONTEXT.md` patterns)
@@ -303,9 +303,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Interactive runtime selection: installer now prompts to choose Claude Code, OpenCode, or both
-- Native OpenCode support: `--opencode` flag converts A-Forge to OpenCode format automatically
+- Native OpenCode support: `--opencode` flag converts Forge to OpenCode format automatically
 - `--both` flag to install for both Claude Code and OpenCode in one command
-- Auto-configures `~/.opencode.json` permissions for seamless A-Forge doc access
+- Auto-configures `~/.opencode.json` permissions for seamless Forge doc access
 
 ### Changed
 - Installation flow now asks for runtime first, then location
@@ -370,11 +370,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.7.0] - 2026-01-19
 
 ### Added
-- **Quick Mode** (`/forge:quick`) — Execute small, ad-hoc tasks with A-Forge guarantees but skip optional agents (researcher, checker, verifier). Quick tasks live in `.planning/quick/` with their own tracking in STATE.md.
+- **Quick Mode** (`/forge:quick`) — Execute small, ad-hoc tasks with Forge guarantees but skip optional agents (researcher, checker, verifier). Quick tasks live in `.planning/quick/` with their own tracking in STATE.md.
 
 ### Changed
 - Improved progress bar calculation to clamp values within 0-100 range
-- Updated documentation with comprehensive Quick Mode sections in help.md, README.md, and A-Forge-STYLE.md
+- Updated documentation with comprehensive Quick Mode sections in help.md, README.md, and Forge-STYLE.md
 
 ### Fixed
 - Console window flash on Windows when running hooks
@@ -412,7 +412,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.6.1] - 2025-01-17
 
 ### Changed
-- Installer performs clean install of A-Forge folders, removing orphaned files from previous versions
+- Installer performs clean install of Forge folders, removing orphaned files from previous versions
 - `/forge:update` shows changelog and asks for confirmation before updating, with clear warning about what gets replaced
 
 ## [1.6.0] - 2026-01-17
@@ -502,7 +502,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.5.21] - 2026-01-16
 
 ### Added
-- A-Forge brand system for consistent UI (checkpoint boxes, stage banners, status symbols)
+- Forge brand system for consistent UI (checkpoint boxes, stage banners, status symbols)
 - Research synthesizer agent that consolidates parallel research into SUMMARY.md
 
 ### Changed
@@ -1136,7 +1136,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `/forge:map-codebase` command for brownfield project analysis
 - Codebase map templates (stack, architecture, structure, conventions, testing, integrations, concerns)
 - Parallel Explore agent orchestration for codebase analysis
-- Brownfield integration into A-Forge workflows
+- Brownfield integration into Forge workflows
 
 ### Changed
 - Improved continuation UI with context and visual hierarchy
@@ -1300,175 +1300,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.0.0] - 2025-12-14
 
 ### Added
-- Initial release of A-Forge (Atos Forge) meta-prompting system
+- Initial release of Forge meta-prompting system
 - Core slash commands: `/forge:new-project`, `/forge:discuss-phase`, `/forge:plan-phase`, `/forge:execute-phase`
 - PROJECT.md and STATE.md templates
 - Phase-based development workflow
 - YOLO mode for autonomous execution
 - Interactive mode with checkpoints
 
-[Unreleased]: https://github.com/przemyslawnowakmbm-create/atos-forge/compare/v1.20.4...HEAD
-[1.20.4]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.20.4
-[1.20.3]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.20.3
-[1.20.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.20.2
-[1.20.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.20.1
-[1.20.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.20.0
-[1.19.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.19.2
-[1.19.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.19.1
-[1.19.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.19.0
-[1.18.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.18.0
-[1.17.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.17.0
-[1.16.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.16.0
-[1.15.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.15.0
-[1.14.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.14.0
-[1.13.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.13.0
-[1.12.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.12.1
-[1.12.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.12.0
-[1.11.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.11.2
-[1.11.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.11.0
-[1.10.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.10.1
-[1.10.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.10.0
-[1.9.12]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.12
-[1.9.11]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.11
-[1.9.10]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.10
-[1.9.9]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.9
-[1.9.8]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.8
-[1.9.7]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.7
-[1.9.6]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.6
-[1.9.5]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.5
-[1.9.4]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.4
-[1.9.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.2
-[1.9.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.9.0
-[1.8.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.8.0
-[1.7.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.7.1
-[1.7.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.7.0
-[1.6.4]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.6.4
-[1.6.3]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.6.3
-[1.6.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.6.2
-[1.6.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.6.1
-[1.6.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.6.0
-[1.5.30]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.30
-[1.5.29]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.29
-[1.5.28]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.28
-[1.5.27]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.27
-[1.5.26]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.26
-[1.5.25]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.25
-[1.5.24]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.24
-[1.5.23]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.23
-[1.5.22]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.22
-[1.5.21]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.21
-[1.5.20]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.20
-[1.5.19]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.19
-[1.5.18]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.18
-[1.5.17]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.17
-[1.5.16]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.16
-[1.5.15]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.15
-[1.5.14]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.14
-[1.5.13]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.13
-[1.5.12]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.12
-[1.5.11]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.11
-[1.5.10]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.10
-[1.5.9]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.9
-[1.5.8]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.8
-[1.5.7]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.7
-[1.5.6]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.6
-[1.5.5]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.5
-[1.5.4]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.4
-[1.5.3]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.3
-[1.5.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.2
-[1.5.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.1
-[1.5.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.5.0
-[1.4.29]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.29
-[1.4.28]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.28
-[1.4.27]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.27
-[1.4.26]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.26
-[1.4.25]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.25
-[1.4.24]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.24
-[1.4.23]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.23
-[1.4.22]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.22
-[1.4.21]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.21
-[1.4.20]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.20
-[1.4.19]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.19
-[1.4.18]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.18
-[1.4.17]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.17
-[1.4.16]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.16
-[1.4.15]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.15
-[1.4.14]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.14
-[1.4.13]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.13
-[1.4.12]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.12
-[1.4.11]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.11
-[1.4.10]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.10
-[1.4.9]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.9
-[1.4.8]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.8
-[1.4.7]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.7
-[1.4.6]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.6
-[1.4.5]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.5
-[1.4.4]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.4
-[1.4.3]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.3
-[1.4.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.2
-[1.4.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.1
-[1.4.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.4.0
-[1.3.34]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.34
-[1.3.33]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.33
-[1.3.32]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.32
-[1.3.31]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.31
-[1.3.30]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.30
-[1.3.29]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.29
-[1.3.28]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.28
-[1.3.27]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.27
-[1.3.26]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.26
-[1.3.25]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.25
-[1.3.24]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.24
-[1.3.23]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.23
-[1.3.22]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.22
-[1.3.21]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.21
-[1.3.20]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.20
-[1.3.19]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.19
-[1.3.18]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.18
-[1.3.17]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.17
-[1.3.16]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.16
-[1.3.15]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.15
-[1.3.14]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.14
-[1.3.13]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.13
-[1.3.12]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.12
-[1.3.11]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.11
-[1.3.10]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.10
-[1.3.9]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.9
-[1.3.8]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.8
-[1.3.7]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.7
-[1.3.6]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.6
-[1.3.5]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.5
-[1.3.4]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.4
-[1.3.3]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.3
-[1.3.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.2
-[1.3.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.1
-[1.3.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.3.0
-[1.2.13]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.13
-[1.2.12]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.12
-[1.2.11]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.11
-[1.2.10]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.10
-[1.2.9]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.9
-[1.2.8]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.8
-[1.2.7]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.7
-[1.2.6]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.6
-[1.2.5]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.5
-[1.2.4]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.4
-[1.2.3]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.3
-[1.2.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.2
-[1.2.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.1
-[1.2.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.2.0
-[1.1.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.1.2
-[1.1.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.1.1
-[1.1.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.1.0
-[1.0.11]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.11
-[1.0.10]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.10
-[1.0.9]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.9
-[1.0.8]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.8
-[1.0.7]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.7
-[1.0.6]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.6
-[1.0.5]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.5
-[1.0.4]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.4
-[1.0.3]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.3
-[1.0.2]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.2
-[1.0.1]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.1
-[1.0.0]: https://github.com/przemyslawnowakmbm-create/atos-forge/releases/tag/v1.0.0
+<!-- Release links: TBD - do uzupelnienia po migracji repo -->

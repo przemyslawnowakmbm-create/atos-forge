@@ -1,4 +1,4 @@
-# A-Forge User Guide
+# Forge User Guide
 
 A detailed reference for workflows, troubleshooting, and configuration. For quick-start setup, see the [README](../README.md).
 
@@ -159,7 +159,7 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
 | `/forge:resume-work` | Restore full context from last session | Starting a new session |
 | `/forge:pause-work` | Save context handoff | Stopping mid-phase |
 | `/forge:help` | Show all commands | Quick reference |
-| `/forge:update` | Update A-Forge with changelog preview | Check for new versions |
+| `/forge:update` | Update Forge with changelog preview | Check for new versions |
 
 ### Phase Management
 
@@ -177,7 +177,7 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
 | `/forge:map-codebase` | Analyze existing codebase | Before `/forge:new-project` on existing code |
-| `/forge:quick` | Ad-hoc task with A-Forge guarantees | Bug fixes, small features, config changes |
+| `/forge:quick` | Ad-hoc task with Forge guarantees | Bug fixes, small features, config changes |
 | `/forge:debug [desc]` | Systematic debugging with persistent state | When something breaks |
 | `/forge:add-todo [desc]` | Capture an idea for later | Think of something during a session |
 | `/forge:check-todos` | List pending todos | Review captured ideas |
@@ -189,7 +189,7 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
 
 ## Configuration Reference
 
-A-Forge stores project settings in `.planning/config.json`. Configure during `/forge:new-project` or update later with `/forge:settings`.
+Forge stores project settings in `.planning/config.json`. Configure during `/forge:new-project` or update later with `/forge:settings`.
 
 ### Full config.json Schema
 
@@ -369,7 +369,7 @@ You ran `/forge:new-project` but `.planning/PROJECT.md` already exists. This is 
 
 ### Context Degradation During Long Sessions
 
-Clear your context window between major commands: `/clear` in Claude Code. A-Forge is designed around fresh contexts -- every subagent gets a clean 200K window. If quality is dropping in the main session, clear and use `/forge:resume-work` or `/forge:progress` to restore state.
+Clear your context window between major commands: `/clear` in Claude Code. Forge is designed around fresh contexts -- every subagent gets a clean 200K window. If quality is dropping in the main session, clear and use `/forge:resume-work` or `/forge:progress` to restore state.
 
 ### Plans Seem Wrong or Misaligned
 
@@ -395,13 +395,13 @@ Switch to budget profile: `/forge:set-profile budget`. Disable research and plan
 
 Set `commit_docs: false` during `/forge:new-project` or via `/forge:settings`. Add `.planning/` to your `.gitignore`. Planning artifacts stay local and never touch git.
 
-### A-Forge Update Overwrote My Local Changes
+### Forge Update Overwrote My Local Changes
 
 Since v1.17, the installer backs up locally modified files to `forge-local-patches/`. Run `/forge:reapply-patches` to merge your changes back.
 
 ### Subagent Appears to Fail but Work Was Done
 
-A known workaround exists for a Claude Code classification bug. A-Forge's orchestrators (execute-phase, quick) spot-check actual output before reporting failure. If you see a failure message but commits were made, check `git log` -- the work may have succeeded.
+A known workaround exists for a Claude Code classification bug. Forge's orchestrators (execute-phase, quick) spot-check actual output before reporting failure. If you see a failure message but commits were made, check `git log` -- the work may have succeeded.
 
 ---
 
@@ -423,7 +423,7 @@ A known workaround exists for a Claude Code classification bug. A-Forge's orches
 
 ## Project File Structure
 
-For reference, here is what A-Forge creates in your project:
+For reference, here is what Forge creates in your project:
 
 ```
 .planning/

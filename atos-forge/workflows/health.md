@@ -42,7 +42,7 @@ Parse JSON output:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge Health Check
+ Forge Health Check
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Status: HEALTHY | DEGRADED | BROKEN
@@ -104,6 +104,40 @@ Would you like to run /forge:health --repair to fix N issues automatically?
 ```
 
 If yes, re-run with --repair flag and display results.
+</step>
+
+<step name="auto_repair">
+If the user passed --repair flag AND doctor found failing checks:
+
+Parse doctor output for failed checks. For each failure, attempt automatic repair:
+
+1. **Missing .forge/ directory** → `mkdir -p .forge/session .forge/snapshots .forge/knowledge`
+2. **Missing .forge/config.json** → Copy from template: read `atos-forge/templates/config.json`, write to `.forge/config.json`
+3. **Missing .forge/session/ledger.md** → Create empty file: `touch .forge/session/ledger.md`
+4. **Missing .forge/knowledge/learnings.json** → Write `[]` to file
+5. **Stale graph.db (>24h)** → Run `node forge-graph/builder.js .` (if forge-graph/ exists)
+6. **Missing dashboard** → Run `node atos-forge/bin/forge-tools.cjs graph visualize` (if graph.db exists)
+7. **Missing git hooks** → Run `node forge-graph/install-hooks.js .` (if file exists)
+
+**IMPORTANT:** NEVER overwrite existing files. Only create-if-missing.
+
+After repairs, re-run doctor to verify fixes:
+```bash
+node atos-forge/bin/forge-tools.cjs doctor
+```
+
+Report what was repaired and what still needs manual intervention:
+```
+╔══════════════════════════════════════════════════════════════╗
+║  REPAIR REPORT                                               ║
+╚══════════════════════════════════════════════════════════════╝
+
+  ✓ Created .forge/config.json
+  ✓ Created .forge/session/ directory
+  ✓ Created .forge/knowledge/learnings.json
+  ✗ Cannot auto-repair: Docker not installed (manual action required)
+  ✗ Cannot auto-repair: tree-sitter not installed (run: cd forge-graph && npm install)
+```
 </step>
 
 <step name="verify_repairs">

@@ -1,11 +1,11 @@
 <purpose>
-Display the complete A-Forge command reference. Output ONLY the reference content. Do NOT add project-specific analysis, git status, next-step suggestions, or any commentary beyond the reference.
+Display the complete Forge command reference. Output ONLY the reference content. Do NOT add project-specific analysis, git status, next-step suggestions, or any commentary beyond the reference.
 </purpose>
 
 <reference>
-# A-Forge Command Reference
+# Forge Command Reference
 
-**A-Forge** (Atos Forge) creates hierarchical project plans optimized for solo agentic development with Claude Code.
+**Forge** (Forge) creates hierarchical project plans optimized for solo agentic development with Claude Code.
 
 ## Quick Start
 
@@ -15,7 +15,7 @@ Display the complete A-Forge command reference. Output ONLY the reference conten
 
 ## Staying Updated
 
-A-Forge evolves fast. Update periodically:
+Forge evolves fast. Update periodically:
 
 ```bash
 node bin/install.js@latest
@@ -99,6 +99,17 @@ Create detailed execution plan for a specific phase.
 Usage: `/forge:plan-phase 1`
 Result: Creates `.planning/phases/01-foundation/01-01-PLAN.md`
 
+**`/forge:validate-phase <number>`**
+Validate phase plans before execution.
+
+- Checks plan completeness (frontmatter, tasks, verify criteria)
+- Verifies dependency integrity (no cycles, valid references)
+- Estimates context feasibility (token budget per plan)
+- Cross-checks against code graph (file existence, impact)
+- Reports PASS/WARN/FAIL per plan with fix suggestions
+
+Usage: `/forge:validate-phase 3`
+
 ### Execution
 
 **`/forge:execute-phase <phase-number>`**
@@ -114,7 +125,7 @@ Usage: `/forge:execute-phase 5`
 ### Quick Mode
 
 **`/forge:quick`**
-Execute small, ad-hoc tasks with A-Forge guarantees but skip optional agents.
+Execute small, ad-hoc tasks with Forge guarantees but skip optional agents.
 
 Quick mode uses the same system with a shorter path:
 - Spawns planner + executor (skips researcher, checker, verifier)
@@ -302,13 +313,27 @@ Configure workflow toggles and model profile interactively.
 Usage: `/forge:settings`
 
 **`/forge:set-profile <profile>`**
-Quick switch model profile for A-Forge agents.
+Quick switch model profile for Forge agents.
 
 - `quality` — Opus everywhere except verification
 - `balanced` — Opus for planning, Sonnet for execution (default)
 - `budget` — Sonnet for writing, Haiku for research/verification
 
 Usage: `/forge:set-profile budget`
+
+### Testing
+
+**`/forge:add-tests <phase> [instructions]`**
+Generate unit and E2E tests for a completed phase.
+
+- Classifies changed files into TDD (unit), E2E (browser), Skip
+- Presents test plan for approval before generating
+- Follows RED-GREEN conventions with code graph context
+- Discovers existing test structure and conventions
+- Commits tests with `test(phase-{N}):` prefix
+
+Usage: `/forge:add-tests 3`
+Usage: `/forge:add-tests 3 focus on edge cases`
 
 ### Utility Commands
 
@@ -326,7 +351,7 @@ Usage: `/forge:cleanup`
 Show this command reference.
 
 **`/forge:update`**
-Update A-Forge to latest version with changelog preview.
+Update Forge to latest version with changelog preview.
 
 - Shows installed vs latest version comparison
 - Displays changelog entries for versions you've missed
@@ -338,7 +363,7 @@ Usage: `/forge:update`
 
 
 - Get help, share what you're building, stay updated
-- Connect with other A-Forge users
+- Connect with other Forge users
 
 
 ## Files & Structure

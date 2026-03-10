@@ -1,6 +1,6 @@
 ---
 name: forge:settings
-description: Configure A-Forge workflow toggles and model profile
+description: Configure Forge workflow toggles and model profile
 allowed-tools:
   - Read
   - Write
@@ -9,7 +9,7 @@ allowed-tools:
 ---
 
 <objective>
-Interactive configuration of A-Forge workflow agents and model profile via multi-question prompt.
+Interactive configuration of Forge workflow agents and model profile via multi-question prompt.
 
 Routes to the settings workflow which handles:
 - Config existence ensuring

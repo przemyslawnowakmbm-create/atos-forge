@@ -126,7 +126,7 @@ Template for `.planning/codebase/STRUCTURE.md` - captures physical file organiza
 atos-forge/
 ├── bin/                # Executable entry points
 ├── commands/           # Slash command definitions
-│   └── forge/           # A-Forge-specific commands
+│   └── forge/           # Forge-specific commands
 ├── atos-forge/     # Skill resources
 │   ├── references/    # Principle documents
 │   ├── templates/     # File templates

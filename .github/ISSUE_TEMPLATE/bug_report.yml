@@ -10,7 +10,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: A-Forge Version
+      label: Forge Version
       description: "Run: npm list -g atos-forge"
       placeholder: "e.g., 1.18.0"
     validations:

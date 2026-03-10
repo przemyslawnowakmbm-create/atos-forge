@@ -1,5 +1,5 @@
 <purpose>
-Interactive configuration of A-Forge workflow agents (research, plan_check, verifier) and model profile selection via multi-question prompt. Updates .planning/config.json with user preferences. Optionally saves settings as global defaults (~/.forge/defaults.json) for future projects.
+Interactive configuration of Forge workflow agents (research, plan_check, verifier) and model profile selection via multi-question prompt. Updates .planning/config.json with user preferences. Optionally saves settings as global defaults (~/.forge/defaults.json) for future projects.
 </purpose>
 
 <required_reading>
@@ -166,7 +166,7 @@ Display:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► SETTINGS UPDATED
+ Forge ► SETTINGS UPDATED
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 | Setting              | Value |

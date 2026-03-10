@@ -323,5 +323,5 @@ End workflow.
 - Read agent output files to collect confirmations
 - All 7 codebase documents exist
 - Clear completion summary with line counts
-- User offered clear next steps in A-Forge style
+- User offered clear next steps in Forge style
 </success_criteria>

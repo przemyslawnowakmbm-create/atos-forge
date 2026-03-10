@@ -1,4 +1,4 @@
-# Atos Forge
+# Forge
 
 Internal tooling for AI-assisted development at scale. Forge wraps Claude Code with a code graph, session memory, agent orchestration, and a 6-layer verification pipeline. It runs entirely on your machine.
 
@@ -429,7 +429,7 @@ node atos-forge/bin/forge-tools.cjs doctor
 ```
 
 ```
-╔════════════════ ATOS FORGE HEALTH CHECK ═════════════════╗
+╔════════════════ FORGE HEALTH CHECK ═════════════════╗
 ╠══════════════════════════════════════════════════════════╣
 ║  Dependencies                                            ║
 ║    ✅ Node.js           v20.20.0                          ║

@@ -134,11 +134,11 @@ function collectDashboardData(dbPath) {
 function generateCSS() {
   return `
     :root {
-      --ec-primary: #003366;
-      --ec-secondary: #2990EA;
-      --ec-accent: #008dbb;
-      --ec-navy: #001f3d;
-      --ec-sky: #e8f2fc;
+      --forge-primary: #003366;
+      --forge-secondary: #2990EA;
+      --forge-accent: #008dbb;
+      --forge-navy: #001f3d;
+      --forge-sky: #e8f2fc;
       --bg: #f5f7fa;
       --bg-card: #ffffff;
       --bg-hover: #eef3f9;
@@ -156,7 +156,7 @@ function generateCSS() {
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Exo', system-ui, -apple-system, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       overflow: hidden;
@@ -167,13 +167,13 @@ function generateCSS() {
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Header — EUROCONTROL navy gradient */
+    /* Header — Forge navy gradient */
     .dashboard-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 12px 24px;
-      background: linear-gradient(135deg, var(--ec-primary) 0%, var(--ec-navy) 100%);
+      background: linear-gradient(135deg, var(--forge-primary) 0%, var(--forge-navy) 100%);
       border-bottom: none;
       flex-shrink: 0;
       z-index: 10;
@@ -184,7 +184,7 @@ function generateCSS() {
       left: 0; right: 0;
       bottom: 0;
       height: 2px;
-      background: linear-gradient(90deg, var(--ec-secondary) 0%, var(--ec-accent) 100%);
+      background: linear-gradient(90deg, var(--forge-secondary) 0%, var(--forge-accent) 100%);
     }
     .header-left { display: flex; align-items: center; gap: 16px; }
     .header-left h1 {
@@ -220,7 +220,7 @@ function generateCSS() {
       transition: color 0.2s, border-color 0.2s;
     }
     .tab-btn:hover { color: var(--text); }
-    .tab-btn.active { color: var(--ec-primary); border-bottom-color: var(--ec-secondary); font-weight: 600; }
+    .tab-btn.active { color: var(--forge-primary); border-bottom-color: var(--forge-secondary); font-weight: 600; }
 
     /* Tab content */
     .tab-content {
@@ -251,7 +251,7 @@ function generateCSS() {
       outline: none;
       box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
-    .search-bar input:focus { border-color: var(--ec-secondary); box-shadow: 0 0 0 2px rgba(41,144,234,0.15); }
+    .search-bar input:focus { border-color: var(--forge-secondary); box-shadow: 0 0 0 2px rgba(41,144,234,0.15); }
     .search-bar .legend {
       display: flex; gap: 12px; font-size: 11px; color: var(--text-dim);
       background: var(--bg-card); padding: 4px 10px; border-radius: 6px;
@@ -287,10 +287,10 @@ function generateCSS() {
       align-items: center;
       padding: 16px 20px;
       border-bottom: 1px solid var(--border);
-      background: var(--ec-sky);
+      background: var(--forge-sky);
       flex-shrink: 0;
     }
-    .side-panel-header h2 { font-size: 14px; color: var(--ec-primary); font-weight: 600; }
+    .side-panel-header h2 { font-size: 14px; color: var(--forge-primary); font-weight: 600; }
     .side-panel-close {
       background: none; border: none; color: var(--text-dim);
       font-size: 20px; cursor: pointer; line-height: 1;
@@ -335,7 +335,7 @@ function generateCSS() {
       white-space: nowrap;
     }
     .tooltip .tt-label { color: var(--text-dim); }
-    .tooltip .tt-value { color: var(--ec-primary); font-weight: 600; }
+    .tooltip .tt-value { color: var(--forge-primary); font-weight: 600; }
 
     /* Dependency explorer */
     .dep-controls {
@@ -348,7 +348,7 @@ function generateCSS() {
       font-family: inherit; font-size: 12px; width: 340px; outline: none;
       box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
-    .dep-controls select:focus { border-color: var(--ec-secondary); }
+    .dep-controls select:focus { border-color: var(--forge-secondary); }
     .dep-label { font-size: 11px; color: var(--text-dim); }
     .dep-tree-container {
       display: flex; width: 100%; height: 100%; padding-top: 50px;
@@ -379,7 +379,7 @@ function generateCSS() {
       font-weight: 500;
     }
     .treemap-group-label {
-      position: absolute; font-size: 11px; color: var(--ec-primary);
+      position: absolute; font-size: 11px; color: var(--forge-primary);
       font-weight: 700; letter-spacing: 0.5px; padding: 2px 6px;
       background: rgba(255,255,255,0.85); border-radius: 3px; z-index: 2;
     }
@@ -424,7 +424,7 @@ function generateCSS() {
       cursor: pointer; user-select: none; position: sticky; top: 0;
       background: var(--bg-card); z-index: 2;
     }
-    .risk-table th:hover { color: var(--ec-primary); }
+    .risk-table th:hover { color: var(--forge-primary); }
     .risk-table th .sort-arrow { margin-left: 4px; font-size: 10px; }
     .risk-table td {
       padding: 10px 12px; border-bottom: 1px solid var(--border);
@@ -453,7 +453,7 @@ function generateCSS() {
       max-width: 500px; max-height: 400px; overflow-y: auto;
       box-shadow: 0 8px 30px rgba(0,51,102,0.15);
     }
-    .evidence-popup h3 { font-size: 13px; color: var(--ec-primary); margin-bottom: 10px; font-weight: 600; }
+    .evidence-popup h3 { font-size: 13px; color: var(--forge-primary); margin-bottom: 10px; font-weight: 600; }
     .evidence-popup .evidence-text { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
     .evidence-popup .close-btn {
       position: absolute; top: 8px; right: 12px;
@@ -487,7 +487,7 @@ function generateHTML(data) {
   return `
   <header class="dashboard-header">
     <div class="header-left">
-      <h1>Atos Forge Code Graph</h1>
+      <h1>Forge Code Graph</h1>
       <span class="project-name">${esc(data.projectName)}</span>
     </div>
     <div class="header-stats">
@@ -1452,10 +1452,7 @@ function buildHTML(data) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Atos Forge Code Graph \u2014 ${esc(data.projectName)}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Exo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>Forge Code Graph \u2014 ${esc(data.projectName)}</title>
   <style>${generateCSS()}</style>
 </head>
 <body>
@@ -1504,7 +1501,7 @@ function main() {
   }
 
   console.log('');
-  console.log('  A-Forge Dashboard Generator');
+  console.log('  Forge Dashboard Generator');
   console.log('  ───────────────────────────');
   console.log(`  Database: ${dbPath}`);
 

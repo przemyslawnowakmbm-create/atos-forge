@@ -10,6 +10,7 @@ allowed-tools:
 ---
 <objective>
 Validate `.planning/` directory integrity and report actionable issues. Checks for missing files, invalid configurations, inconsistent state, and orphaned plans.
+Use --repair to auto-fix detected issues (creates missing directories and config files).
 </objective>
 
 <execution_context>

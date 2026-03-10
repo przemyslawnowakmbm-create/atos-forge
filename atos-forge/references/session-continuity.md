@@ -1,5 +1,5 @@
 <overview>
-Session continuity for A-Forge framework. The session ledger persists critical context across context compaction, /clear, and full session restarts.
+Session continuity for Forge framework. The session ledger persists critical context across context compaction, /clear, and full session restarts.
 </overview>
 
 <core_principle>

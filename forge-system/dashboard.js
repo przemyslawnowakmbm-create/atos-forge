@@ -122,11 +122,11 @@ function collectSystemData(dbPath) {
 function generateCSS() {
   return `
     :root {
-      --ec-primary: #003366;
-      --ec-secondary: #2990EA;
-      --ec-accent: #008dbb;
-      --ec-navy: #001f3d;
-      --ec-sky: #e8f2fc;
+      --forge-primary: #003366;
+      --forge-secondary: #2990EA;
+      --forge-accent: #008dbb;
+      --forge-navy: #001f3d;
+      --forge-sky: #e8f2fc;
       --bg: #f5f7fa;
       --bg-card: #ffffff;
       --bg-hover: #eef3f9;
@@ -140,7 +140,7 @@ function generateCSS() {
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Exo', system-ui, -apple-system, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       overflow: hidden;
@@ -154,12 +154,12 @@ function generateCSS() {
     .header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 12px 24px;
-      background: linear-gradient(135deg, var(--ec-primary) 0%, var(--ec-navy) 100%);
+      background: linear-gradient(135deg, var(--forge-primary) 0%, var(--forge-navy) 100%);
       flex-shrink: 0; z-index: 10; position: relative;
     }
     .header::after {
       content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
-      background: linear-gradient(90deg, var(--ec-secondary), var(--ec-accent));
+      background: linear-gradient(90deg, var(--forge-secondary), var(--forge-accent));
     }
     .header h1 { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 1px; text-transform: uppercase; }
     .header .stats { display: flex; gap: 20px; }
@@ -177,7 +177,7 @@ function generateCSS() {
       color: var(--text-dim); border-bottom: 2px solid transparent; transition: all 0.15s;
     }
     .tab:hover { color: var(--text); background: var(--bg-hover); }
-    .tab.active { color: var(--ec-secondary); border-bottom-color: var(--ec-secondary); }
+    .tab.active { color: var(--forge-secondary); border-bottom-color: var(--forge-secondary); }
 
     /* Content */
     .content { flex: 1; overflow: hidden; position: relative; }
@@ -224,7 +224,7 @@ function generateCSS() {
       font-size: 12px; font-weight: 500; transition: background 0.12s;
     }
     .svc-tree-item:hover { background: rgba(41,144,234,0.08); }
-    .svc-tree-item.active { background: rgba(41,144,234,0.12); color: var(--ec-secondary); }
+    .svc-tree-item.active { background: rgba(41,144,234,0.12); color: var(--forge-secondary); }
     .svc-tree-chevron {
       font-size: 8px; width: 10px; text-align: center; flex-shrink: 0;
       color: var(--text-dim); transition: transform 0.2s; display: inline-block;
@@ -248,8 +248,8 @@ function generateCSS() {
     .mod-tree-meta { font-size: 9px; color: var(--text-dim); flex-shrink: 0; }
     .mod-caps { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px 6px 4px 27px; }
     .mod-cap-tag {
-      font-size: 8px; padding: 0 4px; border-radius: 3px; background: var(--ec-sky);
-      color: var(--ec-primary); font-weight: 500; letter-spacing: 0.3px;
+      font-size: 8px; padding: 0 4px; border-radius: 3px; background: var(--forge-sky);
+      color: var(--forge-primary); font-weight: 500; letter-spacing: 0.3px;
     }
     /* Drill-down back button */
     .drill-back {
@@ -259,9 +259,9 @@ function generateCSS() {
       background: var(--bg-card); border: 1px solid var(--border);
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit;
-      color: var(--ec-primary); transition: all 0.15s;
+      color: var(--forge-primary); transition: all 0.15s;
     }
-    .drill-back:hover { background: var(--ec-sky); border-color: var(--ec-secondary); }
+    .drill-back:hover { background: var(--forge-sky); border-color: var(--forge-secondary); }
     .drill-back .arrow { font-size: 14px; }
     .drill-title {
       position: absolute; top: 48px; left: 12px; z-index: 6;
@@ -273,14 +273,14 @@ function generateCSS() {
     .mod-node-circle:hover { opacity: 0.8; }
     .mod-node-label { font-size: 10px; fill: var(--text); pointer-events: none; font-weight: 500; text-anchor: middle; }
     .mod-link { stroke: var(--border); stroke-opacity: 0.5; }
-    .mod-link-cross { stroke: var(--ec-secondary); stroke-opacity: 0.6; stroke-dasharray: 4,2; }
+    .mod-link-cross { stroke: var(--forge-secondary); stroke-opacity: 0.6; stroke-dasharray: 4,2; }
 
     .svc-search {
       width: 100%; padding: 5px 8px 5px 26px; border: 1px solid var(--border); border-radius: 5px;
       font-size: 11px; font-family: inherit; outline: none; background: var(--bg);
       color: var(--text); margin-bottom: 8px; box-sizing: border-box;
     }
-    .svc-search:focus { border-color: var(--ec-secondary); box-shadow: 0 0 0 2px rgba(41,144,234,0.1); }
+    .svc-search:focus { border-color: var(--forge-secondary); box-shadow: 0 0 0 2px rgba(41,144,234,0.1); }
     .svc-search-wrap {
       position: relative;
     }
@@ -307,7 +307,7 @@ function generateCSS() {
       font-size: 14px; color: var(--text-dim);
     }
     .detail-close:hover { background: var(--bg-hover); }
-    .detail-panel h2 { font-size: 16px; margin-bottom: 4px; color: var(--ec-primary); }
+    .detail-panel h2 { font-size: 16px; margin-bottom: 4px; color: var(--forge-primary); }
     .detail-panel .sub { font-size: 12px; color: var(--text-dim); margin-bottom: 16px; }
     .detail-section { margin-bottom: 16px; }
     .detail-section h3 { font-size: 12px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 0.5px; }
@@ -332,10 +332,10 @@ function generateCSS() {
     .matrix-table th, .matrix-table td {
       border: 1px solid var(--border); padding: 4px; text-align: center; min-width: 30px;
     }
-    .matrix-table th { background: var(--ec-sky); font-weight: 600; position: sticky; }
+    .matrix-table th { background: var(--forge-sky); font-weight: 600; position: sticky; }
     .matrix-table th.row-header { text-align: right; padding-right: 8px; }
-    .matrix-cell-dep { background: var(--ec-secondary); color: #fff; font-weight: 600; cursor: pointer; }
-    .matrix-cell-dep:hover { background: var(--ec-primary); }
+    .matrix-cell-dep { background: var(--forge-secondary); color: #fff; font-weight: 600; cursor: pointer; }
+    .matrix-cell-dep:hover { background: var(--forge-primary); }
     .matrix-cell-self { background: #f0f0f0; }
 
     /* Registry table */
@@ -344,12 +344,12 @@ function generateCSS() {
       font-size: 13px; width: 300px; margin-bottom: 16px; outline: none;
       font-family: inherit;
     }
-    .search-input:focus { border-color: var(--ec-secondary); box-shadow: 0 0 0 2px rgba(41,144,234,0.1); }
+    .search-input:focus { border-color: var(--forge-secondary); box-shadow: 0 0 0 2px rgba(41,144,234,0.1); }
     .registry-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .registry-table th {
-      text-align: left; padding: 8px 12px; background: var(--ec-sky);
+      text-align: left; padding: 8px 12px; background: var(--forge-sky);
       font-weight: 600; font-size: 11px; text-transform: uppercase; color: var(--text-dim);
-      letter-spacing: 0.5px; position: sticky; top: 0; border-bottom: 2px solid var(--ec-secondary);
+      letter-spacing: 0.5px; position: sticky; top: 0; border-bottom: 2px solid var(--forge-secondary);
     }
     .registry-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
     .registry-table tr:hover td { background: var(--bg-hover); }
@@ -373,14 +373,14 @@ function generateCSS() {
     .team-group { margin-bottom: 24px; }
     .team-group h3 {
       font-size: 14px; font-weight: 600; margin-bottom: 8px; padding: 8px 12px;
-      background: var(--ec-sky); border-radius: 6px; color: var(--ec-primary);
+      background: var(--forge-sky); border-radius: 6px; color: var(--forge-primary);
     }
     .team-services { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
     .team-service-card {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
       padding: 12px; cursor: pointer; transition: all 0.15s;
     }
-    .team-service-card:hover { border-color: var(--ec-secondary); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .team-service-card:hover { border-color: var(--forge-secondary); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     .team-service-card .svc-name { font-weight: 600; margin-bottom: 4px; }
     .team-service-card .svc-meta { font-size: 12px; color: var(--text-dim); }
 
@@ -423,7 +423,7 @@ function generateCSS() {
     }
     .meta-list li::before { content: '\\2022'; color: var(--text-dim); margin-right: 6px; }
     .consumer-link {
-      cursor: pointer; color: var(--ec-secondary); text-decoration: none;
+      cursor: pointer; color: var(--forge-secondary); text-decoration: none;
     }
     .consumer-link:hover { text-decoration: underline; }
 
@@ -458,7 +458,7 @@ function generateHTML(data) {
   const o = data.overview;
   return `
   <div class="header">
-    <h1>Atos Forge System Graph</h1>
+    <h1>Forge System Graph</h1>
     <div class="stats">
       <span class="stat"><strong>${esc(String(o.services))}</strong>services</span>
       <span class="stat"><strong>${esc(String(o.interfaces))}</strong>interfaces</span>
@@ -1021,7 +1021,7 @@ function generateJS() {
         caps.forEach(cap => {
           const capName = cap.capability || cap;
           const conf = cap.confidence != null ? ' (' + Math.round(cap.confidence * 100) + '%)' : '';
-          html += '<span class="badge" style="background:var(--ec-sky);color:var(--ec-primary)">' + esc(capName) + esc(conf) + '</span>';
+          html += '<span class="badge" style="background:var(--forge-sky);color:var(--forge-primary)">' + esc(capName) + esc(conf) + '</span>';
         });
         html += '</div></div>';
       }
@@ -1255,7 +1255,7 @@ function generateJS() {
 
     function updateLegendForModules(svcId, svcMods, stabColor, capColor) {
       const svc = services.find(s => s.id === svcId);
-      let html = '<h4 style="color:var(--ec-primary)">' + esc(svcId) + '</h4>';
+      let html = '<h4 style="color:var(--forge-primary)">' + esc(svcId) + '</h4>';
       html += '<div class="legend-hint" style="margin-bottom:8px">' + esc(svc ? svc.description || '' : '') + '</div>';
 
       html += '<h4>Stability</h4>';
@@ -1502,10 +1502,7 @@ function buildHTML(data) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Atos Forge System Graph</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Exo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>Forge System Graph</title>
   <style>${generateCSS()}</style>
 </head>
 <body>

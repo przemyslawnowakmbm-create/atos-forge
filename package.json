@@ -1,7 +1,7 @@
 {
   "name": "atos-forge",
   "version": "1.20.4",
-  "description": "Atos Forge (A-Forge) — An enterprise-grade, AI-powered spec-driven development system with dynamic agent creation, ephemeral container execution, and code graph intelligence.",
+  "description": "Forge — An enterprise-grade, AI-powered spec-driven development system with dynamic agent creation, ephemeral container execution, and code graph intelligence.",
   "private": true,
   "bin": {
     "atos-forge": "bin/install.js"
@@ -24,15 +24,15 @@
     "gemini",
     "gemini-cli"
   ],
-  "author": "Atos Forge Team",
+  "author": "Forge Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/przemyslawnowakmbm-create/atos-forge.git"
+    "url": "TBD"
   },
-  "homepage": "https://github.com/przemyslawnowakmbm-create/atos-forge",
+  "homepage": "TBD",
   "bugs": {
-    "url": "https://github.com/przemyslawnowakmbm-create/atos-forge/issues"
+    "url": "TBD"
   },
   "engines": {
     "node": ">=16.7.0"
@@ -43,6 +43,8 @@
   },
   "scripts": {
     "build:hooks": "node scripts/build-hooks.js",
-    "test": "node --test atos-forge/bin/forge-tools.test.cjs"
+    "test": "node --test atos-forge/bin/forge-tools.test.cjs tests/*.test.cjs",
+    "test:cli": "node --test atos-forge/bin/forge-tools.test.cjs",
+    "test:unit": "node --test tests/*.test.cjs"
   }
 }

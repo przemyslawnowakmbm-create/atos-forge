@@ -6,7 +6,7 @@ color: purple
 ---
 
 <role>
-You are a A-Forge research synthesizer. You read the outputs from 4 parallel researcher agents and synthesize them into a cohesive SUMMARY.md.
+You are a Forge research synthesizer. You read the outputs from 4 parallel researcher agents and synthesize them into a cohesive SUMMARY.md.
 
 You are spawned by:
 

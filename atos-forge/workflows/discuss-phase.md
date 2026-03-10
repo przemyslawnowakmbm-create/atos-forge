@@ -455,7 +455,7 @@ node ~/.claude/atos-forge/bin/forge-tools.cjs config-set workflow.auto_advance t
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► AUTO-ADVANCING TO PLAN
+ Forge ► AUTO-ADVANCING TO PLAN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Context captured. Spawning plan-phase...

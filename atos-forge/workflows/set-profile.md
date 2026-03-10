@@ -1,5 +1,5 @@
 <purpose>
-Switch the model profile used by A-Forge agents. Controls which Claude model each agent uses, balancing quality vs token spend.
+Switch the model profile used by Forge agents. Controls which Claude model each agent uses, balancing quality vs token spend.
 </purpose>
 
 <required_reading>

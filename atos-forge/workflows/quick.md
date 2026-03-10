@@ -1,5 +1,5 @@
 <purpose>
-Execute small, ad-hoc tasks with A-Forge guarantees (atomic commits, STATE.md tracking). Quick mode spawns forge-planner (quick mode) + forge-executor(s), tracks tasks in `.planning/quick/`, and updates STATE.md's "Quick Tasks Completed" table.
+Execute small, ad-hoc tasks with Forge guarantees (atomic commits, STATE.md tracking). Quick mode spawns forge-planner (quick mode) + forge-executor(s), tracks tasks in `.planning/quick/`, and updates STATE.md's "Quick Tasks Completed" table.
 
 With `--full` flag: enables plan-checking (max 2 iterations) and post-execution verification for quality guarantees without full milestone ceremony.
 </purpose>
@@ -32,7 +32,7 @@ If still empty, re-prompt: "Please provide a task description."
 If `$FULL_MODE`:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► QUICK TASK (FULL MODE)
+ Forge ► QUICK TASK (FULL MODE)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Plan checking + verification enabled
@@ -137,7 +137,7 @@ Skip this step entirely if NOT `$FULL_MODE`.
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► CHECKING PLAN
+ Forge ► CHECKING PLAN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning plan checker...
@@ -283,7 +283,7 @@ Skip this step entirely if NOT `$FULL_MODE`.
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► VERIFYING RESULTS
+ Forge ► VERIFYING RESULTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ◆ Spawning verifier...
@@ -397,7 +397,7 @@ Display completion output:
 ```
 ---
 
-A-Forge > QUICK TASK COMPLETE (FULL MODE)
+Forge > QUICK TASK COMPLETE (FULL MODE)
 
 Quick Task ${next_num}: ${DESCRIPTION}
 
@@ -414,7 +414,7 @@ Ready for next task: /forge:quick
 ```
 ---
 
-A-Forge > QUICK TASK COMPLETE
+Forge > QUICK TASK COMPLETE
 
 Quick Task ${next_num}: ${DESCRIPTION}
 

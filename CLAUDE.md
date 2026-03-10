@@ -1,4 +1,4 @@
-# Atos Forge — Agent Instructions
+# Forge — Agent Instructions
 
 ## Module Layout & Path Resolution
 Forge consists of `atos-forge/` (CLI entry point) and 9 sibling engine modules:
@@ -69,7 +69,7 @@ System Dashboard CLI:
     Interface Registry (searchable table of all exports)
     Risk Register (sorted by risk level, deprecated deps, cycles)
     Team View (services grouped by team, grid cards)
-  EUROCONTROL theme (Exo font, #003366/#2990EA/#008dbb palette).
+  Forge theme (#003366/#2990EA/#008dbb palette).
   Default output: .forge/system-dashboard.html next to system-graph.db.
 
 Interface detection runs automatically during `forge:init`. It scans for:

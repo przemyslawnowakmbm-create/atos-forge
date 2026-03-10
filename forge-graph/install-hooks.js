@@ -4,8 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const MARKER_START = '# --- A-Forge Graph Auto-Update (start) ---';
-const MARKER_END = '# --- A-Forge Graph Auto-Update (end) ---';
+const MARKER_START = '# --- Forge Graph Auto-Update (start) ---';
+const MARKER_END = '# --- Forge Graph Auto-Update (end) ---';
 
 /**
  * Generate the hook snippet that runs the updater in the background.
@@ -15,7 +15,7 @@ function generateHookSnippet(forgeGraphDir) {
   const updaterPath = path.resolve(forgeGraphDir, 'updater.js');
   return [
     MARKER_START,
-    '# Auto-update the A-Forge code graph after each commit.',
+    '# Auto-update the Forge code graph after each commit.',
     '# To disable: set "auto_update_graph": false in .forge/config.json',
     `FORGE_CONFIG="\${GIT_DIR}/../.forge/config.json"`,
     'if [ -f "$FORGE_CONFIG" ]; then',
@@ -61,7 +61,7 @@ function install(repoRoot) {
     );
     existing = existing.replace(regex, snippet);
     fs.writeFileSync(hookPath, existing, { mode: 0o755 });
-    console.log(`  Updated A-Forge hook in ${hookPath}`);
+    console.log(`  Updated Forge hook in ${hookPath}`);
   } else {
     // Append our block
     let content = existing;
@@ -71,12 +71,12 @@ function install(repoRoot) {
     if (!content.endsWith('\n')) content += '\n';
     content += '\n' + snippet + '\n';
     fs.writeFileSync(hookPath, content, { mode: 0o755 });
-    console.log(`  Installed A-Forge hook in ${hookPath}`);
+    console.log(`  Installed Forge hook in ${hookPath}`);
   }
 }
 
 /**
- * Uninstall the post-commit hook (remove only the A-Forge block).
+ * Uninstall the post-commit hook (remove only the Forge block).
  */
 function uninstall(repoRoot) {
   const hookPath = path.join(repoRoot, '.git', 'hooks', 'post-commit');
@@ -87,7 +87,7 @@ function uninstall(repoRoot) {
 
   let content = fs.readFileSync(hookPath, 'utf8');
   if (!content.includes(MARKER_START)) {
-    console.log('  No A-Forge hook block found. Nothing to uninstall.');
+    console.log('  No Forge hook block found. Nothing to uninstall.');
     return;
   }
 
@@ -103,7 +103,7 @@ function uninstall(repoRoot) {
     console.log(`  Removed empty post-commit hook: ${hookPath}`);
   } else {
     fs.writeFileSync(hookPath, content, { mode: 0o755 });
-    console.log(`  Removed A-Forge block from ${hookPath}`);
+    console.log(`  Removed Forge block from ${hookPath}`);
   }
 }
 

@@ -3,17 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Atos Forge — Architecture Diagram</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Exo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<title>Forge — Architecture Diagram</title>
 <style>
 :root {
-  --ec-primary: #003366;
-  --ec-secondary: #2990EA;
-  --ec-accent: #008dbb;
-  --ec-navy: #001f3d;
-  --ec-sky: #e8f2fc;
+  --forge-primary: #003366;
+  --forge-secondary: #2990EA;
+  --forge-accent: #008dbb;
+  --forge-navy: #001f3d;
+  --forge-sky: #e8f2fc;
   --bg: #f5f7fa;
   --bg-card: #ffffff;
   --border: #dce3eb;
@@ -41,7 +38,7 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  font-family: 'Exo', system-ui, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -53,11 +50,11 @@ body {
   position: sticky; top: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 32px;
-  background: linear-gradient(135deg, var(--ec-primary) 0%, var(--ec-navy) 100%);
+  background: linear-gradient(135deg, var(--forge-primary) 0%, var(--forge-navy) 100%);
 }
 .header::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
-  background: linear-gradient(90deg, var(--ec-secondary), var(--ec-accent));
+  background: linear-gradient(90deg, var(--forge-secondary), var(--forge-accent));
 }
 .header h1 { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 1.5px; text-transform: uppercase; }
 .header .subtitle { font-size: 12px; color: rgba(255,255,255,0.5); }
@@ -73,7 +70,7 @@ body {
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1); font-family: inherit;
 }
-.zoom-btn:hover { background: var(--ec-sky); border-color: var(--ec-secondary); }
+.zoom-btn:hover { background: var(--forge-sky); border-color: var(--forge-secondary); }
 
 /* Canvas */
 .canvas-wrap {
@@ -118,12 +115,12 @@ body {
   text-align: center;
 }
 .box:hover {
-  border-color: var(--ec-secondary);
+  border-color: var(--forge-secondary);
   box-shadow: 0 4px 16px rgba(41,144,234,0.12);
   transform: translateY(-1px);
 }
 .box.active {
-  border-color: var(--ec-secondary);
+  border-color: var(--forge-secondary);
   box-shadow: 0 4px 20px rgba(41,144,234,0.2);
 }
 .box .title {
@@ -174,7 +171,7 @@ body {
   transform: skewX(-10deg);
 }
 .diamond:hover .shape {
-  border-color: var(--ec-secondary);
+  border-color: var(--forge-secondary);
   box-shadow: 0 2px 12px rgba(41,144,234,0.12);
 }
 .diamond .label {
@@ -197,7 +194,7 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 .db:hover .cylinder {
-  border-color: var(--ec-secondary);
+  border-color: var(--forge-secondary);
   box-shadow: 0 2px 12px rgba(41,144,234,0.12);
 }
 .db .label {
@@ -292,7 +289,7 @@ body {
   transition: all 0.15s;
 }
 .cc-card:hover {
-  border-color: var(--ec-secondary);
+  border-color: var(--forge-secondary);
   box-shadow: 0 2px 12px rgba(41,144,234,0.08);
 }
 .cc-card .cc-title {
@@ -343,7 +340,7 @@ body {
   list-style: none; padding: 0;
 }
 .detail-card .detail-section li::before {
-  content: '\2022'; color: var(--ec-secondary); margin-right: 6px;
+  content: '\2022'; color: var(--forge-secondary); margin-right: 6px;
 }
 .detail-card code {
   font-size: 11px; background: var(--bg); padding: 1px 5px; border-radius: 3px;
@@ -355,7 +352,7 @@ body {
   background: var(--bg); display: flex; align-items: center; justify-content: center;
   font-size: 14px; color: var(--text-dim);
 }
-.detail-close:hover { background: var(--ec-sky); }
+.detail-close:hover { background: var(--forge-sky); }
 
 /* Responsive */
 @media (max-width: 900px) {
@@ -372,7 +369,7 @@ body {
 
 <div class="header">
   <div>
-    <h1>Atos Forge</h1>
+    <h1>Forge</h1>
     <div class="subtitle">System Architecture &amp; Execution Pipeline</div>
   </div>
 </div>
@@ -481,8 +478,8 @@ body {
   <div class="flow-row">
     <div style="flex:1"></div>
     <div class="arrow down" style="width:auto">&darr;</div>
-    <div class="box init" data-detail="converge-point" style="max-width:300px;border-left-color:var(--ec-secondary)">
-      <div class="title" style="color:var(--ec-secondary)">Both paths converge</div>
+    <div class="box init" data-detail="converge-point" style="max-width:300px;border-left-color:var(--forge-secondary)">
+      <div class="title" style="color:var(--forge-secondary)">Both paths converge</div>
       <div class="desc">ROADMAP.md + .forge/ infra ready<br>Milestone lifecycle begins (Section 2)<br>/forge:init runs on every repo regardless</div>
     </div>
     <div class="arrow down" style="width:auto">&darr;</div>
@@ -1459,7 +1456,7 @@ const details = {
     sub: 'forge-graph/dashboard.js',
     sections: [
       { h: 'What it creates', t: 'Self-contained HTML file with D3.js force-directed graph of codebase modules, dependencies, and risk hotspots' },
-      { h: 'Features', list: ['Module nodes sized by file count, colored by risk', 'Dependency edges with thickness by connection count', 'Click to drill into module details', 'EUROCONTROL theme (Exo font, navy/blue palette)', 'Auto-regenerate on graph update if configured'] },
+      { h: 'Features', list: ['Module nodes sized by file count, colored by risk', 'Dependency edges with thickness by connection count', 'Click to drill into module details', 'Forge theme (navy/blue palette)', 'Auto-regenerate on graph update if configured'] },
       { h: 'Output', t: '.forge/dashboard.html' },
     ]
   },

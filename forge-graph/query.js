@@ -1395,7 +1395,7 @@ function formatTable(rows, columns, opts = {}) {
 
 function printHelp() {
   console.log(`
-  ${theme.heading('A-Forge Graph Engine')} ${theme.dim('\u2014 Query Interface')}
+  ${theme.heading('Forge Graph Engine')} ${theme.dim('\u2014 Query Interface')}
 
   ${theme.subhead('Usage:')} forge-graph <command> [options]
 
@@ -1556,7 +1556,7 @@ function run() {
         const maxLoc = s.languages.length > 0 ? s.languages[0].total_loc : 1;
 
         console.log('');
-        drawBox('A-Forge Code Graph');
+        drawBox('Forge Code Graph');
         drawLine(`${theme.label('Built:')} ${theme.dim(s.meta.built_at || s.meta.updated_at || 'unknown')}    ${theme.label('Commit:')} ${theme.dim((s.meta.last_build_commit || 'unknown').slice(0, 8))}`);
         drawLine(`${theme.label('Files:')} ${theme.number(s.meta.file_count || 0)}  ${theme.label('Symbols:')} ${theme.number(s.meta.symbol_count || 0)}  ${theme.label('Deps:')} ${theme.number(s.meta.dependency_count || 0)}  ${theme.label('Modules:')} ${theme.number(s.meta.module_count || 0)}`);
         drawLine(`${theme.label('Total LOC:')} ${theme.number(totalLoc)}`);

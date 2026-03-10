@@ -135,9 +135,9 @@ const banner = '\n' +
   '  ██║  ██║   ██║   ╚██████╔╝███████║    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗\n' +
   '  ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚══════╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝' + reset + '\n' +
   '\n' +
-  '  Atos Forge ' + dim + 'v' + pkg.version + reset + '\n' +
+  '  Forge ' + dim + 'v' + pkg.version + reset + '\n' +
   '  A meta-prompting, context engineering and spec-driven\n' +
-  '  development system for Claude Code, OpenCode, and Gemini by Atos Forge Team.\n';
+  '  development system for Claude Code, OpenCode, and Gemini by Forge Team.\n';
 
 // Parse --config-dir argument
 function parseConfigDirArg() {
@@ -171,7 +171,7 @@ console.log(banner);
 
 // Show help if requested
 if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} node bin/install.js [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall A-Forge (remove all A-Forge files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    node bin/install.js\n\n    ${dim}# Install for Claude Code globally${reset}\n    node bin/install.js --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    node bin/install.js --gemini --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    node bin/install.js --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    node bin/install.js --claude --global --config-dir ~/.claude-bc\n\n    ${dim}# Install to current project only${reset}\n    node bin/install.js --claude --local\n\n    ${dim}# Uninstall A-Forge from Claude Code globally${reset}\n    node bin/install.js --claude --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR environment variables.\n`);
+  console.log(`  ${yellow}Usage:${reset} node bin/install.js [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall Forge (remove all Forge files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    node bin/install.js\n\n    ${dim}# Install for Claude Code globally${reset}\n    node bin/install.js --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    node bin/install.js --gemini --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    node bin/install.js --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    node bin/install.js --claude --global --config-dir ~/.claude-bc\n\n    ${dim}# Install to current project only${reset}\n    node bin/install.js --claude --local\n\n    ${dim}# Uninstall Forge from Claude Code globally${reset}\n    node bin/install.js --claude --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR environment variables.\n`);
   process.exit(0);
 }
 
@@ -460,7 +460,7 @@ function convertClaudeToGeminiAgent(content) {
   // Escape ${VAR} patterns in agent body for Gemini CLI compatibility.
   // Gemini's templateString() treats all ${word} patterns as template variables
   // and throws "Template validation failed: Missing required input parameters"
-  // when they can't be resolved. A-Forge agents use ${PHASE}, ${PLAN}, etc. as
+  // when they can't be resolved. Forge agents use ${PHASE}, ${PLAN}, etc. as
   // shell variables in bash code blocks — convert to $VAR (no braces) which
   // is equivalent bash and invisible to Gemini's /\$\{(\w+)\}/g regex.
   const escapedBody = body.replace(/\$\{(\w+)\}/g, '$$$1');
@@ -728,7 +728,7 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime) {
 }
 
 /**
- * Clean up orphaned files from previous A-Forge versions
+ * Clean up orphaned files from previous Forge versions
  */
 function cleanupOrphanedFiles(configDir) {
   const orphanedFiles = [
@@ -803,8 +803,8 @@ function cleanupOrphanedHooks(settings) {
 }
 
 /**
- * Uninstall A-Forge from the specified directory for a specific runtime
- * Removes only A-Forge-specific files/directories, preserves user content
+ * Uninstall Forge from the specified directory for a specific runtime
+ * Removes only Forge-specific files/directories, preserves user content
  * @param {boolean} isGlobal - Whether to uninstall from global or local
  * @param {string} runtime - Target runtime ('claude', 'opencode', 'gemini')
  */
@@ -825,7 +825,7 @@ function uninstall(isGlobal, runtime = 'claude') {
   if (runtime === 'opencode') runtimeLabel = 'OpenCode';
   if (runtime === 'gemini') runtimeLabel = 'Gemini';
 
-  console.log(`  Uninstalling A-Forge from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
+  console.log(`  Uninstalling Forge from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
 
   // Check if target directory exists
   if (!fs.existsSync(targetDir)) {
@@ -836,7 +836,7 @@ function uninstall(isGlobal, runtime = 'claude') {
 
   let removedCount = 0;
 
-  // 1. Remove A-Forge commands directory
+  // 1. Remove Forge commands directory
   if (isOpencode) {
     // OpenCode: remove command/forge-*.md files
     const commandDir = path.join(targetDir, 'command');
@@ -848,7 +848,7 @@ function uninstall(isGlobal, runtime = 'claude') {
           removedCount++;
         }
       }
-      console.log(`  ${green}✓${reset} Removed A-Forge commands from command/`);
+      console.log(`  ${green}✓${reset} Removed Forge commands from command/`);
     }
   } else {
     // Claude Code & Gemini: remove commands/forge/ directory
@@ -868,7 +868,7 @@ function uninstall(isGlobal, runtime = 'claude') {
     console.log(`  ${green}✓${reset} Removed atos-forge/`);
   }
 
-  // 3. Remove A-Forge agents (forge-*.md files only)
+  // 3. Remove Forge agents (forge-*.md files only)
   const agentsDir = path.join(targetDir, 'agents');
   if (fs.existsSync(agentsDir)) {
     const files = fs.readdirSync(agentsDir);
@@ -881,7 +881,7 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
     if (agentCount > 0) {
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed ${agentCount} A-Forge agents`);
+      console.log(`  ${green}✓${reset} Removed ${agentCount} Forge agents`);
     }
   }
 
@@ -903,10 +903,10 @@ function uninstall(isGlobal, runtime = 'claude') {
     console.log(`  ${green}✓${reset} Removed ${modCount} forge engine modules`);
   }
 
-  // 4. Remove A-Forge hooks
+  // 4. Remove Forge hooks
   const hooksDir = path.join(targetDir, 'hooks');
   if (fs.existsSync(hooksDir)) {
-    const forgeHooks = ['forge-statusline.js', 'forge-check-update.js', 'forge-check-update.sh'];
+    const forgeHooks = ['forge-statusline.js', 'forge-check-update.js', 'forge-check-update.sh', 'forge-context-monitor.js'];
     let hookCount = 0;
     for (const hook of forgeHooks) {
       const hookPath = path.join(hooksDir, hook);
@@ -917,11 +917,11 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
     if (hookCount > 0) {
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed ${hookCount} A-Forge hooks`);
+      console.log(`  ${green}✓${reset} Removed ${hookCount} Forge hooks`);
     }
   }
 
-  // 5. Remove A-Forge package.json (CommonJS mode marker)
+  // 5. Remove Forge package.json (CommonJS mode marker)
   const pkgJsonPath = path.join(targetDir, 'package.json');
   if (fs.existsSync(pkgJsonPath)) {
     try {
@@ -930,35 +930,35 @@ function uninstall(isGlobal, runtime = 'claude') {
       if (content === '{"type":"commonjs"}') {
         fs.unlinkSync(pkgJsonPath);
         removedCount++;
-        console.log(`  ${green}✓${reset} Removed A-Forge package.json`);
+        console.log(`  ${green}✓${reset} Removed Forge package.json`);
       }
     } catch (e) {
       // Ignore read errors
     }
   }
 
-  // 6. Clean up settings.json (remove A-Forge hooks and statusline)
+  // 6. Clean up settings.json (remove Forge hooks and statusline)
   const settingsPath = path.join(targetDir, 'settings.json');
   if (fs.existsSync(settingsPath)) {
     let settings = readSettings(settingsPath);
     let settingsModified = false;
 
-    // Remove A-Forge statusline if it references our hook
+    // Remove Forge statusline if it references our hook
     if (settings.statusLine && settings.statusLine.command &&
         settings.statusLine.command.includes('forge-statusline')) {
       delete settings.statusLine;
       settingsModified = true;
-      console.log(`  ${green}✓${reset} Removed A-Forge statusline from settings`);
+      console.log(`  ${green}✓${reset} Removed Forge statusline from settings`);
     }
 
-    // Remove A-Forge hooks from SessionStart
+    // Remove Forge hooks from SessionStart
     if (settings.hooks && settings.hooks.SessionStart) {
       const before = settings.hooks.SessionStart.length;
       settings.hooks.SessionStart = settings.hooks.SessionStart.filter(entry => {
         if (entry.hooks && Array.isArray(entry.hooks)) {
-          // Filter out A-Forge hooks
+          // Filter out Forge hooks
           const hasForgeHook = entry.hooks.some(h =>
-            h.command && (h.command.includes('forge-check-update') || h.command.includes('forge-statusline'))
+            h.command && (h.command.includes('forge-check-update') || h.command.includes('forge-statusline') || h.command.includes('forge-context-monitor'))
           );
           return !hasForgeHook;
         }
@@ -966,7 +966,7 @@ function uninstall(isGlobal, runtime = 'claude') {
       });
       if (settings.hooks.SessionStart.length < before) {
         settingsModified = true;
-        console.log(`  ${green}✓${reset} Removed A-Forge hooks from settings`);
+        console.log(`  ${green}✓${reset} Removed Forge hooks from settings`);
       }
       // Clean up empty array
       if (settings.hooks.SessionStart.length === 0) {
@@ -997,7 +997,7 @@ function uninstall(isGlobal, runtime = 'claude') {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         let modified = false;
 
-        // Remove A-Forge permission entries
+        // Remove Forge permission entries
         if (config.permission) {
           for (const permType of ['read', 'external_directory']) {
             if (config.permission[permType]) {
@@ -1022,7 +1022,7 @@ function uninstall(isGlobal, runtime = 'claude') {
         if (modified) {
           fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
           removedCount++;
-          console.log(`  ${green}✓${reset} Removed A-Forge permissions from opencode.json`);
+          console.log(`  ${green}✓${reset} Removed Forge permissions from opencode.json`);
         }
       } catch (e) {
         // Ignore JSON parse errors
@@ -1031,11 +1031,11 @@ function uninstall(isGlobal, runtime = 'claude') {
   }
 
   if (removedCount === 0) {
-    console.log(`  ${yellow}⚠${reset} No A-Forge files found to remove.`);
+    console.log(`  ${yellow}⚠${reset} No Forge files found to remove.`);
   }
 
   console.log(`
-  ${green}Done!${reset} A-Forge has been uninstalled from ${runtimeLabel}.
+  ${green}Done!${reset} Forge has been uninstalled from ${runtimeLabel}.
   Your other files and settings have been preserved.
 `);
 }
@@ -1102,8 +1102,8 @@ function parseJsonc(content) {
 }
 
 /**
- * Configure OpenCode permissions to allow reading A-Forge reference docs
- * This prevents permission prompts when A-Forge accesses the atos-forge directory
+ * Configure OpenCode permissions to allow reading Forge reference docs
+ * This prevents permission prompts when Forge accesses the atos-forge directory
  * @param {boolean} isGlobal - Whether this is a global or local install
  */
 function configureOpencodePermissions(isGlobal = true) {
@@ -1137,7 +1137,7 @@ function configureOpencodePermissions(isGlobal = true) {
     config.permission = {};
   }
 
-  // Build the A-Forge path using the actual config directory
+  // Build the Forge path using the actual config directory
   // Use ~ shorthand if it's in the default location, otherwise use full path
   const defaultConfigDir = path.join(os.homedir(), '.config', 'opencode');
   const forgePath = opencodeConfigDir === defaultConfigDir
@@ -1170,7 +1170,7 @@ function configureOpencodePermissions(isGlobal = true) {
 
   // Write config back
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-  console.log(`  ${green}✓${reset} Configured read permission for A-Forge docs`);
+  console.log(`  ${green}✓${reset} Configured read permission for Forge docs`);
 }
 
 /**
@@ -1314,7 +1314,7 @@ function writeManifest(configDir) {
 }
 
 /**
- * Detect user-modified A-Forge files by comparing against install manifest.
+ * Detect user-modified Forge files by comparing against install manifest.
  * Backs up modified files to forge-local-patches/ for reapply after update.
  */
 function saveLocalPatches(configDir) {
@@ -1346,7 +1346,7 @@ function saveLocalPatches(configDir) {
       files: modified
     };
     fs.writeFileSync(path.join(patchesDir, 'backup-meta.json'), JSON.stringify(meta, null, 2));
-    console.log('  ' + yellow + 'i' + reset + '  Found ' + modified.length + ' locally modified A-Forge file(s) — backed up to ' + PATCHES_DIR_NAME + '/');
+    console.log('  ' + yellow + 'i' + reset + '  Found ' + modified.length + ' locally modified Forge file(s) — backed up to ' + PATCHES_DIR_NAME + '/');
     for (const f of modified) {
       console.log('     ' + dim + f + reset);
     }
@@ -1411,7 +1411,7 @@ function install(isGlobal, runtime = 'claude') {
   // Track installation failures
   const failures = [];
 
-  // Save any locally modified A-Forge files before they get wiped
+  // Save any locally modified Forge files before they get wiped
   saveLocalPatches(targetDir);
 
   // Clean up orphaned files from previous versions
@@ -1483,7 +1483,7 @@ function install(isGlobal, runtime = 'claude') {
     const agentsDest = path.join(targetDir, 'agents');
     fs.mkdirSync(agentsDest, { recursive: true });
 
-    // Remove old A-Forge agents (forge-*.md) before copying new ones
+    // Remove old Forge agents (forge-*.md) before copying new ones
     if (fs.existsSync(agentsDest)) {
       for (const file of fs.readdirSync(agentsDest)) {
         if (file.startsWith('forge-') && file.endsWith('.md')) {
@@ -1538,7 +1538,7 @@ function install(isGlobal, runtime = 'claude') {
     failures.push('VERSION');
   }
 
-  // Write package.json to force CommonJS mode for A-Forge scripts
+  // Write package.json to force CommonJS mode for Forge scripts
   // Prevents "require is not defined" errors when project has "type": "module"
   // Node.js walks up looking for package.json - this stops inheritance from project
   const pkgJsonDest = path.join(targetDir, 'package.json');
@@ -1627,6 +1627,29 @@ function install(isGlobal, runtime = 'claude') {
     }
   }
 
+  // Configure PostToolUse hook for context monitoring
+  if (!isOpencode) {
+    if (!settings.hooks.PostToolUse) {
+      settings.hooks.PostToolUse = [];
+    }
+
+    const hasContextMonitor = settings.hooks.PostToolUse.some(entry =>
+      entry.hooks && entry.hooks.some(h => h.command && h.command.includes('forge-context-monitor'))
+    );
+
+    if (!hasContextMonitor) {
+      settings.hooks.PostToolUse.push({
+        hooks: [{
+          type: 'command',
+          command: isGemini
+            ? buildHookCommand(targetDir, 'forge-context-monitor.js')
+            : 'node ' + dirName + '/hooks/forge-context-monitor.js'
+        }]
+      });
+      console.log(`  ${green}✓${reset} Configured context monitor hook`);
+    }
+  }
+
   // Write file manifest for future modification detection
   writeManifest(targetDir);
   console.log(`  ${green}✓${reset} Wrote file manifest (${MANIFEST_NAME})`);
@@ -1705,13 +1728,13 @@ function handleStatusline(settings, isInteractive, callback) {
   Your current statusline:
     ${dim}command: ${existingCmd}${reset}
 
-  A-Forge includes a statusline showing:
+  Forge includes a statusline showing:
     • Model name
     • Current task (from todo list)
     • Context window usage (color-coded)
 
   ${cyan}1${reset}) Keep existing
-  ${cyan}2${reset}) Replace with A-Forge statusline
+  ${cyan}2${reset}) Replace with Forge statusline
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
@@ -1808,7 +1831,7 @@ function promptLocation(runtimes) {
 }
 
 /**
- * Install A-Forge for all selected runtimes
+ * Install Forge for all selected runtimes
  */
 function installAllRuntimes(runtimes, isGlobal, isInteractive) {
   const results = [];

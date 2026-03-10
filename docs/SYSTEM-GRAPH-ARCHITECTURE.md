@@ -1,4 +1,4 @@
-# Atos Forge — Multi-Repo System Graph Architecture
+# Forge — Multi-Repo System Graph Architecture
 
 ## Status: Draft — Design Document
 ## Date: 2026-02-20
@@ -7,7 +7,7 @@
 
 ## 1. Problem Statement
 
-Atos Forge currently operates on a single git repository. The code graph (`forge-graph/`) indexes files, symbols, dependencies, and modules within one repo. This works well for monoliths and single-service projects.
+Forge currently operates on a single git repository. The code graph (`forge-graph/`) indexes files, symbols, dependencies, and modules within one repo. This works well for monoliths and single-service projects.
 
 Modern systems consist of hundreds of repositories composing one product — microservices, shared libraries, frontend apps, infrastructure repos. In a 500-repo system:
 
@@ -17,7 +17,7 @@ Modern systems consist of hundreds of repositories composing one product — mic
 - Agent spawning (containers/worktrees) is limited to one repo
 - There is no system-level risk visibility
 
-**Goal:** Extend Atos Forge with a **system-level graph** that indexes cross-repo interfaces, enabling system-wide impact analysis, cross-repo agent spawning, and a hierarchical dashboard.
+**Goal:** Extend Forge with a **system-level graph** that indexes cross-repo interfaces, enabling system-wide impact analysis, cross-repo agent spawning, and a hierarchical dashboard.
 
 ---
 
@@ -628,7 +628,7 @@ Same static HTML approach — system-graph.db is small enough to inline as JSON.
 node forge-system/dashboard.js --db system-graph.db --output system-dashboard.html
 ```
 
-Uses the same EUROCONTROL theme (Exo font, navy header, light background).
+Uses the same Forge theme (navy header, light background).
 
 Tabs:
 1. **Service Map** — force-directed graph (services as nodes)
@@ -646,9 +646,9 @@ Tabs:
 ```json
 {
   "system": {
-    "name": "EUROCONTROL Platform",
+    "name": "Example Platform",
     "repos_source": "github-org",
-    "github_org": "eurocontrol",
+    "github_org": "example-org",
     "system_graph_path": ".forge/system-graph.db",
     "auto_sync": true,
     "sync_on_commit": true
@@ -779,7 +779,7 @@ This is the key new capability — one command to bootstrap an entire multi-repo
 4. Interface Registry tab — searchable table of all exported interfaces
 5. Risk Register tab — highest fan-in, deprecated deps, circular service deps
 6. Team View tab — services grouped by team, cross-team dependency edges
-7. EUROCONTROL theme (reuse existing CSS generator or extract shared theme)
+7. Forge theme (reuse existing CSS generator or extract shared theme)
 
 **Verification:** Generate system dashboard for L1 + HEXAI → shows two service nodes with dependency edges. Click a service → shows exports/imports detail panel.
 

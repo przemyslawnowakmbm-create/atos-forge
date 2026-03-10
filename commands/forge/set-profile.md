@@ -1,6 +1,6 @@
 ---
 name: forge:set-profile
-description: Switch model profile for A-Forge agents (quality/balanced/budget)
+description: Switch model profile for Forge agents (quality/balanced/budget)
 argument-hint: <profile>
 allowed-tools:
   - Read
@@ -9,7 +9,7 @@ allowed-tools:
 ---
 
 <objective>
-Switch the model profile used by A-Forge agents. Controls which Claude model each agent uses, balancing quality vs token spend.
+Switch the model profile used by Forge agents. Controls which Claude model each agent uses, balancing quality vs token spend.
 
 Routes to the set-profile workflow which handles:
 - Argument validation (quality/balanced/budget)

@@ -31,7 +31,7 @@ GRAPH_EXISTS=$(echo "$STATUS" | jq -r '.graph_exists')
 **If graph doesn't exist:**
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► NO CODE GRAPH
+ Forge ► NO CODE GRAPH
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Run `/forge:init` first to build the code graph.
@@ -63,7 +63,7 @@ IMPACT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph impact --phase "$PH
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► IMPACT ANALYSIS
+ Forge ► IMPACT ANALYSIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **File:** {file}
@@ -92,7 +92,7 @@ IMPACT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph impact --phase "$PH
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► PHASE {N} IMPACT ANALYSIS
+ Forge ► PHASE {N} IMPACT ANALYSIS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Files analyzed:** {summary.filesAnalyzed}

@@ -1,5 +1,5 @@
 <purpose>
-Capture an idea, task, or issue that surfaces during a A-Forge session as a structured todo for later work. Enables "thought → capture → continue" flow without losing context.
+Capture an idea, task, or issue that surfaces during a Forge session as a structured todo for later work. Enables "thought → capture → continue" flow without losing context.
 </purpose>
 
 <required_reading>

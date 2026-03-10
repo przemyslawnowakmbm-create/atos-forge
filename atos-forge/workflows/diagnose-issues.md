@@ -168,7 +168,7 @@ node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs({phase_num}): add roo
 Display:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► DIAGNOSIS COMPLETE
+ Forge ► DIAGNOSIS COMPLETE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 | Gap (Truth) | Root Cause | Files |

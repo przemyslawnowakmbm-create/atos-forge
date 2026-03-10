@@ -888,7 +888,7 @@ class GraphBuilder {
 
   build() {
     const startTime = Date.now();
-    console.log(`\n  A-Forge Graph Engine — Building code graph`);
+    console.log(`\n  Forge Graph Engine — Building code graph`);
     console.log(`  Repository: ${this.repoRoot}\n`);
 
     // 1. Initialize

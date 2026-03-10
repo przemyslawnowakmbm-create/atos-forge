@@ -23,7 +23,7 @@ This command must run before other graph-dependent features work. If .forge/grap
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► INITIALIZING CODE GRAPH
+ Forge ► INITIALIZING CODE GRAPH
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -41,7 +41,7 @@ Display completion:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- A-Forge ► CODE GRAPH READY
+ Forge ► CODE GRAPH READY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Build time:** {build_time}

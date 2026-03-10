@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Forge Doctor — comprehensive health check for the Atos Forge environment.
+ * Forge Doctor — comprehensive health check for the Forge environment.
  *
  * Checks: external deps, graph health, dashboard freshness, ledger status,
  * snapshot count, container readiness, system resources, config validity.
@@ -454,7 +454,7 @@ function displayDoctor(checks, summary) {
   };
 
   console.log('');
-  boxTop('ATOS FORGE HEALTH CHECK');
+  boxTop('FORGE HEALTH CHECK');
   boxSep();
 
   // Dependencies (indices 0-6)

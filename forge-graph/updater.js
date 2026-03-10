@@ -34,7 +34,7 @@ class GraphUpdater {
    */
   update(since) {
     const startTime = Date.now();
-    console.log(`\n  A-Forge Graph Engine — Incremental Update`);
+    console.log(`\n  Forge Graph Engine — Incremental Update`);
     console.log(`  Repository: ${this.repoRoot}\n`);
 
     // Check if database exists

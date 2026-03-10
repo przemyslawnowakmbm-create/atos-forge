@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Copy A-Forge hooks to dist for installation.
+ * Copy Forge hooks to dist for installation.
  */
 
 const fs = require('fs');
@@ -12,7 +12,8 @@ const DIST_DIR = path.join(HOOKS_DIR, 'dist');
 // Hooks to copy (pure Node.js, no bundling needed)
 const HOOKS_TO_COPY = [
   'forge-check-update.js',
-  'forge-statusline.js'
+  'forge-statusline.js',
+  'forge-context-monitor.js'
 ];
 
 function build() {
