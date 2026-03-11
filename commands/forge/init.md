@@ -33,7 +33,7 @@ Run the graph build:
 RESULT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph init $ARGUMENTS)
 ```
 
-Parse JSON result for: `success`, `build_time`, `total_files`, `total_symbols`, `module_count`, `dependency_count`, `hooks_installed`, `capabilities_detected`, `db_path`.
+Parse JSON result for: `success`, `build_time`, `total_files`, `total_symbols`, `module_count`, `dependency_count`, `hooks_installed`, `capabilities_detected`, `gitignore_updated`, `db_path`.
 
 ## 2. Report Results
 
@@ -51,6 +51,7 @@ Display completion:
 **Dependencies mapped:** {dependency_count}
 **Git hooks:** {hooks_installed ? "Installed (auto-update on commit)" : "Not installed (no .git)"}
 **Capabilities:** {capabilities_detected ? "Detected (see .forge/capabilities/)" : "Skipped"}
+**Gitignore:** {gitignore_updated ? ".forge/ added to .gitignore" : ".forge/ already in .gitignore"}
 
 Database: {db_path}
 

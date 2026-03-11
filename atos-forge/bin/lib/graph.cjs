@@ -106,6 +106,20 @@ function cmdGraphInit(cwd, args, raw) {
   const knowledgeDir = path.join(forgeDir, 'knowledge');
   if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true });
 
+  // Ensure .forge/ is in .gitignore (runtime data, not project code)
+  let gitignoreUpdated = false;
+  try {
+    const gitignorePath = path.join(cwd, '.gitignore');
+    const existing = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf-8') : '';
+    const hasForgeEntry = existing.split('\n').some(line => /^\/?\.forge\/?$/.test(line.trim()));
+    if (!hasForgeEntry) {
+      const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
+      const block = `${separator}\n# Forge (FDP) — runtime data, not project code\n.forge/\n`;
+      fs.appendFileSync(gitignorePath, block);
+      gitignoreUpdated = true;
+    }
+  } catch { /* non-fatal */ }
+
   // Take initial graph snapshot
   let snapshotSaved = false;
   try {
@@ -143,6 +157,7 @@ function cmdGraphInit(cwd, args, raw) {
     config_created: configCreated,
     snapshot_saved: snapshotSaved,
     dashboard_generated: dashboardGenerated,
+    gitignore_updated: gitignoreUpdated,
     interfaces_detected: interfacesDetected,
     interfaces_path: interfacesPath,
     directories_created: ['session', 'snapshots', 'knowledge'],
