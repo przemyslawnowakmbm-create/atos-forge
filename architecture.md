@@ -1,7 +1,7 @@
 # Forge — Architecture
 
 > Permanentny dokument architektury. Aktualizowany z każdą zmianą.
-> Ostatnia aktualizacja: 2026-03-11 (po: rebrand, modularyzacja CLI, intelligence upgrade, architecture roadmap)
+> Ostatnia aktualizacja: 2026-03-11 (po: rebrand, modularyzacja CLI, intelligence upgrade, architecture roadmap, installer)
 
 ---
 
@@ -294,7 +294,51 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 
 ---
 
-## 8. Inwentarz plików
+## 8. Installation System
+
+### scripts/setup.sh — Full automated setup
+
+7-step bash script that handles the complete installation:
+
+| Step | What it does |
+|------|-------------|
+| 1. Check requirements | Node 20+, Git, npm, Claude CLI (optional), Docker (optional), build tools |
+| 2. Ensure source | Clone repo or use current dir; pull updates on re-run |
+| 3. Install graph deps | `npm install` in forge-graph/ (tree-sitter, better-sqlite3, chalk) |
+| 4. Build hooks | Copy hooks to dist/ for installation |
+| 5. Run installer | `node bin/install.js --claude --global` (copies everything to ~/.claude/) |
+| 6. Run tests | 101 tests as post-install verification |
+| 7. Summary | Next steps: /forge:init → /forge:doctor → /forge:new-project |
+
+**Usage:**
+```bash
+./scripts/setup.sh              # interactive (prompts for global/local)
+./scripts/setup.sh --global     # global install, no prompt
+./scripts/setup.sh --local      # local install, no prompt
+curl -sSL <url>/setup.sh | bash # clone + install (when repo is public)
+```
+
+**Idempotent:** safe to re-run. Updates instead of re-cloning. Preserves local patches.
+
+### bin/install.js — Component installer
+
+Copies Forge components into Claude Code configuration directory. Called by setup.sh or directly.
+
+**What it copies to `~/.claude/`:**
+- `commands/forge/` — 33 slash commands with path templating
+- `agents/` — 11 agent definitions with runtime adaptation
+- `atos-forge/` — CLI, workflows, templates, references
+- `forge-graph/`, `forge-session/`, `forge-verify/`, `forge-assess/`, `forge-agents/`, `forge-containers/`, `forge-auto/` — engine modules
+- `hooks/` — statusline, context-monitor, check-update (with PostToolUse/SessionStart config)
+- `settings.json` — updated with hook registrations
+
+### INSTALLATION.md — User documentation
+
+Step-by-step guide covering: quick install, what each step does, installation modes (global/local/custom/multi-runtime), updating, uninstalling, troubleshooting, directory structure.
+
+---
+
+## 9. Inwentarz plików
 
 ```
 FDP Root (57 JS/CJS modules | 33 commands | 34 workflows | 11 agents | 3 hooks | 101 tests)
@@ -351,6 +395,10 @@ FDP Root (57 JS/CJS modules | 33 commands | 34 workflows | 11 agents | 3 hooks |
 ├── agents/                        11 specialized agents
 ├── hooks/                         3 hooks (statusline, context-monitor, check-update)
 ├── tests/                         4 test files (101 total tests)
-├── bin/install.js                 Installer
+├── bin/install.js                 Component installer (copies to ~/.claude/)
+├── scripts/
+│   ├── setup.sh                   Full automated setup (7 steps: deps, clone, npm, hooks, install, test, summary)
+│   └── build-hooks.js             Hook bundler
+├── INSTALLATION.md                Step-by-step installation guide
 └── docs/                          USER-GUIDE, SYSTEM-GRAPH-ARCHITECTURE
 ```
