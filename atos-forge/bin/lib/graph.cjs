@@ -83,7 +83,7 @@ function cmdGraphInit(cwd, args, raw) {
   const configPath = path.join(forgeDir, 'config.json');
   if (!fs.existsSync(configPath)) {
     try {
-      const templatePath = path.join(path.dirname(path.dirname(__filename)), 'templates', 'config.json');
+      const templatePath = path.join(path.dirname(path.dirname(path.dirname(__filename))), 'templates', 'config.json');
       if (fs.existsSync(templatePath)) {
         fs.copyFileSync(templatePath, configPath);
       } else {

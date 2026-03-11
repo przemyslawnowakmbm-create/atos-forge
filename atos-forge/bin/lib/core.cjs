@@ -364,9 +364,10 @@ function getMilestoneInfo(cwd) {
 function getForgeRoot() {
   // FORGE_HOME env var takes priority (e.g. FORGE_HOME=/path/to/atos-forge)
   if (process.env.FORGE_HOME) return process.env.FORGE_HOME;
-  // Default: go up 2 levels from atos-forge/bin/forge-tools.cjs → parent of atos-forge/
+  // Default: go up 3 levels from atos-forge/bin/lib/core.cjs → parent of atos-forge/
+  // bin/lib/core.cjs → bin/lib → bin → atos-forge → ~/.claude/
   const toolsDir = path.dirname(__filename);
-  return path.dirname(path.dirname(toolsDir));
+  return path.dirname(path.dirname(path.dirname(toolsDir)));
 }
 
 function getForgeGraphDir() {
@@ -468,7 +469,7 @@ function getGraphImpact(cwd, filePath, depth) {
  */
 function collectPhaseFiles(cwd, phaseNumber) {
   try {
-    const out = execSync(`node "${path.join(path.dirname(__filename), 'forge-tools.cjs')}" phase-plan-index "${phaseNumber}"`, {
+    const out = execSync(`node "${path.join(path.dirname(__filename), '..', 'forge-tools.cjs')}" phase-plan-index "${phaseNumber}"`, {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
     });
     const index = JSON.parse(out);
