@@ -1307,4 +1307,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - YOLO mode for autonomous execution
 - Interactive mode with checkpoints
 
-<!-- Release links: TBD - do uzupelnienia po migracji repo -->
+<!-- Release links -->
+[Unreleased]: https://10.48.159.164/other/fdp/-/compare/v1.20.4...main
+[1.20.4]: https://10.48.159.164/other/fdp/-/tags/v1.20.4

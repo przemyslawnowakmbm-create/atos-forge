@@ -1,8 +1,8 @@
 # Forge
 
-Internal tooling for AI-assisted development at scale. Forge wraps Claude Code with a code graph, session memory, agent orchestration, and a 6-layer verification pipeline. It runs entirely on your machine.
+AI-powered spec-driven development system for Claude Code. Builds a code graph of your project, manages session memory across context resets, orchestrates parallel agents in isolated containers, verifies results with a 9-layer pipeline, and can run autonomously from research to commit.
 
-Works air-gapped. No external services.
+Works air-gapped. No external services. Runs entirely on your machine.
 
 ```
 Requirements: Node 20+, Git, Claude Code CLI
@@ -13,33 +13,55 @@ Optional:     Docker (for container isolation)
 
 ## Installation
 
-Install the graph engine dependencies (tree-sitter, better-sqlite3, chalk):
+### Automated setup (recommended)
 
 ```bash
-cd forge-graph
+git clone git@10.48.159.164:other/fdp.git forge
+cd forge
+./scripts/setup.sh --global
 ```
+
+The setup script:
+1. Checks system requirements (Node 20+, Git, npm, Claude CLI, Docker)
+2. Installs graph engine dependencies (tree-sitter, better-sqlite3)
+3. Builds hooks
+4. Copies everything to `~/.claude/` (commands, agents, workflows, engine modules)
+5. Runs 101 verification tests
+6. Prints next steps
+
+### Manual setup
 
 ```bash
-npm install
+git clone git@10.48.159.164:other/fdp.git forge
+cd forge
+
+# Install graph engine dependencies
+cd forge-graph && npm install && cd ..
+
+# Build hooks
+node scripts/build-hooks.js
+
+# Install to Claude Code (global)
+node bin/install.js --claude --global
 ```
+
+### First use (in your project)
 
 ```bash
-cd ..
+cd /path/to/your/project
+claude
+
+# Initialize Forge (builds code graph, creates .forge/)
+/forge:init
+
+# Verify
+/forge:doctor
+
+# Start building
+/forge:new-project
 ```
 
-Initialize the code graph and the full `.forge/` environment:
-
-```bash
-node atos-forge/bin/forge-tools.cjs graph init
-```
-
-Verify everything is working:
-
-```bash
-node atos-forge/bin/forge-tools.cjs doctor
-```
-
-`graph init` builds the code graph, installs git hooks, generates the dashboard, creates config from the template, and sets up the session, snapshot, and knowledge directories.
+For detailed instructions, troubleshooting, and installation modes see [INSTALLATION.md](INSTALLATION.md).
 
 ---
 
@@ -124,7 +146,7 @@ Per wave, Forge:
 
 After each wave, the factory rebuilds the next wave's agent configs with the updated ledger. If Wave 1 discovers "this API returns XML, not JSON", Wave 2 agents see that in their system prompt and handle it correctly. No agent repeats a mistake another already made.
 
-**7. Verify** — Full 6-layer check after all waves
+**7. Verify** — Full 9-layer check after all waves
 
 All six verification layers run on the combined result. If anything fails, the auto-fix loop retries up to 3 times before escalating to you.
 
@@ -224,7 +246,7 @@ node forge-verify/engine.js --root . --files src/auth/login.ts
                         | Verification |
                         |    Loop      |
                         |              |
-                        | engine.js    |  6 layers, fail-fast
+                        | engine.js    |  9 layers, fail-fast
                         | loop.js      |  auto-fix up to 3x
                         |              |  escalate if stuck
                         | L1 Structure |
@@ -502,7 +524,7 @@ node atos-forge/bin/forge-tools.cjs graph context src/api/users.ts src/db/models
 ### Verification
 
 ```bash
-# Run 6-layer verification on specific files
+# Run 9-layer verification on specific files
 node forge-verify/engine.js --root . --files src/api/users.ts
 
 # Run verification loop with auto-fix (up to 3 attempts)
@@ -561,7 +583,7 @@ atos-forge/
 │   └── config.js            Resource detection and limits
 │
 ├── forge-verify/            Verification pipeline
-│   ├── engine.js            6-layer verification engine
+│   ├── engine.js            9-layer verification engine
 │   └── loop.js              Auto-fix loop with escalation
 │
 ├── forge-config/            Configuration system

@@ -1,20 +1,12 @@
 # Forge — Installation Guide
 
-## Quick Install (one command)
+## Quick Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/USER/REPO/main/scripts/setup.sh | bash
-```
-
-Or clone and run manually:
-
-```bash
-git clone https://github.com/USER/REPO.git forge
+git clone git@10.48.159.164:other/fdp.git forge
 cd forge
-./scripts/setup.sh
+./scripts/setup.sh --global
 ```
-
-> Replace `USER/REPO` with the actual repository URL when available.
 
 ---
 

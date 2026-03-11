@@ -28,11 +28,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "TBD"
+    "url": "git+https://10.48.159.164/other/fdp.git"
   },
-  "homepage": "TBD",
+  "homepage": "https://10.48.159.164/other/fdp",
   "bugs": {
-    "url": "TBD"
+    "url": "https://10.48.159.164/other/fdp/-/issues"
   },
   "engines": {
     "node": ">=16.7.0"
