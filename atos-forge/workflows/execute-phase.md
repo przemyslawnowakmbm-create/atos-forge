@@ -225,6 +225,8 @@ For each plan/sub-plan in the final execution list:
 
 ```bash
 AGENT_CONFIG=$(node "$FACTORY" build "${PLAN_PATH}" --root "$(pwd)" 2>/dev/null)
+# Factory checks .forge/agents/ cache first. If inputs unchanged → cache HIT (instant).
+# If plan/graph/ledger changed → cache MISS → full 7-step build → saves to cache.
 ```
 
 Each factory result contains:
@@ -586,12 +588,13 @@ If there are remaining waves AND any plans were split:
 
 ```bash
 if [ "$HAS_SPLITS" = "true" ] && [ $WAVE_NUM -lt $TOTAL_WAVES ]; then
-  # Re-build factory configs for remaining agents
+  # Re-build factory configs for remaining agents with --skip-cache
   # The factory re-reads the ledger, picking up new warnings from this wave
   # This is how Wave N+1 agents get UPDATED session context
+  # --skip-cache ensures fresh build (ledger changed) and saves new version to cache
 
   for REMAINING_PLAN in "${REMAINING_PLANS[@]}"; do
-    UPDATED_CONFIG=$(node "$FACTORY" build "${REMAINING_PLAN}" --root "$(pwd)" 2>/dev/null)
+    UPDATED_CONFIG=$(node "$FACTORY" build "${REMAINING_PLAN}" --root "$(pwd)" --skip-cache 2>/dev/null)
     # Replace the old config in the execution list
     # The new config includes updated session_context with this wave's warnings
   done

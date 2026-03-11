@@ -18,7 +18,7 @@ const path = require('path');
 // ============================================================
 
 // Lazy-loaded dependencies (only resolved when called)
-let _graphQuery, _ledger, _assessor, _capDetector, _containerSpec, _containerConfig, _systemQuery, _knowledge;
+let _graphQuery, _ledger, _assessor, _capDetector, _containerSpec, _containerConfig, _systemQuery, _knowledge, _agentCache;
 
 function graphQuery() {
   if (!_graphQuery) _graphQuery = require('../forge-graph/query');
@@ -51,6 +51,10 @@ function systemQuery() {
 function knowledge() {
   if (!_knowledge) _knowledge = require('../forge-session/knowledge');
   return _knowledge;
+}
+function agentCache() {
+  if (!_agentCache) _agentCache = require('./cache');
+  return _agentCache;
 }
 
 // ============================================================
@@ -1116,6 +1120,24 @@ function extractBulletItems(sectionText) {
  * @returns {object} agentConfig — ready to pass to orchestrator.launch()
  */
 function buildAgentConfig(planPath, cwd, opts = {}) {
+  // Determine task ID early (needed for cache lookup)
+  const taskId = opts.taskId || path.basename(planPath, path.extname(planPath))
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .substring(0, 40);
+
+  // Check agent cache (skip if opts.skipCache is set, e.g. wave-to-wave rebuilds)
+  if (!opts.skipCache) {
+    try {
+      const cache = agentCache();
+      const cached = cache.loadCached(planPath, cwd, taskId);
+      if (cached.hit) {
+        cache.touchCached(cwd, taskId);
+        cached.result._fromCache = true;
+        return cached.result;
+      }
+    } catch { /* cache miss or error — build fresh */ }
+  }
+
   // Parse plan
   const plan = assessor().parsePlan(planPath);
 
@@ -1143,11 +1165,6 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
 
   // Step 5: Verification
   const verification = defineVerification(analysis);
-
-  // Task ID
-  const taskId = opts.taskId || path.basename(planPath, path.extname(planPath))
-    .replace(/[^a-zA-Z0-9_-]/g, '-')
-    .substring(0, 40);
 
   // Task prompt (the actual plan content)
   const taskPrompt = plan.raw;
@@ -1211,7 +1228,7 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
   // Step 6: Container params
   const containerParams = defineContainerParams(taskId, cwd, analysis, agentConfig);
 
-  return {
+  const result = {
     agentConfig,
     containerParams,
     analysis: {
@@ -1228,6 +1245,13 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
       ledgerActive: analysis.ledgerState.exists,
     },
   };
+
+  // Save to agent cache
+  try {
+    agentCache().saveToCache(planPath, cwd, taskId, result);
+  } catch { /* cache write failure is non-fatal */ }
+
+  return result;
 }
 
 // ============================================================
@@ -1317,6 +1341,7 @@ function formatAnalysis(result) {
   lines.push(`Graph:      ${analysis.hasGraph ? 'available' : 'not found'}`);
   lines.push(`System:     ${analysis.hasSystemGraph ? `service: ${analysis.systemService}, ${analysis.systemConsumers} consumer(s)` : 'not found'}`);
   lines.push(`Ledger:     ${analysis.ledgerActive ? 'active' : 'not found'}`);
+  lines.push(`Cache:      ${result._fromCache ? 'HIT (reused cached agent)' : 'MISS (built fresh)'}`);
 
   // System prompt preview
   lines.push('');
@@ -1344,6 +1369,7 @@ Options:
   --json                   Output raw JSON instead of formatted text
   --task-id <id>           Override task ID
   --context-budget <n>     Override context budget (tokens)
+  --skip-cache             Force fresh build, bypass agent cache
 `);
 }
 
@@ -1365,6 +1391,7 @@ async function main() {
     else if (args[i] === '--json') { flags.json = true; }
     else if (args[i] === '--task-id' && args[i + 1]) { flags.taskId = args[++i]; }
     else if (args[i] === '--context-budget' && args[i + 1]) { flags.contextBudget = parseInt(args[++i], 10); }
+    else if (args[i] === '--skip-cache') { flags.skipCache = true; }
   }
 
   const cwd = path.resolve(flags.root || process.cwd());
@@ -1384,6 +1411,7 @@ async function main() {
     const opts = {};
     if (flags.taskId) opts.taskId = flags.taskId;
     if (flags.contextBudget) opts.context_budget = flags.contextBudget;
+    if (flags.skipCache) opts.skipCache = true;
 
     const result = buildAgentConfig(planPath, cwd, opts);
 

@@ -701,6 +701,12 @@ async function main() {
       break;
     }
 
+    case 'agents': {
+      const { handleAgents } = require('./lib/agents.cjs');
+      await handleAgents(cwd, args.slice(1), raw);
+      break;
+    }
+
     default:
       error(`Unknown command: ${command}`);
   }

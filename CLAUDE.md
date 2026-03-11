@@ -249,8 +249,23 @@ Cross-repo agent awareness (Phase 4):
 - Container spec mounts system-graph.db at /graph/system-graph.db (FORGE_SYSTEM_GRAPH_PATH env)
 - Worktree orchestrator copies system-graph.db + neighbor interfaces to agent worktree
 
-Programmatic: require('forge-agents/factory').buildAgentConfig(planPath, cwd, opts)
-Returns: { agentConfig, containerParams, analysis }
+Agent Cache — built agents persist to `.forge/agents/` for reuse:
+  node atos-forge/bin/forge-tools.cjs agents list              — List cached agents with staleness
+  node atos-forge/bin/forge-tools.cjs agents show <task-id>    — Detailed agent info
+  node atos-forge/bin/forge-tools.cjs agents invalidate        — Remove stale agents
+  node atos-forge/bin/forge-tools.cjs agents invalidate --all  — Clear entire cache
+  node atos-forge/bin/forge-tools.cjs agents rebuild <task-id> — Force rebuild from plan
+
+Cache key: SHA-256 of plan content + graph.db mtime + system-graph.db mtime + knowledge hash + ledger mtime.
+Cache hit → instant reuse. Cache miss → full 7-step build → auto-saves to cache.
+Wave-to-wave rebuilds (knowledge propagation) use `--skip-cache` to ensure fresh ledger context.
+
+Storage: `.forge/agents/{task-id}/agent-config.json` + `meta.json`, registry at `.forge/agents/registry.json`.
+
+Programmatic: require('forge-agents/cache').{loadCached, saveToCache, listAgents, showAgent, invalidateStale, clearAll}
+Factory: require('forge-agents/factory').buildAgentConfig(planPath, cwd, opts)
+  opts.skipCache = true → bypass cache (used for wave-to-wave rebuilds)
+Returns: { agentConfig, containerParams, analysis, _fromCache? }
 
 ## Parallel Execution Planner
 Schedules agent execution in resource-aware waves:
