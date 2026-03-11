@@ -94,6 +94,7 @@ dead_code                                  — symbols with 0 callers (symbol_id
 | Plik | Opis |
 |------|------|
 | `factory.js` | 7-step pipeline: analyze → archetype → prompt (grounding, conventions, locked decisions, previous findings) → context (3-level compression) → verify → container → session |
+| `cache.js` | Agent cache: persist built configs to `.forge/agents/`, SHA-256 keyed, staleness detection, registry |
 | `parallel-planner.js` | DAG scheduling, bin-packing into waves |
 | `agent-output-schema.js` | Structured JSON output: findings, decisions, confidence |
 
@@ -106,6 +107,7 @@ dead_code                                  — symbols with 0 callers (symbol_id
 - Agent Memory Chain (previous findings → "Previous Agent Findings" section)
 - Structured output instruction (json:agent-output block)
 - Test stub inclusion (always_load test stubs for RED→GREEN)
+- Agent Cache (SHA-256 keyed, auto-save/load, staleness detection, `--skip-cache` for wave-to-wave)
 
 ### 2.4 forge-verify/ — Verification Pipeline
 
@@ -186,7 +188,7 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 ### 2.11 atos-forge/ — CLI & Workflows
 
 - `bin/forge-tools.cjs` — 709L thin dispatcher
-- `bin/lib/` — 21 modułów CJS
+- `bin/lib/` — 22 modułów CJS
 - `workflows/` — 34 workflow definitions
 - `templates/` — plan/summary/config templates
 - `references/` — 5 reference docs
@@ -207,7 +209,7 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 
 ### 2.15 tests/
 
-4 test files (helpers.cjs, core.test.cjs, frontmatter.test.cjs, misc.test.cjs) + 1 CLI test (forge-tools.test.cjs). Total: 101 testów.
+5 test files (helpers.cjs, core.test.cjs, frontmatter.test.cjs, misc.test.cjs, agent-cache.test.cjs) + 1 CLI test (forge-tools.test.cjs). Total: 112 testów.
 
 ---
 
@@ -225,6 +227,7 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 | 8 | Smart Splitting (connected components) | forge-assess/splitter.js | DONE |
 | 9 | Execution Cache | forge-verify/cache.js | DONE |
 | 10 | Convention Detector | forge-graph/convention-detector.js | DONE |
+| 11 | Agent Cache (persist + reuse) | forge-agents/cache.js + factory.js | DONE |
 
 ---
 
@@ -280,7 +283,7 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 - [x] 1-FDP: EUROCONTROL cleanup, URLs→TBD, context-monitor hook, /forge:add-tests
 - [x] 2-FDP: Monolith split (6554→709L, 21 modules), tests (101), /forge:validate-phase, --repair
 - [x] 3-FDP: Rebrand "Atos"→"Forge" (~70 files), Exo font→system fonts, dead code cleanup (16 files)
-- [x] Intelligence Upgrade: 10 optimization points (decisions.db, grounding, plan-lock, test-first, compression, incremental verify, memory chain, smart split, cache, conventions)
+- [x] Intelligence Upgrade: 11 optimization points (decisions.db, grounding, plan-lock, test-first, compression, incremental verify, memory chain, smart split, cache, conventions, agent cache)
 - [x] Architecture Roadmap: GSD-2 features (crash recovery, auto mode, timeouts, metrics, reassessment, browser L9) + graph extensions (call_graph, class_hierarchy, dead_code, watcher, dashboard tabs)
 
 ### Przyszłe możliwości
@@ -341,7 +344,7 @@ Step-by-step guide covering: quick install, what each step does, installation mo
 ## 9. Inwentarz plików
 
 ```
-FDP Root (57 JS/CJS modules | 33 commands | 34 workflows | 11 agents | 3 hooks | 101 tests)
+FDP Root (59 JS/CJS modules | 33 commands | 34 workflows | 11 agents | 3 hooks | 112 tests)
 ├── atos-forge/                    CLI entry point
 │   ├── bin/forge-tools.cjs        709L thin dispatcher
 │   ├── bin/lib/                   21 CJS modules
@@ -365,6 +368,7 @@ FDP Root (57 JS/CJS modules | 33 commands | 34 workflows | 11 agents | 3 hooks |
 │   └── metrics.js                 Per-unit token/cost tracking + budget ceiling
 ├── forge-agents/                  Agent Orchestration
 │   ├── factory.js                 Agent builder (grounding, conventions, compression, plan-lock)
+│   ├── cache.js                   Agent cache (SHA-256 keyed, .forge/agents/, registry)
 │   ├── parallel-planner.js        DAG scheduling + bin-packing
 │   └── agent-output-schema.js     Structured JSON output parsing
 ├── forge-verify/                  Verification Pipeline
@@ -394,7 +398,7 @@ FDP Root (57 JS/CJS modules | 33 commands | 34 workflows | 11 agents | 3 hooks |
 ├── commands/forge/                33 slash commands
 ├── agents/                        11 specialized agents
 ├── hooks/                         3 hooks (statusline, context-monitor, check-update)
-├── tests/                         4 test files (101 total tests)
+├── tests/                         5 test files (112 total tests)
 ├── bin/install.js                 Component installer (copies to ~/.claude/)
 ├── scripts/
 │   ├── setup.sh                   Full automated setup (7 steps: deps, clone, npm, hooks, install, test, summary)

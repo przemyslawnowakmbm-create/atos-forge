@@ -112,7 +112,7 @@ The factory reads each sub-plan, queries the code graph for dependencies and cap
 | **Careful** | High or critical risk score | Extra verification, conservative changes |
 | **General** | Everything else | Balanced approach |
 
-Each agent gets a tailored system prompt, a context package (the right files to load, not all of them), and a verification checklist.
+Each agent gets a tailored system prompt, a context package (the right files to load, not all of them), and a verification checklist. Built agents are cached in `.forge/agents/` — if the plan and graph state haven't changed, the next run reuses the cached config instantly instead of re-running the full pipeline.
 
 **4. Schedule** — Organize agents into waves
 
@@ -144,7 +144,7 @@ Per wave, Forge:
 
 **6. Propagate knowledge** — Wave N informs Wave N+1
 
-After each wave, the factory rebuilds the next wave's agent configs with the updated ledger. If Wave 1 discovers "this API returns XML, not JSON", Wave 2 agents see that in their system prompt and handle it correctly. No agent repeats a mistake another already made.
+After each wave, the factory rebuilds the next wave's agent configs with the updated ledger (bypassing the cache to pick up new warnings). If Wave 1 discovers "this API returns XML, not JSON", Wave 2 agents see that in their system prompt and handle it correctly. No agent repeats a mistake another already made.
 
 **7. Verify** — Full 9-layer check after all waves
 
@@ -571,6 +571,7 @@ atos-forge/
 │
 ├── forge-agents/            Agent orchestration
 │   ├── factory.js           Build agent configs from plans + graph context
+│   ├── cache.js             Agent cache (persist + reuse built agents)
 │   └── parallel-planner.js  DAG scheduling, bin-packing into waves
 │
 ├── forge-assess/            Task assessment
@@ -596,7 +597,8 @@ atos-forge/
 │   ├── graph.db             SQLite code graph database
 │   ├── dashboard.html       Generated interactive dashboard
 │   ├── session/ledger.md    Session ledger
-│   └── snapshots/           Graph state snapshots
+│   ├── snapshots/           Graph state snapshots
+│   └── agents/              Cached agent configs (registry + per-agent meta)
 │
 └── CLAUDE.md                Agent instructions (read by Claude Code on startup)
 ```
@@ -644,9 +646,16 @@ const result = await verify({ cwd: '.', files: ['src/api/users.ts'] });
 const { verifyLoop } = require('./forge-verify/loop');
 const loopResult = await verifyLoop({ cwd: '.', files: ['src/api/users.ts'], maxLoops: 3 });
 
-// Agent factory
+// Agent factory (auto-caches built agents in .forge/agents/)
 const { buildAgentConfig } = require('./forge-agents/factory');
-const agent = await buildAgentConfig('plans/01-PLAN.md', '.');
+const agent = buildAgentConfig('plans/01-PLAN.md', '.');
+const fresh = buildAgentConfig('plans/01-PLAN.md', '.', { skipCache: true });
+
+// Agent cache
+const { listAgents, showAgent, invalidateStale } = require('./forge-agents/cache');
+const agents = listAgents('/path/to/project');  // all cached agents with staleness
+const detail = showAgent('/path/to/project', 'task-id');
+invalidateStale('/path/to/project');  // remove stale entries
 
 // Session ledger
 const ledger = require('./forge-session/ledger');
