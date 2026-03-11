@@ -1000,6 +1000,107 @@ class GraphQuery {
   }
 
   // ============================================================
+  // Call Graph, Class Hierarchy & Dead Code Queries
+  // ============================================================
+
+  /**
+   * Get all callers of a symbol.
+   * @param {string} symbolName
+   * @param {string} [file] - Optional file to disambiguate.
+   */
+  getCallersOf(symbolName, file) {
+    this.open();
+    let sql = `
+      SELECT cg.caller_symbol_id, cg.callee_name, cg.callee_file, cg.call_site_line, cg.call_type, cg.resolved,
+             s.name AS caller_name, s.kind AS caller_kind, s.file AS caller_file,
+             f.module AS caller_module
+      FROM call_graph cg
+      JOIN symbols s ON cg.caller_symbol_id = s.id
+      JOIN files f ON s.file = f.path
+      WHERE cg.callee_name = ?
+    `;
+    const params = [symbolName];
+    if (file) { sql += ' AND cg.callee_file = ?'; params.push(file); }
+    sql += ' ORDER BY f.module, s.file, cg.call_site_line';
+    return this.db.prepare(sql).all(...params);
+  }
+
+  /**
+   * Get all callees of a symbol.
+   * @param {string} symbolName
+   * @param {string} [file] - Optional file to disambiguate.
+   */
+  getCalleesOf(symbolName, file) {
+    this.open();
+    let sql = `
+      SELECT cg.callee_name, cg.callee_file, cg.call_site_line, cg.call_type, cg.resolved,
+             s.name AS caller_name, s.kind AS caller_kind, s.file AS caller_file,
+             f.module AS caller_module
+      FROM call_graph cg
+      JOIN symbols s ON cg.caller_symbol_id = s.id
+      JOIN files f ON s.file = f.path
+      WHERE s.name = ?
+    `;
+    const params = [symbolName];
+    if (file) { sql += ' AND s.file = ?'; params.push(file); }
+    sql += ' ORDER BY cg.callee_name, cg.call_site_line';
+    return this.db.prepare(sql).all(...params);
+  }
+
+  /**
+   * Get class hierarchy for a symbol (parents and children).
+   * @param {string} symbolName
+   */
+  getClassHierarchy(symbolName) {
+    this.open();
+    // Find parents (what this class extends/implements)
+    const parents = this.db.prepare(`
+      SELECT ch.parent_name, ch.parent_file, ch.relation, ch.resolved,
+             s.name AS child_name, s.file AS child_file,
+             f.module AS child_module
+      FROM class_hierarchy ch
+      JOIN symbols s ON ch.child_id = s.id
+      JOIN files f ON s.file = f.path
+      WHERE s.name = ?
+      ORDER BY ch.relation, ch.parent_name
+    `).all(symbolName);
+
+    // Find children (what extends/implements this class)
+    const children = this.db.prepare(`
+      SELECT ch.parent_name, ch.parent_file, ch.relation, ch.resolved,
+             s.name AS child_name, s.file AS child_file,
+             f.module AS child_module
+      FROM class_hierarchy ch
+      JOIN symbols s ON ch.child_id = s.id
+      JOIN files f ON s.file = f.path
+      WHERE ch.parent_name = ?
+      ORDER BY ch.relation, s.name
+    `).all(symbolName);
+
+    return { symbol: symbolName, parents, children };
+  }
+
+  /**
+   * Get detected dead code, optionally filtered by module.
+   * @param {string} [moduleName]
+   */
+  getDeadCode(moduleName) {
+    this.open();
+    let sql = `
+      SELECT dc.symbol_id, dc.reason, dc.confidence, dc.detected_at,
+             s.name, s.kind, s.file, s.line_start, s.line_end,
+             f.module
+      FROM dead_code dc
+      JOIN symbols s ON dc.symbol_id = s.id
+      JOIN files f ON s.file = f.path
+    `;
+    const params = [];
+    if (moduleName) { sql += ' WHERE f.module = ?'; params.push(moduleName); }
+    sql += ' ORDER BY dc.confidence DESC, f.module, s.file, s.line_start';
+    return this.db.prepare(sql).all(...params);
+  }
+
+  // ============================================================
   // New Programmatic API — getCycles, getOverview, getGraphDiff
   // ============================================================
 
@@ -1407,6 +1508,10 @@ function printHelp() {
     ${chalk.bold('cycles')}                         Find circular dependencies
     ${chalk.bold('capabilities')} [module]          Detected capabilities
     ${chalk.bold('diff')} --base <path>             Compare against baseline graph.db
+    ${chalk.bold('callers')} <symbol> [file]        Who calls this symbol
+    ${chalk.bold('callees')} <symbol> [file]        What does this symbol call
+    ${chalk.bold('hierarchy')} <class>              Class extends/implements tree
+    ${chalk.bold('dead-code')} [module]             Potentially unused code
 
     ${chalk.bold('files')} [--module M] [--lang L]  List files
     ${chalk.bold('file')} <path>                    File details with symbols
@@ -2295,6 +2400,112 @@ function run() {
         break;
       }
 
+      // ===== callers =====
+      case 'callers': {
+        const symbolName = positionalArgs[0];
+        if (!symbolName) { console.error(theme.error('  Error: symbol name required')); process.exit(1); }
+        const file = positionalArgs[1] || undefined;
+        result = q.getCallersOf(symbolName, file);
+
+        if (!jsonMode) {
+          console.log(`\n  ${theme.heading('Callers of:')} ${theme.symbol(symbolName)}${file ? ' ' + theme.dim('in ' + file) : ''}`);
+          console.log(`  ${theme.label('Total callers:')} ${theme.number(result.length)}\n`);
+          if (result.length > 0) {
+            formatTable(result, [
+              { key: 'caller_name', label: 'Caller', maxWidth: 30 },
+              { key: 'caller_kind', label: 'Kind' },
+              { key: 'caller_file', label: 'File', maxWidth: 40 },
+              { key: 'caller_module', label: 'Module', maxWidth: 15 },
+              { key: 'call_site_line', label: 'Line' },
+              { key: 'call_type', label: 'Type' },
+            ]);
+          }
+          console.log('');
+        }
+        break;
+      }
+
+      // ===== callees =====
+      case 'callees': {
+        const symbolName = positionalArgs[0];
+        if (!symbolName) { console.error(theme.error('  Error: symbol name required')); process.exit(1); }
+        const file = positionalArgs[1] || undefined;
+        result = q.getCalleesOf(symbolName, file);
+
+        if (!jsonMode) {
+          console.log(`\n  ${theme.heading('Callees of:')} ${theme.symbol(symbolName)}${file ? ' ' + theme.dim('in ' + file) : ''}`);
+          console.log(`  ${theme.label('Total callees:')} ${theme.number(result.length)}\n`);
+          if (result.length > 0) {
+            formatTable(result, [
+              { key: 'callee_name', label: 'Callee', maxWidth: 30 },
+              { key: 'callee_file', label: 'File', maxWidth: 40 },
+              { key: 'call_site_line', label: 'Line' },
+              { key: 'call_type', label: 'Type' },
+            ]);
+          }
+          console.log('');
+        }
+        break;
+      }
+
+      // ===== hierarchy =====
+      case 'hierarchy': {
+        const symbolName = positionalArgs[0];
+        if (!symbolName) { console.error(theme.error('  Error: class/symbol name required')); process.exit(1); }
+        result = q.getClassHierarchy(symbolName);
+
+        if (!jsonMode) {
+          console.log('');
+          drawBox(`Class Hierarchy: ${symbolName}`);
+          if (result.parents.length > 0) {
+            drawSection(`Parents (${result.parents.length})`);
+            for (const p of result.parents) {
+              drawLine(`${chalk.cyan('\u25b2')} ${theme.symbol(p.parent_name)}  ${theme.dim(p.relation)}  ${p.parent_file ? theme.file(p.parent_file) : theme.dim('(unresolved)')}`);
+            }
+          } else {
+            drawLine(theme.dim('No parents found.'));
+          }
+          if (result.children.length > 0) {
+            drawSection(`Children (${result.children.length})`);
+            for (const c of result.children) {
+              drawLine(`${chalk.green('\u25bc')} ${theme.symbol(c.child_name)}  ${theme.dim(c.relation)}  ${theme.file(c.child_file)}  ${theme.dim('(' + c.child_module + ')')}`);
+            }
+          } else {
+            drawLine(theme.dim('No children found.'));
+          }
+          drawBoxEnd();
+          console.log('');
+        }
+        break;
+      }
+
+      // ===== dead-code =====
+      case 'dead-code': {
+        const modName = positionalArgs[0] || undefined;
+        result = q.getDeadCode(modName);
+
+        if (!jsonMode) {
+          console.log('');
+          drawBox(`Dead Code${modName ? ': ' + modName : ''}`);
+          drawLine(`${theme.label('Total suspects:')} ${theme.number(result.length)}`);
+          console.log('');
+          if (result.length > 0) {
+            formatTable(result.slice(0, 50), [
+              { key: 'name', label: 'Symbol', maxWidth: 30 },
+              { key: 'kind', label: 'Kind' },
+              { key: 'file', label: 'File', maxWidth: 40 },
+              { key: 'module', label: 'Module', maxWidth: 15 },
+              { key: 'confidence', label: 'Confidence' },
+              { key: 'reason', label: 'Reason', maxWidth: 25 },
+            ]);
+            if (result.length > 50) console.log(theme.dim(`    ... and ${result.length - 50} more`));
+          }
+          drawBoxEnd();
+          console.log('');
+        }
+        break;
+      }
+
       default:
         console.error(theme.error(`  Unknown command: ${command}`));
         printHelp();
@@ -2447,6 +2658,41 @@ function getGraphDiff(baseDbPath, dbPath) {
   return withQuery(dbPath, q => q.getGraphDiff(baseDbPath));
 }
 
+/**
+ * Get callers of a symbol.
+ * @param {string} symbolName
+ * @param {{ file?: string, db?: string }} [opts]
+ */
+function getCallersOf(symbolName, opts = {}) {
+  return withQuery(opts.db || opts, q => q.getCallersOf(symbolName, opts.file));
+}
+
+/**
+ * Get callees of a symbol.
+ * @param {string} symbolName
+ * @param {{ file?: string, db?: string }} [opts]
+ */
+function getCalleesOf(symbolName, opts = {}) {
+  return withQuery(opts.db || opts, q => q.getCalleesOf(symbolName, opts.file));
+}
+
+/**
+ * Get class hierarchy for a symbol.
+ * @param {string} symbolName
+ * @param {string} [dbPath]
+ */
+function getClassHierarchy(symbolName, dbPath) {
+  return withQuery(dbPath, q => q.getClassHierarchy(symbolName));
+}
+
+/**
+ * Get dead code suspects.
+ * @param {{ module?: string, db?: string }} [opts]
+ */
+function getDeadCode(opts = {}) {
+  return withQuery(opts.db || opts, q => q.getDeadCode(opts.module));
+}
+
 // ============================================================
 // Entry Point
 // ============================================================
@@ -2471,4 +2717,8 @@ module.exports = {
   getCycles,
   getOverview,
   getGraphDiff,
+  getCallersOf,
+  getCalleesOf,
+  getClassHierarchy,
+  getDeadCode,
 };

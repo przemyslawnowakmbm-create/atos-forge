@@ -428,6 +428,17 @@ function doctor(cwd, opts = {}) {
   checks.push(checkSystemGraph(root));
   checks.push(checkInterfaces(root));
 
+  // Crash lock check
+  try {
+    const crashRecovery = require('../forge-session/crash-recovery');
+    const lock = crashRecovery.readCrashLock(root);
+    if (lock && !lock.processAlive) {
+      checks.push({ name: 'Crash Lock', status: 'warn', message: `Stale lock from ${lock.startedAt} — run /forge:resume-work` });
+    } else {
+      checks.push({ name: 'Crash Lock', status: 'ok', message: lock ? 'Active session' : 'No crash detected' });
+    }
+  } catch { checks.push({ name: 'Crash Lock', status: 'skip', message: 'Module not available' }); }
+
   // Section 3: System (last index)
   checks.push(checkSystem(root));
 

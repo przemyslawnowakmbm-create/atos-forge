@@ -102,6 +102,48 @@ function collectDashboardData(dbPath) {
       .filter(n => n.stability === 'low')
       .map(n => ({ name: n.name, file_count: n.file_count }));
 
+    // Call graph data (nodes = symbols, edges = calls)
+    let callGraphData = { nodes: [], edges: [] };
+    try {
+      const cgRows = q.db.prepare(`
+        SELECT cg.caller_symbol_id, cg.callee_name, cg.callee_file, cg.call_type, cg.resolved,
+               s.name AS caller_name, s.kind AS caller_kind, s.file AS caller_file, f.module AS caller_module
+        FROM call_graph cg
+        JOIN symbols s ON cg.caller_symbol_id = s.id
+        JOIN files f ON s.file = f.path
+        LIMIT 2000
+      `).all();
+      const nodeSet = new Set();
+      const nodes = [];
+      const edges = [];
+      for (const r of cgRows) {
+        const callerId = r.caller_name + ':' + r.caller_file;
+        const calleeId = r.callee_name + ':' + (r.callee_file || '?');
+        if (!nodeSet.has(callerId)) { nodeSet.add(callerId); nodes.push({ id: callerId, name: r.caller_name, kind: r.caller_kind, file: r.caller_file, module: r.caller_module }); }
+        if (!nodeSet.has(calleeId)) { nodeSet.add(calleeId); nodes.push({ id: calleeId, name: r.callee_name, kind: 'unknown', file: r.callee_file || '?', module: '' }); }
+        edges.push({ source: callerId, target: calleeId, type: r.call_type });
+      }
+      callGraphData = { nodes, edges };
+    } catch { /* call_graph table may not exist */ }
+
+    // Dead code data
+    let deadCodeData = [];
+    try {
+      deadCodeData = q.getDeadCode().map(d => ({
+        name: d.name, kind: d.kind, file: d.file, module: d.module,
+        reason: d.reason, confidence: d.confidence, line_start: d.line_start, line_end: d.line_end,
+      }));
+    } catch { /* dead_code table may not exist */ }
+
+    // Session metrics (cost/token tracking)
+    let metricsData = null;
+    try {
+      const metricsPath = path.join(path.dirname(path.dirname(dbPath)), 'session', 'metrics.json');
+      if (fs.existsSync(metricsPath)) {
+        metricsData = JSON.parse(fs.readFileSync(metricsPath, 'utf8'));
+      }
+    } catch { /* metrics not available */ }
+
     // Project name from meta or directory
     const projectRoot = path.dirname(path.dirname(dbPath));
     const projectName = meta.project_name || path.basename(projectRoot);
@@ -120,6 +162,9 @@ function collectDashboardData(dbPath) {
       highChurn,
       unstableModules,
       fileDeps,
+      callGraphData,
+      deadCodeData,
+      metricsData,
       generatedAt: new Date().toISOString(),
     };
   } finally {
@@ -229,6 +274,9 @@ function generateCSS() {
       position: relative;
     }
     .tab-content.hidden { display: none; }
+
+    /* Cost & Dead Code containers */
+    .cost-container, .deadcode-container { padding: 24px; overflow: auto; height: 100%; }
 
     /* Search bar (module map) */
     .search-bar {
@@ -507,6 +555,9 @@ function generateHTML(data) {
     <button class="tab-btn" data-tab="tab-hotspot-heatmap">Hotspot Heatmap</button>
     <button class="tab-btn" data-tab="tab-capability-matrix">Capability Matrix</button>
     <button class="tab-btn" data-tab="tab-risk-register">Risk Register</button>
+    <button class="tab-btn" data-tab="tab-cost">Cost</button>
+    <button class="tab-btn" data-tab="tab-callgraph">Call Graph</button>
+    <button class="tab-btn" data-tab="tab-deadcode">Dead Code</button>
   </nav>
 
   <!-- Tab 1: Module Map -->
@@ -551,6 +602,27 @@ function generateHTML(data) {
   <!-- Tab 5: Risk Register -->
   <div id="tab-risk-register" class="tab-content hidden">
     <div class="risk-container" id="risk-container"></div>
+  </div>
+
+  <!-- Tab 6: Cost & Token Usage -->
+  <div id="tab-cost" class="tab-content hidden">
+    <div class="cost-container" id="cost-container">
+      <h2 style="margin-bottom:16px;color:var(--forge-primary)">Cost &amp; Token Usage</h2>
+      <div id="cost-summary">Loading metrics...</div>
+    </div>
+  </div>
+
+  <!-- Tab 7: Call Graph -->
+  <div id="tab-callgraph" class="tab-content hidden">
+    <div id="callgraph-viz" style="width:100%;height:100%"></div>
+  </div>
+
+  <!-- Tab 8: Dead Code -->
+  <div id="tab-deadcode" class="tab-content hidden">
+    <div class="deadcode-container" id="deadcode-container">
+      <h2 style="margin-bottom:16px;color:var(--forge-primary)">Dead Code Analysis</h2>
+      <div id="deadcode-list"></div>
+    </div>
   </div>
 
   <!-- Side Panel -->
@@ -649,6 +721,9 @@ function generateJS() {
         if (tabId === 'tab-hotspot-heatmap') initHotspotHeatmap();
         if (tabId === 'tab-capability-matrix') initCapabilityMatrix();
         if (tabId === 'tab-risk-register') initRiskRegister();
+        if (tabId === 'tab-cost') initCostTab();
+        if (tabId === 'tab-callgraph') initCallGraph();
+        if (tabId === 'tab-deadcode') initDeadCode();
       }
       // Resize handler for treemap
       if (tabId === 'tab-hotspot-heatmap' && tabInited[tabId]) {
@@ -1411,6 +1486,150 @@ function generateJS() {
     }
 
     renderTable();
+  }
+
+  // ============================================================
+  // TAB 6: Cost & Token Usage
+  // ============================================================
+
+  function initCostTab() {
+    const container = document.getElementById('cost-summary');
+    const metrics = D.metricsData;
+    if (!metrics || !metrics.units || metrics.units.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-dim)">No metrics data available. Metrics are collected during agent execution.</p>';
+      return;
+    }
+    let totalCost = 0, totalTokens = 0;
+    const byPhase = {}, byModel = {};
+    for (const u of metrics.units) {
+      totalCost += u.cost_usd || 0;
+      totalTokens += (u.tokens && u.tokens.total) || 0;
+      const ph = u.phase || 'unknown';
+      if (!byPhase[ph]) byPhase[ph] = { cost: 0, tokens: 0, count: 0 };
+      byPhase[ph].cost += u.cost_usd || 0;
+      byPhase[ph].tokens += (u.tokens && u.tokens.total) || 0;
+      byPhase[ph].count++;
+      const mo = u.model || 'unknown';
+      if (!byModel[mo]) byModel[mo] = { cost: 0, tokens: 0, count: 0 };
+      byModel[mo].cost += u.cost_usd || 0;
+      byModel[mo].tokens += (u.tokens && u.tokens.total) || 0;
+      byModel[mo].count++;
+    }
+    const fmt = n => '$' + n.toFixed(4);
+    const fmtT = n => n.toLocaleString();
+    let html = '<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:24px">';
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:180px"><div style="font-size:12px;color:var(--text-dim)">Total Cost</div><div style="font-size:28px;font-weight:700;color:var(--forge-primary)">' + fmt(totalCost) + '</div></div>';
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:180px"><div style="font-size:12px;color:var(--text-dim)">Total Tokens</div><div style="font-size:28px;font-weight:700;color:var(--forge-secondary)">' + fmtT(totalTokens) + '</div></div>';
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:180px"><div style="font-size:12px;color:var(--text-dim)">Units</div><div style="font-size:28px;font-weight:700;color:var(--forge-accent)">' + metrics.units.length + '</div></div>';
+    if (metrics.budget_ceiling_usd) {
+      const remaining = metrics.budget_ceiling_usd - totalCost;
+      const pct = ((totalCost / metrics.budget_ceiling_usd) * 100).toFixed(1);
+      const color = remaining > 0 ? 'var(--green)' : 'var(--red)';
+      html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:180px"><div style="font-size:12px;color:var(--text-dim)">Budget (' + pct + '% used)</div><div style="font-size:28px;font-weight:700;color:' + color + '">' + fmt(remaining) + ' left</div></div>';
+    }
+    html += '</div>';
+    html += '<div style="display:flex;gap:24px;flex-wrap:wrap">';
+    html += '<div style="flex:1;min-width:300px"><h3 style="margin-bottom:8px;color:var(--forge-primary)">By Phase</h3><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:2px solid var(--border)"><th style="text-align:left;padding:6px">Phase</th><th style="text-align:right;padding:6px">Cost</th><th style="text-align:right;padding:6px">Tokens</th><th style="text-align:right;padding:6px">Units</th></tr></thead><tbody>';
+    for (const [ph, v] of Object.entries(byPhase).sort((a,b) => b[1].cost - a[1].cost)) {
+      html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px">' + esc(ph) + '</td><td style="text-align:right;padding:6px">' + fmt(v.cost) + '</td><td style="text-align:right;padding:6px">' + fmtT(v.tokens) + '</td><td style="text-align:right;padding:6px">' + v.count + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    html += '<div style="flex:1;min-width:300px"><h3 style="margin-bottom:8px;color:var(--forge-primary)">By Model</h3><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:2px solid var(--border)"><th style="text-align:left;padding:6px">Model</th><th style="text-align:right;padding:6px">Cost</th><th style="text-align:right;padding:6px">Tokens</th><th style="text-align:right;padding:6px">Units</th></tr></thead><tbody>';
+    for (const [mo, v] of Object.entries(byModel).sort((a,b) => b[1].cost - a[1].cost)) {
+      html += '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px">' + esc(mo) + '</td><td style="text-align:right;padding:6px">' + fmt(v.cost) + '</td><td style="text-align:right;padding:6px">' + fmtT(v.tokens) + '</td><td style="text-align:right;padding:6px">' + v.count + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  // ============================================================
+  // TAB 7: Call Graph (D3 Force-Directed)
+  // ============================================================
+
+  function initCallGraph() {
+    const container = document.getElementById('callgraph-viz');
+    container.innerHTML = '';
+    const cgData = D.callGraphData;
+    if (!cgData || !cgData.nodes || cgData.nodes.length === 0) {
+      container.innerHTML = '<p style="padding:24px;color:var(--text-dim)">No call graph data available. Run a full graph build with call-graph analysis enabled.</p>';
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const W = rect.width || 800;
+    const H = rect.height || 600;
+    const svg = d3.select('#callgraph-viz').append('svg').attr('width', W).attr('height', H);
+    const g = svg.append('g');
+    svg.call(d3.zoom().scaleExtent([0.1, 5]).on('zoom', e => g.attr('transform', e.transform)));
+
+    const nodes = cgData.nodes.map(n => Object.assign({}, n));
+    const edges = cgData.edges.map(e => ({ source: e.source, target: e.target, type: e.type }));
+
+    const moduleColor = d3.scaleOrdinal(d3.schemeTableau10);
+    const simulation = d3.forceSimulation(nodes)
+      .force('link', d3.forceLink(edges).id(d => d.id).distance(60))
+      .force('charge', d3.forceManyBody().strength(-80))
+      .force('center', d3.forceCenter(W/2, H/2))
+      .force('collide', d3.forceCollide(12));
+
+    const link = g.append('g').attr('stroke', '#999').attr('stroke-opacity', 0.4)
+      .selectAll('line').data(edges).join('line').attr('stroke-width', 1)
+      .attr('marker-end', 'url(#cg-arrow)');
+
+    svg.append('defs').append('marker').attr('id', 'cg-arrow').attr('viewBox', '0 0 10 10')
+      .attr('refX', 20).attr('refY', 5).attr('markerWidth', 6).attr('markerHeight', 6)
+      .attr('orient', 'auto').append('path').attr('d', 'M0,0L10,5L0,10Z').attr('fill', '#999');
+
+    const node = g.append('g').selectAll('circle').data(nodes).join('circle')
+      .attr('r', 5).attr('fill', d => moduleColor(d.module || 'unknown'))
+      .attr('stroke', '#fff').attr('stroke-width', 1)
+      .call(d3.drag().on('start', (e,d) => { if(!e.active) simulation.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+        .on('drag', (e,d) => { d.fx=e.x; d.fy=e.y; })
+        .on('end', (e,d) => { if(!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }));
+
+    node.append('title').text(d => d.name + ' (' + (d.module || '?') + ')');
+
+    simulation.on('tick', () => {
+      link.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+      node.attr('cx', d => d.x).attr('cy', d => d.y);
+    });
+  }
+
+  // ============================================================
+  // TAB 8: Dead Code Analysis
+  // ============================================================
+
+  function initDeadCode() {
+    const container = document.getElementById('deadcode-list');
+    const data = D.deadCodeData;
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-dim)">No dead code detected. This is either very clean code or the dead-code analysis has not been run.</p>';
+      return;
+    }
+    const sorted = data.slice().sort((a,b) => (b.confidence || 0) - (a.confidence || 0));
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:2px solid var(--border)">';
+    html += '<th style="text-align:left;padding:8px">Symbol</th>';
+    html += '<th style="text-align:left;padding:8px">Kind</th>';
+    html += '<th style="text-align:left;padding:8px">Module</th>';
+    html += '<th style="text-align:left;padding:8px">File</th>';
+    html += '<th style="text-align:right;padding:8px">Confidence</th>';
+    html += '<th style="text-align:left;padding:8px">Reason</th>';
+    html += '</tr></thead><tbody>';
+    for (const d of sorted) {
+      const confPct = ((d.confidence || 0) * 100).toFixed(0);
+      const confColor = d.confidence >= 0.8 ? 'var(--red)' : d.confidence >= 0.5 ? 'var(--yellow)' : 'var(--text-dim)';
+      html += '<tr style="border-bottom:1px solid var(--border)">';
+      html += '<td style="padding:8px;font-weight:600">' + esc(d.name) + '</td>';
+      html += '<td style="padding:8px">' + esc(d.kind) + '</td>';
+      html += '<td style="padding:8px">' + esc(d.module) + '</td>';
+      html += '<td style="padding:8px;font-size:11px;color:var(--text-dim)">' + esc(d.file) + (d.line_start ? ':' + d.line_start : '') + '</td>';
+      html += '<td style="text-align:right;padding:8px;font-weight:600;color:' + confColor + '">' + confPct + '%</td>';
+      html += '<td style="padding:8px;font-size:12px">' + esc(d.reason) + '</td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    html += '<div style="margin-top:12px;font-size:12px;color:var(--text-dim)">Total: ' + sorted.length + ' potential dead code symbols</div>';
+    container.innerHTML = html;
   }
 
   // ============================================================

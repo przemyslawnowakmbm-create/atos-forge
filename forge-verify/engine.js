@@ -62,6 +62,7 @@ const LAYER_NAMES = [
   'BEHAVIORAL',
   'CONTRACT',
   'ARCHITECTURAL',
+  'BROWSER',
 ];
 
 const LAYER_ICONS = { pass: '\u2705', fail: '\u274C', skip: '\u23ED\uFE0F' };
@@ -897,6 +898,12 @@ function contractLayer() {
   }
   return _contractLayer;
 }
+
+// ============================================================
+// Layer 9 — BROWSER (lazy-loaded, optional)
+// ============================================================
+
+let layerBrowserMod; try { layerBrowserMod = require('./browser-layer'); } catch {}
 
 // ============================================================
 // Layer 8 — ARCHITECTURAL (optional, agent-based)
@@ -1752,6 +1759,17 @@ async function verify(opts) {
     // Architectural issues are suggestions, don't fail-fast
   }
 
+  // Layer 9 — BROWSER (optional, Playwright e2e, off by default)
+  if (maxLayer >= 9 && verifyConfig.layers && verifyConfig.layers.BROWSER === true && layerBrowserMod) {
+    const cached9 = cache ? cache.get('BROWSER', files, cwd) : null;
+    const result = cached9 || await layerBrowserMod.layerBrowser({ cwd, files });
+    if (!cached9 && cache) cache.set('BROWSER', files, cwd, result);
+    layers.push({ index: 9, name: 'BROWSER', passed: result.passed, skipped: !!result.skipped, result, duration_ms: result.duration || 0 });
+    if (!result.passed && !result.skipped && opts.failFast) {
+      return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+    }
+  }
+
   return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
 }
 
@@ -1833,6 +1851,7 @@ module.exports = {
   layerBehavioral,
   get layerContract() { const cl = contractLayer(); return cl ? cl.layerContract : null; },
   layerArchitectural,
+  get layerBrowser() { return layerBrowserMod ? layerBrowserMod.layerBrowser : null; },
   parsePlanVerifySteps,
   parsePlanFiles,
   generateFixSuggestions,

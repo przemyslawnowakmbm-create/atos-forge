@@ -138,3 +138,38 @@ CREATE INDEX IF NOT EXISTS idx_warnings_module ON warnings(module);
 CREATE INDEX IF NOT EXISTS idx_warnings_severity ON warnings(severity);
 CREATE INDEX IF NOT EXISTS idx_agent_learnings_module ON agent_learnings(module);
 CREATE INDEX IF NOT EXISTS idx_change_freq_changes ON change_frequency(changes_30d DESC);
+
+-- ============================================================
+-- Call Graph & Hierarchy
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS call_graph (
+    caller_symbol_id INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+    callee_name      TEXT NOT NULL,
+    callee_file      TEXT,
+    call_site_line   INTEGER,
+    call_type        TEXT NOT NULL DEFAULT 'direct',
+    resolved         BOOLEAN DEFAULT 0,
+    PRIMARY KEY (caller_symbol_id, callee_name, call_site_line)
+);
+
+CREATE TABLE IF NOT EXISTS class_hierarchy (
+    child_id    INTEGER NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+    parent_name TEXT NOT NULL,
+    parent_file TEXT,
+    relation    TEXT NOT NULL DEFAULT 'extends',
+    resolved    BOOLEAN DEFAULT 0,
+    PRIMARY KEY (child_id, parent_name)
+);
+
+CREATE TABLE IF NOT EXISTS dead_code (
+    symbol_id   INTEGER PRIMARY KEY REFERENCES symbols(id) ON DELETE CASCADE,
+    reason      TEXT NOT NULL,
+    confidence  REAL DEFAULT 0.0,
+    detected_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_call_graph_caller ON call_graph(caller_symbol_id);
+CREATE INDEX IF NOT EXISTS idx_call_graph_callee ON call_graph(callee_name);
+CREATE INDEX IF NOT EXISTS idx_class_hierarchy_child ON class_hierarchy(child_id);
+CREATE INDEX IF NOT EXISTS idx_class_hierarchy_parent ON class_hierarchy(parent_name);

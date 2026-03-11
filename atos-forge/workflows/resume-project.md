@@ -16,6 +16,29 @@ Instantly restore full project context so "Where were we?" has an immediate, com
 
 <process>
 
+<step name="crash_check">
+**Before restoring state, check for a crash lock from a previous interrupted session:**
+
+```bash
+node -e "
+const cr = require('$HOME/.claude/forge-session/crash-recovery');
+const lock = cr.readCrashLock('$(pwd)');
+if (lock && !lock.processAlive) {
+  const briefing = cr.synthesizeRecovery('$(pwd)', lock);
+  console.log(briefing);
+  cr.clearLock('$(pwd)');
+} else if (lock && lock.processAlive) {
+  console.log('Active session detected (pid ' + lock.pid + ') — skip recovery.');
+} else {
+  console.log('No crash lock found.');
+}
+"
+```
+
+If a stale crash lock is found, present the recovery briefing to the user before continuing.
+The lock is cleared after reading so subsequent resumes start clean.
+</step>
+
 <step name="initialize">
 Load all context in one call:
 

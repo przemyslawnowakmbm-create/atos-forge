@@ -943,6 +943,11 @@ class GraphBuilder {
     this.writeDatabase(fileData, dependencies, modules, fileModuleMap, changeFreq);
     console.log('done');
 
+    // 9. Extract call graph, class hierarchy, and detect dead code
+    try { this.extractCallGraph(fileData); } catch { /* non-critical */ }
+    try { this.extractClassHierarchy(fileData); } catch { /* non-critical */ }
+    try { this.detectDeadCode(); } catch { /* non-critical */ }
+
     this.finalize(startTime);
   }
 
@@ -1247,6 +1252,125 @@ class GraphBuilder {
 
     // Detect and persist project conventions into graph_meta
     try { const { detectConventions } = require('./convention-detector'); detectConventions(this.repoRoot); } catch {}
+  }
+
+  /**
+   * Extract call graph edges from function/method symbols by scanning source lines.
+   */
+  extractCallGraph(fileData) {
+    const insert = this.db.prepare('INSERT OR IGNORE INTO call_graph (caller_symbol_id, callee_name, callee_file, call_site_line, call_type, resolved) VALUES (?, ?, ?, ?, ?, ?)');
+    const allSymbols = this.db.prepare('SELECT id, name, file FROM symbols').all();
+    const symbolMap = new Map(allSymbols.map(s => [s.name, s]));
+
+    const SKIP_KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'return', 'throw', 'new', 'typeof', 'catch', 'function', 'class', 'const', 'let', 'var', 'require', 'import', 'export', 'delete', 'void', 'await', 'async', 'yield', 'super', 'this', 'try', 'else', 'do', 'break', 'continue', 'case', 'default', 'finally', 'with', 'debugger', 'instanceof', 'in', 'of']);
+
+    const insertBatch = this.db.transaction((entries) => {
+      for (const e of entries) {
+        try { insert.run(e.callerId, e.calleeName, e.calleeFile, e.line, e.callType, e.resolved); } catch { /* dup or constraint */ }
+      }
+    });
+
+    for (const [fp, fd] of fileData) {
+      const entries = [];
+      // Get symbol ids for this file
+      const fileSymbols = this.db.prepare('SELECT id, name, kind, line_start, line_end FROM symbols WHERE file = ?').all(fp);
+      const funcSymbols = fileSymbols.filter(s => ['function', 'method'].includes(s.kind));
+      if (funcSymbols.length === 0) continue;
+
+      let content;
+      try { content = fs.readFileSync(path.join(this.repoRoot, fp), 'utf8'); } catch { continue; }
+      const lines = content.split('\n');
+
+      for (const sym of funcSymbols) {
+        if (!sym.id) continue;
+        const startLine = (sym.line_start || 1) - 1;
+        const endLine = sym.line_end || sym.line_start || startLine + 1;
+        const symLines = lines.slice(startLine, endLine);
+        const callPattern = /(?:^|[^.\w])(\w+)\s*\(/g;
+
+        for (let i = 0; i < symLines.length; i++) {
+          let match;
+          while ((match = callPattern.exec(symLines[i])) !== null) {
+            const calleeName = match[1];
+            if (SKIP_KEYWORDS.has(calleeName)) continue;
+            if (calleeName === sym.name) continue; // skip self-recursion noise
+            const resolved = symbolMap.get(calleeName);
+            entries.push({
+              callerId: sym.id,
+              calleeName,
+              calleeFile: resolved ? resolved.file : null,
+              line: startLine + i + 1,
+              callType: resolved ? 'direct' : 'unresolved',
+              resolved: resolved ? 1 : 0,
+            });
+          }
+        }
+      }
+      if (entries.length > 0) insertBatch(entries);
+    }
+  }
+
+  /**
+   * Extract class hierarchy (extends/implements) from source files.
+   */
+  extractClassHierarchy(fileData) {
+    const insert = this.db.prepare('INSERT OR IGNORE INTO class_hierarchy (child_id, parent_name, parent_file, relation, resolved) VALUES (?, ?, ?, ?, ?)');
+    const insertBatch = this.db.transaction((entries) => {
+      for (const e of entries) {
+        try { insert.run(e.childId, e.parentName, e.parentFile, e.relation, e.resolved); } catch { /* dup or constraint */ }
+      }
+    });
+
+    for (const [fp] of fileData) {
+      let content;
+      try { content = fs.readFileSync(path.join(this.repoRoot, fp), 'utf8'); } catch { continue; }
+
+      const classPattern = /class\s+(\w+)\s+(?:extends|implements)\s+(\w+)/g;
+      let match;
+      const entries = [];
+
+      while ((match = classPattern.exec(content)) !== null) {
+        const childName = match[1];
+        const parentName = match[2];
+        const relation = content.substring(match.index).startsWith('class ' + childName + ' implements') ? 'implements' : 'extends';
+        const childSym = this.db.prepare('SELECT id FROM symbols WHERE name = ? AND kind = ? AND file = ?').get(childName, 'class', fp);
+        if (childSym) {
+          const parentSym = this.db.prepare('SELECT file FROM symbols WHERE name = ? AND kind = ?').get(parentName, 'class');
+          entries.push({
+            childId: childSym.id,
+            parentName,
+            parentFile: parentSym ? parentSym.file : null,
+            relation,
+            resolved: parentSym ? 1 : 0,
+          });
+        }
+      }
+      if (entries.length > 0) insertBatch(entries);
+    }
+  }
+
+  /**
+   * Detect potentially dead code: unexported symbols with no callers and no importers.
+   */
+  detectDeadCode() {
+    this.db.prepare('DELETE FROM dead_code').run();
+    const deadSymbols = this.db.prepare(`
+      SELECT s.id, s.name, s.file, s.kind
+      FROM symbols s
+      WHERE s.exported = 0
+        AND s.kind IN ('function', 'class', 'method')
+        AND s.id NOT IN (SELECT caller_symbol_id FROM call_graph)
+        AND s.name NOT IN (SELECT callee_name FROM call_graph)
+        AND s.name NOT IN (SELECT import_name FROM dependencies)
+    `).all();
+
+    const insert = this.db.prepare('INSERT OR IGNORE INTO dead_code (symbol_id, reason, confidence) VALUES (?, ?, ?)');
+    const insertBatch = this.db.transaction((syms) => {
+      for (const sym of syms) {
+        insert.run(sym.id, 'no_callers_no_importers', 0.6);
+      }
+    });
+    if (deadSymbols.length > 0) insertBatch(deadSymbols);
   }
 
   finalize(startTime) {

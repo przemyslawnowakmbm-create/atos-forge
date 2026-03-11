@@ -122,6 +122,20 @@ Execute all plans in a phase.
 
 Usage: `/forge:execute-phase 5`
 
+### Auto Mode
+
+**`/forge:auto`**
+Run autonomous mode — walk away and come back to built software.
+
+- Reads disk state to determine next unit of work
+- Dispatches fresh context per task (no context rot)
+- Crash recovery via lock files
+- Stuck detection (retry once, then stop)
+- Cost tracking per unit
+
+Usage: `/forge:auto`
+Usage: `/forge:auto --verbose --timeout 900`
+
 ### Quick Mode
 
 **`/forge:quick`**
@@ -168,6 +182,16 @@ Remove a future phase and renumber subsequent phases.
 
 Usage: `/forge:remove-phase 17`
 Result: Phase 17 deleted, phases 18-20 become 17-19
+
+**`/forge:reassess-roadmap`**
+Re-evaluate roadmap after phase completion.
+
+- Reads completed phase summaries and ledger learnings
+- Analyzes planned vs implemented delta
+- Proposes reordering, adding, or removing future phases
+- Asks for approval before modifying ROADMAP.md
+
+Usage: `/forge:reassess-roadmap`
 
 ### Milestone Management
 

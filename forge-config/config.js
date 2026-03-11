@@ -40,6 +40,7 @@ const DEFAULTS = {
     capability_detection: true,
     dashboard_auto_regenerate: true,
     snapshot_retention: 20,
+    auto_watch: false,
   },
   execution: {
     mode: 'interactive',
@@ -52,6 +53,7 @@ const DEFAULTS = {
     overhead_per_subtask: 5000,
     min_action_budget: 15000,
     chars_per_token: 4,
+    budget_ceiling_usd: null,
   },
   containers: {
     max_concurrent: 'auto',
@@ -89,6 +91,7 @@ const DEFAULTS = {
       behavioral: true,
       contract: true,
       architectural: false,
+      browser: false,
     },
     auto_fix: true,
     max_fix_loops: 3,
@@ -461,6 +464,7 @@ function getVerification(cwd) {
       BEHAVIORAL: get('behavioral', 'BEHAVIORAL'),
       CONTRACT: get('contract', 'CONTRACT'),
       ARCHITECTURAL: layers.architectural === true,
+      BROWSER: layers.browser === true,
     },
     auto_fix: config.verification.auto_fix,
     max_fix_loops: config.verification.max_fix_loops,

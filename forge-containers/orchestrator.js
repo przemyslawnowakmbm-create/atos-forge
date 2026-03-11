@@ -32,6 +32,46 @@ function ledgerLog(fn, cwd, entry) {
 }
 
 // ============================================================
+// Timeout Supervision (3-tier: soft / idle / hard)
+// ============================================================
+
+const SOFT_TIMEOUT_RATIO = 0.7;
+const IDLE_CHECK_INTERVAL_MS = 60000;
+const IDLE_MAX_MS = 300000;
+
+function startSupervision(taskCtx, hardTimeoutMs) {
+  const timers = {};
+  if (hardTimeoutMs > 0) {
+    const softMs = Math.floor(hardTimeoutMs * SOFT_TIMEOUT_RATIO);
+    timers.soft = setTimeout(() => {
+      console.log(`[supervision] Soft timeout for ${taskCtx.taskId || 'task'} — wrapping up`);
+      taskCtx.softTimeoutReached = true;
+    }, softMs);
+  }
+  let lastActivity = Date.now();
+  timers.idle = setInterval(() => {
+    try {
+      const cwd = taskCtx.worktreePath || taskCtx.cwd || '.';
+      const diff = require('child_process').execSync('git diff --stat HEAD 2>/dev/null', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+      if (diff) lastActivity = Date.now();
+      if (Date.now() - lastActivity > IDLE_MAX_MS) {
+        console.log(`[supervision] Idle timeout for ${taskCtx.taskId || 'task'}`);
+        taskCtx.idleTimeoutReached = true;
+        clearSupervision(timers);
+      }
+    } catch {}
+  }, IDLE_CHECK_INTERVAL_MS);
+  return timers;
+}
+
+function clearSupervision(timers) {
+  if (timers) {
+    if (timers.soft) clearTimeout(timers.soft);
+    if (timers.idle) clearInterval(timers.idle);
+  }
+}
+
+// ============================================================
 // Image Management
 // ============================================================
 
@@ -136,42 +176,53 @@ function runContainer(spec, callbacks = {}) {
 
     const proc = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] });
 
+    // 3-tier supervision
+    const hardTimeoutMs = spec.timeout * 1000;
+    const taskCtx = { taskId: spec.id, worktreePath: spec._meta?.worktreePath, cwd: spec._meta?.cwd };
+    const supervisionTimers = startSupervision(taskCtx, hardTimeoutMs);
+
     proc.stdout.pipe(stdoutStream);
     proc.stderr.pipe(stderrStream);
 
     if (callbacks.onStdout) proc.stdout.on('data', callbacks.onStdout);
     if (callbacks.onStderr) proc.stderr.on('data', callbacks.onStderr);
 
-    // Timeout handler
+    // Hard timeout handler
     const timer = setTimeout(() => {
       if (finished) return;
       timedOut = true;
       try {
         execSync(`docker kill ${spec.id}`, { stdio: 'pipe', timeout: 10000 });
       } catch { /* container may have already exited */ }
-    }, spec.timeout * 1000);
+    }, hardTimeoutMs);
 
     proc.on('close', (code) => {
       finished = true;
       clearTimeout(timer);
+      clearSupervision(supervisionTimers);
       stdoutStream.end();
       stderrStream.end();
       resolve({
         exitCode: code ?? 1,
         duration_ms: Date.now() - startTime,
         timedOut,
+        softTimeoutReached: taskCtx.softTimeoutReached || false,
+        idleTimeoutReached: taskCtx.idleTimeoutReached || false,
       });
     });
 
     proc.on('error', (err) => {
       finished = true;
       clearTimeout(timer);
+      clearSupervision(supervisionTimers);
       stdoutStream.end();
       stderrStream.end();
       resolve({
         exitCode: 1,
         duration_ms: Date.now() - startTime,
         timedOut: false,
+        softTimeoutReached: taskCtx.softTimeoutReached || false,
+        idleTimeoutReached: taskCtx.idleTimeoutReached || false,
         error: err.message,
       });
     });

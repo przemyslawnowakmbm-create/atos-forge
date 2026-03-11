@@ -339,6 +339,12 @@ fi
 <step name="execute_waves">
 **Step 5: EXECUTE WAVES.**
 
+**Crash lock:** Before launching any wave, write a crash lock so interrupted sessions can be recovered:
+```bash
+node -e "require('$HOME/.claude/forge-session/crash-recovery').writeLock('$(pwd)', { taskId: '${PLAN_ID}', waveN: ${WAVE_NUM}, phase: '${PHASE_NUMBER}', agentId: 'execute-phase' })"
+```
+Update the lock after each wave completes (`updateLock` with `completedUnits`). Clear it in the `cleanup` step with `clearLock`.
+
 Execute each wave sequentially. Within a wave: parallel via containers (or sequential in worktree mode).
 
 **For each wave:**
@@ -799,6 +805,9 @@ if [ "$DOCKER_AVAILABLE" = "true" ]; then
   ORCH="$HOME/.claude/forge-containers/orchestrator.js"
   node "$ORCH" cleanup
 fi
+
+# Clear crash lock
+node -e "require('$HOME/.claude/forge-session/crash-recovery').clearLock('$(pwd)')" 2>/dev/null
 
 # Temp file cleanup
 rm -rf /tmp/forge-subplans-* /tmp/forge-configs-* /tmp/forge-wave-* 2>/dev/null
