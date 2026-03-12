@@ -84,13 +84,13 @@ Gray areas are **implementation decisions the user cares about** — things that
 
 ```
 Phase: "User authentication"
-→ Session handling, Error responses, Multi-device policy, Recovery flow
+→ Session handling, Error responses, Multi-device policy, Recovery flow, Multi-device policy
 
 Phase: "Organize photo library"
-→ Grouping criteria, Duplicate handling, Naming convention, Folder structure
+→ Grouping criteria, Duplicate handling, Naming convention
 
 Phase: "CLI for database backups"
-→ Output format, Flag design, Progress reporting, Error recovery
+→ Output format, Progress reporting
 
 Phase: "API documentation"
 → Structure/navigation, Code examples depth, Versioning approach, Interactive elements
@@ -220,12 +220,12 @@ For "Post Feed" (visual feature):
 ☐ Loading behavior — Infinite scroll or pagination? Pull to refresh?
 ☐ Content ordering — Chronological, algorithmic, or user choice?
 ☐ Post metadata — What info per post? Timestamps, reactions, author?
+☐ Empty feed — What shows when there are no posts yet?
 ```
 
 For "Database backup CLI" (command-line tool):
 ```
 ☐ Output format — JSON, table, or plain text? Verbosity levels?
-☐ Flag design — Short flags, long flags, or both? Required vs optional?
 ☐ Progress reporting — Silent, progress bar, or verbose logging?
 ☐ Error recovery — Fail fast, retry, or prompt for action?
 ```
@@ -234,8 +234,6 @@ For "Organize photo library" (organization task):
 ```
 ☐ Grouping criteria — By date, location, faces, or events?
 ☐ Duplicate handling — Keep best, keep all, or prompt each time?
-☐ Naming convention — Original names, dates, or descriptive?
-☐ Folder structure — Flat, nested by year, or by category?
 ```
 
 Continue to discuss_areas with selected areas.
