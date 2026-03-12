@@ -37,16 +37,21 @@ Phase number: $ARGUMENTS (required)
 
 **Load roadmap:**
 @.planning/ROADMAP.md
+
+**Load upstream decisions (if they exist):**
+@.planning/PROJECT.md
+@.planning/REQUIREMENTS.md
 </context>
 
 <process>
 1. Validate phase number (error if missing or not in roadmap)
 2. Check if CONTEXT.md exists (offer update/view/skip if yes)
-3. **Analyze phase** — Identify domain and generate phase-specific gray areas
-4. **Present gray areas** — Multi-select: which to discuss? (NO skip option)
-5. **Deep-dive each area** — ask until decisions are captured, then offer more/next
-6. **Write CONTEXT.md** — Sections match areas discussed
-7. Offer next steps (research or plan)
+3. **Load upstream docs** — Read PROJECT.md, REQUIREMENTS.md, phase research for pre-answered decisions
+4. **Analyze phase** — Identify domain, filter out pre-answered decisions, generate remaining gray areas
+5. **Present gray areas** — Show pre-answered decisions, then multi-select remaining areas (NO skip option)
+6. **Deep-dive each area** — ask until decisions are captured, then offer more/next
+7. **Write CONTEXT.md** — Sections match areas discussed, plus upstream decisions carried forward
+8. Offer next steps (research or plan)
 
 **CRITICAL: Scope guardrail**
 - Phase boundary from ROADMAP.md is FIXED

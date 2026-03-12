@@ -84,7 +84,7 @@ Gray areas are **implementation decisions the user cares about** — things that
 
 ```
 Phase: "User authentication"
-→ Session handling, Error responses, Multi-device policy, Recovery flow, Multi-device policy
+→ Session handling, Error responses, Recovery flow, Multi-device policy, Credential storage
 
 Phase: "Organize photo library"
 → Grouping criteria, Duplicate handling, Naming convention
@@ -169,23 +169,44 @@ If "Cancel": Exit workflow.
 <step name="analyze_phase">
 Analyze the phase to identify gray areas worth discussing.
 
+**Before identifying gray areas, load upstream decisions:**
+
+1. Read `.planning/PROJECT.md` — extract key decisions, constraints, user preferences
+2. Read `.planning/REQUIREMENTS.md` — extract requirements mapped to this phase
+   (match phase number in traceability table, or REQ-IDs listed in ROADMAP.md phase section)
+3. Read phase research if it exists: `${phase_dir}/*-RESEARCH.md`
+
+```bash
+cat .planning/PROJECT.md 2>/dev/null
+cat .planning/REQUIREMENTS.md 2>/dev/null
+cat ${phase_dir}/*-RESEARCH.md 2>/dev/null
+```
+
+Collect all decisions, constraints, and specifics from these documents that relate to this phase.
+
 **Read the phase description from ROADMAP.md and determine:**
 
 1. **Domain boundary** — What capability is this phase delivering? State it clearly.
 
-2. **Gray areas by category** — For each relevant category (UI, UX, Behavior, Empty States, Content), identify 1-2 specific ambiguities that would change implementation.
+2. **Pre-answered decisions** — Which potential gray areas are already answered by upstream documents?
+   For each, note the source (e.g., "REQ-007 specifies card layout", "PROJECT.md constrains to REST API").
 
-3. **Skip assessment** — If no meaningful gray areas exist (pure infrastructure, clear-cut implementation), the phase may not need discussion.
+3. **Remaining gray areas** — Only ambiguities NOT resolved by upstream docs. For each relevant category (UI, UX, Behavior, Empty States, Content), identify specific ambiguities that would change implementation.
+
+4. **Skip assessment** — If upstream docs + roadmap leave no meaningful gray areas (pure infrastructure, fully specified requirements), the phase may not need discussion.
 
 **Output your analysis internally, then present to user.**
 
 Example analysis for "Post Feed" phase:
 ```
 Domain: Displaying posts from followed users
-Gray areas:
-- UI: Layout style (cards vs timeline vs grid)
+
+Pre-answered (from upstream docs):
+- Layout: Card-based (REQ-007 specifies cards)
+- Loading: Infinite scroll (REQ-007 acceptance criteria)
+
+Remaining gray areas:
 - UI: Information density (full posts vs previews)
-- Behavior: Loading pattern (infinite scroll vs pagination)
 - Empty State: What shows when no posts exist
 - Content: What metadata displays (time, author, reactions count)
 ```
@@ -194,12 +215,18 @@ Gray areas:
 <step name="present_gray_areas">
 Present the domain boundary and gray areas to user.
 
-**First, state the boundary:**
+**First, state the boundary and pre-answered decisions:**
 ```
 Phase [X]: [Name]
 Domain: [What this phase delivers — from your analysis]
 
-We'll clarify HOW to implement this.
+Already decided (from requirements/project docs):
+- [Decision 1] (source: REQ-XXX / PROJECT.md)
+- [Decision 2] (source: REQ-YYY)
+
+[If no pre-answered decisions: omit this section]
+
+Let's clarify what's still open.
 (New capabilities belong in other phases.)
 ```
 
@@ -331,6 +358,17 @@ mkdir -p ".planning/phases/${padded_phase}-${phase_slug}"
 [Clear statement of what this phase delivers — the scope anchor]
 
 </domain>
+
+<upstream>
+## Upstream Decisions
+
+[Decisions already made in PROJECT.md, REQUIREMENTS.md, or phase research — carried forward, not re-asked]
+
+- [Decision] (source: REQ-XXX / PROJECT.md / RESEARCH.md)
+
+[If none: omit this section entirely]
+
+</upstream>
 
 <decisions>
 ## Implementation Decisions
