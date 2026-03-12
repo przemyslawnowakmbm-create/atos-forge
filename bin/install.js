@@ -1641,7 +1641,7 @@ function install(isGlobal, runtime = 'claude') {
       settings.hooks.PostToolUse.push({
         hooks: [{
           type: 'command',
-          command: isGemini
+          command: isGlobal
             ? buildHookCommand(targetDir, 'forge-context-monitor.js')
             : 'node ' + dirName + '/hooks/forge-context-monitor.js'
         }]
