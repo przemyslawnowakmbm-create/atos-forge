@@ -27,6 +27,17 @@ Template for `.planning/phases/XX-name/{phase_num}-CONTEXT.md` - captures implem
 
 </domain>
 
+<upstream>
+## Upstream Decisions
+
+[Decisions already made in PROJECT.md, REQUIREMENTS.md, or phase research — carried forward, not re-asked during discussion. Each includes source for traceability.]
+
+- [Decision] (source: REQ-XXX / PROJECT.md / RESEARCH.md)
+
+[If none: omit this section entirely]
+
+</upstream>
+
 <decisions>
 ## Implementation Decisions
 
@@ -35,9 +46,6 @@ Template for `.planning/phases/XX-name/{phase_num}-CONTEXT.md` - captures implem
 - [Another decision if applicable]
 
 ### [Area 2 that was discussed]
-- [Specific decision made]
-
-### [Area 3 that was discussed]
 - [Specific decision made]
 
 ### Claude's Discretion
@@ -86,16 +94,22 @@ Display posts from followed users in a scrollable feed. Users can view posts and
 
 </domain>
 
+<upstream>
+## Upstream Decisions
+
+- Card-based layout (source: REQ-007 — "Posts displayed as cards with author, timestamp, content")
+- Infinite scroll loading (source: REQ-007 acceptance criteria — "Feed loads continuously on scroll")
+
+</upstream>
+
 <decisions>
 ## Implementation Decisions
 
-### Layout style
-- Card-based layout, not timeline or list
+### Card detail
 - Each card shows: author avatar, name, timestamp, full post content, reaction counts
 - Cards have subtle shadows, rounded corners — modern feel
 
 ### Loading behavior
-- Infinite scroll, not pagination
 - Pull-to-refresh on mobile
 - New posts indicator at top ("3 new posts") rather than auto-inserting
 
