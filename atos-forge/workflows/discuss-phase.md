@@ -244,9 +244,19 @@ Continue to discuss_areas with selected areas.
 <step name="discuss_areas">
 For each selected area, conduct a focused discussion loop.
 
-**Philosophy: 4 questions, then check.**
+**Philosophy: Ask what's needed, then check.**
 
-Ask 4 questions per area before offering to continue or move on. Each answer often reveals the next question.
+Each gray area has a natural resolution point — some need 1 question, others need 6. Ask questions until the key decisions for the area are captured, then check with the user.
+
+**Signals an area is resolved:**
+- All concrete choices have been made (layout, behavior, content, etc.)
+- User's answers are getting specific / confirmatory
+- No remaining ambiguity that would change implementation
+
+**Signals more questions are needed:**
+- User's answer opens a new sub-decision ("cards — but what about...")
+- A choice implies follow-up (picked "infinite scroll" → need loading/error states)
+- User gives a vague answer that needs pinning down
 
 **For each area:**
 
@@ -255,18 +265,21 @@ Ask 4 questions per area before offering to continue or move on. Each answer oft
    Let's talk about [Area].
    ```
 
-2. **Ask 4 questions using AskUserQuestion:**
+2. **Ask questions using AskUserQuestion:**
    - header: "[Area]" (max 12 chars — abbreviate if needed)
-   - question: Specific decision for this area
+   - question: Start with the most impactful decision for the area
    - options: 2-3 concrete choices (AskUserQuestion adds "Other" automatically)
    - Include "You decide" as an option when reasonable — captures Claude discretion
+   - Each answer informs the next question (or signals completion)
+   - Continue asking until the area's key decisions are captured
+   - Typical range: 2-6 questions per area (varies by complexity)
 
-3. **After 4 questions, check:**
+3. **When area feels resolved OR after 6 questions (whichever comes first), check:**
    - header: "[Area]" (max 12 chars)
-   - question: "More questions about [area], or move to next?"
+   - question: "Anything else about [area], or move on?"
    - options: "More questions" / "Next area"
 
-   If "More questions" → ask 4 more, then check again
+   If "More questions" → continue asking until resolved, then check again
    If "Next area" → proceed to next selected area
    If "Other" (free text) → interpret intent: continuation phrases ("chat more", "keep going", "yes", "more") map to "More questions"; advancement phrases ("done", "move on", "next", "skip") map to "Next area". If ambiguous, ask: "Continue with more questions about [area], or move to the next area?"
 

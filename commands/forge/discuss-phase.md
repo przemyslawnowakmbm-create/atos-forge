@@ -44,7 +44,7 @@ Phase number: $ARGUMENTS (required)
 2. Check if CONTEXT.md exists (offer update/view/skip if yes)
 3. **Analyze phase** — Identify domain and generate phase-specific gray areas
 4. **Present gray areas** — Multi-select: which to discuss? (NO skip option)
-5. **Deep-dive each area** — 4 questions per area, then offer more/next
+5. **Deep-dive each area** — ask until decisions are captured, then offer more/next
 6. **Write CONTEXT.md** — Sections match areas discussed
 7. Offer next steps (research or plan)
 
@@ -65,9 +65,10 @@ Gray areas depend on what's being built. Analyze the phase goal:
 Generate 3-4 **phase-specific** gray areas, not generic categories.
 
 **Probing depth:**
-- Ask 4 questions per area before checking
-- "More questions about [area], or move to next?"
-- If more → ask 4 more, check again
+- Ask questions until the area's key decisions are resolved
+- Typical range: 2-6 questions per area (simple areas need fewer, complex ones more)
+- After resolution or 6 questions max → "Anything else about [area], or move on?"
+- If more → continue asking, check again after resolution
 - After all areas → "Ready to create context?"
 
 **Do NOT ask about (Claude handles these):**
