@@ -62,7 +62,7 @@ Gray areas depend on what's being built. Analyze the phase goal:
 - Something users READ → structure, tone, depth, flow
 - Something being ORGANIZED → criteria, grouping, naming, exceptions
 
-Generate 3-4 **phase-specific** gray areas, not generic categories.
+Generate as many **phase-specific** gray areas as the phase actually needs (typically 2-6) — don't pad or cut to hit a fixed number.
 
 **Probing depth:**
 - Ask questions until the area's key decisions are resolved

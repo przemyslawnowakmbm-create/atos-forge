@@ -206,7 +206,7 @@ We'll clarify HOW to implement this.
 **Then use AskUserQuestion (multiSelect: true):**
 - header: "Discuss"
 - question: "Which areas do you want to discuss for [phase name]?"
-- options: Generate 3-4 phase-specific gray areas, each formatted as:
+- options: Generate as many phase-specific gray areas as the phase actually needs (typically 2-6), each formatted as:
   - "[Specific area]" (label) — concrete, not generic
   - [1-2 questions this covers] (description)
 
