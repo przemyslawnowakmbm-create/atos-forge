@@ -10,7 +10,7 @@ const crypto = require('crypto');
 // ============================================================
 // Updates the system graph when a single repo's interfaces.yaml changes.
 // Hash-based change detection: skip sync if nothing changed.
-// Triggered by: forge:init, git hooks, CI pipeline, manual command.
+// Triggered by: forge-init, git hooks, CI pipeline, manual command.
 
 // ============================================================
 // Main Sync API

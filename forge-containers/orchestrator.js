@@ -10,6 +10,7 @@ const { resolveConfig, formatMemory } = require('./config');
 const { ResourceManager } = require('./resource-manager');
 const { buildSpec, toDockerArgs, dockerfilePath } = require('./container-spec');
 const { collectPatches, applyPatches, extractLearnings } = require('./patch-collector');
+const { resolveProvider } = require('../forge-agents/provider');
 
 // ============================================================
 // Ledger Integration (lazy-loaded)
@@ -257,6 +258,11 @@ function runContainer(spec, callbacks = {}) {
  */
 async function launch(agentConfig, params) {
   const { cwd, taskId, resourceManager, opts = {} } = params;
+  const provider = resolveProvider(cwd, { provider: agentConfig.provider });
+  if (!provider.container_supported) {
+    return require('./worktree-orchestrator').launch(agentConfig, params);
+  }
+
   const config = resolveConfig(cwd);
   const startTime = Date.now();
 
@@ -426,6 +432,11 @@ async function launch(agentConfig, params) {
  * @returns {Promise<LaunchResult[]>}
  */
 async function launchAll(tasks, params) {
+  const provider = resolveProvider(params.cwd);
+  if (!provider.container_supported) {
+    return require('./worktree-orchestrator').launchAll(tasks, params);
+  }
+
   const { cwd, opts = {} } = params;
   const resourceManager = new ResourceManager(cwd);
 

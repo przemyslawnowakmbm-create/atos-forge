@@ -40,10 +40,18 @@
     "factory_enabled": true,
     "default_archetype": "general",
     "capability_templates_dir": "",
+    "provider": "auto",
     "model_profiles": {
       "quality": "opus",
       "balanced": "sonnet",
       "budget": "haiku"
+    },
+    "provider_model_profiles": {
+      "codex": {
+        "quality": "o3",
+        "balanced": "o3",
+        "budget": "o3"
+      }
     },
     "active_profile": "balanced"
   },

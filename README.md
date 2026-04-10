@@ -52,13 +52,13 @@ cd /path/to/your/project
 claude
 
 # Initialize Forge (builds code graph, creates .forge/)
-/forge:init
+/forge-init
 
 # Verify
-/forge:doctor
+/forge-doctor
 
 # Start building
-/forge:new-project
+/forge-new-project
 ```
 
 For detailed instructions, troubleshooting, and installation modes see [INSTALLATION.md](INSTALLATION.md).

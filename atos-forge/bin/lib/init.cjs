@@ -96,7 +96,7 @@ function cmdInitExecutePhase(cwd, phase, includes, raw) {
   // Log to session ledger
   ledgerLog(cwd, 'updateState', {
     active_phase: result.phase_number,
-    active_command: 'forge:execute-phase ' + result.phase_number,
+    active_command: 'forge-execute-phase ' + result.phase_number,
     phase_name: result.phase_name,
     status: 'initializing execution',
   });
@@ -223,7 +223,7 @@ function cmdInitPlanPhase(cwd, phase, includes, raw) {
   // Log to session ledger
   ledgerLog(cwd, 'updateState', {
     active_phase: result.phase_number,
-    active_command: 'forge:plan-phase ' + result.phase_number,
+    active_command: 'forge-plan-phase ' + result.phase_number,
     phase_name: result.phase_name,
     status: 'initializing planning',
   });

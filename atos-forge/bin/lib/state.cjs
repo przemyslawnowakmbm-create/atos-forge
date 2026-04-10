@@ -244,7 +244,7 @@ function cmdStateUpdateProgress(cwd, raw) {
   }
 
   const percent = totalPlans > 0 ? Math.round(totalSummaries / totalPlans * 100) : 0;
-  const barWidth = 10;
+  const barWidth = 20;
   const filled = Math.round(percent / 100 * barWidth);
   const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(barWidth - filled);
   const progressStr = `[${bar}] ${percent}%`;

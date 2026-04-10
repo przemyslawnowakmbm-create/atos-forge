@@ -11,15 +11,15 @@ Read all files referenced by the invoking prompt's execution_context before star
 <step name="parse_arguments">
 Parse the command arguments:
 - All arguments become the phase description
-- Example: `/forge:add-phase Add authentication` → description = "Add authentication"
-- Example: `/forge:add-phase Fix critical performance issues` → description = "Fix critical performance issues"
+- Example: `/forge-add-phase Add authentication` → description = "Add authentication"
+- Example: `/forge-add-phase Fix critical performance issues` → description = "Fix critical performance issues"
 
 If no arguments provided:
 
 ```
 ERROR: Phase description required
-Usage: /forge:add-phase <description>
-Example: /forge:add-phase Add authentication system
+Usage: /forge-add-phase <description>
+Example: /forge-add-phase Add authentication system
 ```
 
 Exit.
@@ -35,7 +35,7 @@ INIT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs init phase-op "0")
 Check `roadmap_exists` from init JSON. If false:
 ```
 ERROR: No roadmap found (.planning/ROADMAP.md)
-Run /forge:new-project to initialize.
+Run /forge-new-project to initialize.
 ```
 Exit.
 </step>
@@ -86,14 +86,14 @@ Roadmap updated: .planning/ROADMAP.md
 
 **Phase {N}: {description}**
 
-`/forge:plan-phase {N}`
+`/forge-plan-phase {N}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/forge:add-phase <description>` — add another phase
+- `/forge-add-phase <description>` — add another phase
 - Review roadmap
 
 ---

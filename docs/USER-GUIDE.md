@@ -22,7 +22,7 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
 ```
   ┌──────────────────────────────────────────────────┐
   │                   NEW PROJECT                    │
-  │  /forge:new-project                                │
+  │  /forge-new-project                                │
   │  Questions -> Research -> Requirements -> Roadmap│
   └─────────────────────────┬────────────────────────┘
                             │
@@ -30,19 +30,19 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
              │      FOR EACH PHASE:       │
              │                            │
              │  ┌────────────────────┐    │
-             │  │ /forge:discuss-phase │    │  <- Lock in preferences
+             │  │ /forge-discuss-phase │    │  <- Lock in preferences
              │  └──────────┬─────────┘    │
              │             │              │
              │  ┌──────────▼─────────┐    │
-             │  │ /forge:plan-phase    │    │  <- Research + Plan + Verify
+             │  │ /forge-plan-phase    │    │  <- Research + Plan + Verify
              │  └──────────┬─────────┘    │
              │             │              │
              │  ┌──────────▼─────────┐    │
-             │  │ /forge:execute-phase │    │  <- Parallel execution
+             │  │ /forge-execute-phase │    │  <- Parallel execution
              │  └──────────┬─────────┘    │
              │             │              │
              │  ┌──────────▼─────────┐    │
-             │  │ /forge:verify-work   │    │  <- Manual UAT
+             │  │ /forge-verify-work   │    │  <- Manual UAT
              │  └──────────┬─────────┘    │
              │             │              │
              │     Next Phase?────────────┘
@@ -50,8 +50,8 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
              └─────────────┼──────────────┘
                             │
             ┌───────────────▼──────────────┐
-            │  /forge:audit-milestone        │
-            │  /forge:complete-milestone     │
+            │  /forge-audit-milestone        │
+            │  /forge-complete-milestone     │
             └───────────────┬──────────────┘
                             │
                    Another milestone?
@@ -59,14 +59,14 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
                       Yes         No -> Done!
                        │
                ┌───────▼──────────────┐
-               │  /forge:new-milestone  │
+               │  /forge-new-milestone  │
                └──────────────────────┘
 ```
 
 ### Planning Agent Coordination
 
 ```
-  /forge:plan-phase N
+  /forge-plan-phase N
          │
          ├── Phase Researcher (x4 parallel)
          │     ├── Stack researcher
@@ -100,7 +100,7 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
 ### Execution Wave Coordination
 
 ```
-  /forge:execute-phase N
+  /forge-execute-phase N
          │
          ├── Analyze plan dependencies
          │
@@ -115,13 +115,13 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
                └── Check codebase against phase goals
                      │
                      ├── PASS -> VERIFICATION.md (success)
-                     └── FAIL -> Issues logged for /forge:verify-work
+                     └── FAIL -> Issues logged for /forge-verify-work
 ```
 
 ### Brownfield Workflow (Existing Codebase)
 
 ```
-  /forge:map-codebase
+  /forge-map-codebase
          │
          ├── Stack Mapper     -> codebase/STACK.md
          ├── Arch Mapper      -> codebase/ARCHITECTURE.md
@@ -129,7 +129,7 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
          └── Concern Mapper   -> codebase/CONCERNS.md
                 │
         ┌───────▼──────────┐
-        │ /forge:new-project │  <- Questions focus on what you're ADDING
+        │ /forge-new-project │  <- Questions focus on what you're ADDING
         └──────────────────┘
 ```
 
@@ -141,55 +141,55 @@ A detailed reference for workflows, troubleshooting, and configuration. For quic
 
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
-| `/forge:new-project` | Full project init: questions, research, requirements, roadmap | Start of a new project |
-| `/forge:new-project --auto @idea.md` | Automated init from document | Have a PRD or idea doc ready |
-| `/forge:discuss-phase [N]` | Capture implementation decisions | Before planning, to shape how it gets built |
-| `/forge:plan-phase [N]` | Research + plan + verify | Before executing a phase |
-| `/forge:execute-phase <N>` | Execute all plans in parallel waves | After planning is complete |
-| `/forge:verify-work [N]` | Manual UAT with auto-diagnosis | After execution completes |
-| `/forge:audit-milestone` | Verify milestone met its definition of done | Before completing milestone |
-| `/forge:complete-milestone` | Archive milestone, tag release | All phases verified |
-| `/forge:new-milestone [name]` | Start next version cycle | After completing a milestone |
+| `/forge-new-project` | Full project init: questions, research, requirements, roadmap | Start of a new project |
+| `/forge-new-project --auto @idea.md` | Automated init from document | Have a PRD or idea doc ready |
+| `/forge-discuss-phase [N]` | Capture implementation decisions | Before planning, to shape how it gets built |
+| `/forge-plan-phase [N]` | Research + plan + verify | Before executing a phase |
+| `/forge-execute-phase <N>` | Execute all plans in parallel waves | After planning is complete |
+| `/forge-verify-work [N]` | Manual UAT with auto-diagnosis | After execution completes |
+| `/forge-audit-milestone` | Verify milestone met its definition of done | Before completing milestone |
+| `/forge-complete-milestone` | Archive milestone, tag release | All phases verified |
+| `/forge-new-milestone [name]` | Start next version cycle | After completing a milestone |
 
 ### Navigation
 
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
-| `/forge:progress` | Show status and next steps | Anytime -- "where am I?" |
-| `/forge:resume-work` | Restore full context from last session | Starting a new session |
-| `/forge:pause-work` | Save context handoff | Stopping mid-phase |
-| `/forge:help` | Show all commands | Quick reference |
-| `/forge:update` | Update Forge with changelog preview | Check for new versions |
+| `/forge-progress` | Show status and next steps | Anytime -- "where am I?" |
+| `/forge-resume-work` | Restore full context from last session | Starting a new session |
+| `/forge-pause-work` | Save context handoff | Stopping mid-phase |
+| `/forge-help` | Show all commands | Quick reference |
+| `/forge-update` | Update Forge with changelog preview | Check for new versions |
 
 ### Phase Management
 
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
-| `/forge:add-phase` | Append new phase to roadmap | Scope grows after initial planning |
-| `/forge:insert-phase [N]` | Insert urgent work (decimal numbering) | Urgent fix mid-milestone |
-| `/forge:remove-phase [N]` | Remove future phase and renumber | Descoping a feature |
-| `/forge:list-phase-assumptions [N]` | Preview Claude's intended approach | Before planning, to validate direction |
-| `/forge:plan-milestone-gaps` | Create phases for audit gaps | After audit finds missing items |
-| `/forge:research-phase [N]` | Deep ecosystem research only | Complex or unfamiliar domain |
+| `/forge-add-phase` | Append new phase to roadmap | Scope grows after initial planning |
+| `/forge-insert-phase [N]` | Insert urgent work (decimal numbering) | Urgent fix mid-milestone |
+| `/forge-remove-phase [N]` | Remove future phase and renumber | Descoping a feature |
+| `/forge-list-phase-assumptions [N]` | Preview Claude's intended approach | Before planning, to validate direction |
+| `/forge-plan-milestone-gaps` | Create phases for audit gaps | After audit finds missing items |
+| `/forge-research-phase [N]` | Deep ecosystem research only | Complex or unfamiliar domain |
 
 ### Brownfield & Utilities
 
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
-| `/forge:map-codebase` | Analyze existing codebase | Before `/forge:new-project` on existing code |
-| `/forge:quick` | Ad-hoc task with Forge guarantees | Bug fixes, small features, config changes |
-| `/forge:debug [desc]` | Systematic debugging with persistent state | When something breaks |
-| `/forge:add-todo [desc]` | Capture an idea for later | Think of something during a session |
-| `/forge:check-todos` | List pending todos | Review captured ideas |
-| `/forge:settings` | Configure workflow toggles and model profile | Change model, toggle agents |
-| `/forge:set-profile <profile>` | Quick profile switch | Change cost/quality tradeoff |
-| `/forge:reapply-patches` | Restore local modifications after update | After `/forge:update` if you had local edits |
+| `/forge-map-codebase` | Analyze existing codebase | Before `/forge-new-project` on existing code |
+| `/forge-quick` | Ad-hoc task with Forge guarantees | Bug fixes, small features, config changes |
+| `/forge-debug [desc]` | Systematic debugging with persistent state | When something breaks |
+| `/forge-add-todo [desc]` | Capture an idea for later | Think of something during a session |
+| `/forge-check-todos` | List pending todos | Review captured ideas |
+| `/forge-settings` | Configure workflow toggles and model profile | Change model, toggle agents |
+| `/forge-set-profile <profile>` | Quick profile switch | Change cost/quality tradeoff |
+| `/forge-reapply-patches` | Restore local modifications after update | After `/forge-update` if you had local edits |
 
 ---
 
 ## Configuration Reference
 
-Forge stores project settings in `.planning/config.json`. Configure during `/forge:new-project` or update later with `/forge:settings`.
+Forge stores project settings in `.planning/config.json`. Configure during `/forge-new-project` or update later with `/forge-settings`.
 
 ### Full config.json Schema
 
@@ -289,56 +289,56 @@ Disable these to speed up phases in familiar domains or when conserving tokens.
 
 ```bash
 claude --dangerously-skip-permissions
-/forge:new-project            # Answer questions, configure, approve roadmap
+/forge-new-project            # Answer questions, configure, approve roadmap
 /clear
-/forge:discuss-phase 1        # Lock in your preferences
-/forge:plan-phase 1           # Research + plan + verify
-/forge:execute-phase 1        # Parallel execution
-/forge:verify-work 1          # Manual UAT
+/forge-discuss-phase 1        # Lock in your preferences
+/forge-plan-phase 1           # Research + plan + verify
+/forge-execute-phase 1        # Parallel execution
+/forge-verify-work 1          # Manual UAT
 /clear
-/forge:discuss-phase 2        # Repeat for each phase
+/forge-discuss-phase 2        # Repeat for each phase
 ...
-/forge:audit-milestone        # Check everything shipped
-/forge:complete-milestone     # Archive, tag, done
+/forge-audit-milestone        # Check everything shipped
+/forge-complete-milestone     # Archive, tag, done
 ```
 
 ### New Project from Existing Document
 
 ```bash
-/forge:new-project --auto @prd.md   # Auto-runs research/requirements/roadmap from your doc
+/forge-new-project --auto @prd.md   # Auto-runs research/requirements/roadmap from your doc
 /clear
-/forge:discuss-phase 1               # Normal flow from here
+/forge-discuss-phase 1               # Normal flow from here
 ```
 
 ### Existing Codebase
 
 ```bash
-/forge:map-codebase           # Analyze what exists (parallel agents)
-/forge:new-project            # Questions focus on what you're ADDING
+/forge-map-codebase           # Analyze what exists (parallel agents)
+/forge-new-project            # Questions focus on what you're ADDING
 # (normal phase workflow from here)
 ```
 
 ### Quick Bug Fix
 
 ```bash
-/forge:quick
+/forge-quick
 > "Fix the login button not responding on mobile Safari"
 ```
 
 ### Resuming After a Break
 
 ```bash
-/forge:progress               # See where you left off and what's next
+/forge-progress               # See where you left off and what's next
 # or
-/forge:resume-work            # Full context restoration from last session
+/forge-resume-work            # Full context restoration from last session
 ```
 
 ### Preparing for Release
 
 ```bash
-/forge:audit-milestone        # Check requirements coverage, detect stubs
-/forge:plan-milestone-gaps    # If audit found gaps, create phases to close them
-/forge:complete-milestone     # Archive, tag, done
+/forge-audit-milestone        # Check requirements coverage, detect stubs
+/forge-plan-milestone-gaps    # If audit found gaps, create phases to close them
+/forge-complete-milestone     # Archive, tag, done
 ```
 
 ### Speed vs Quality Presets
@@ -352,11 +352,11 @@ claude --dangerously-skip-permissions
 ### Mid-Milestone Scope Changes
 
 ```bash
-/forge:add-phase              # Append a new phase to the roadmap
+/forge-add-phase              # Append a new phase to the roadmap
 # or
-/forge:insert-phase 3         # Insert urgent work between phases 3 and 4
+/forge-insert-phase 3         # Insert urgent work between phases 3 and 4
 # or
-/forge:remove-phase 7         # Descope phase 7 and renumber
+/forge-remove-phase 7         # Descope phase 7 and renumber
 ```
 
 ---
@@ -365,15 +365,15 @@ claude --dangerously-skip-permissions
 
 ### "Project already initialized"
 
-You ran `/forge:new-project` but `.planning/PROJECT.md` already exists. This is a safety check. If you want to start over, delete the `.planning/` directory first.
+You ran `/forge-new-project` but `.planning/PROJECT.md` already exists. This is a safety check. If you want to start over, delete the `.planning/` directory first.
 
 ### Context Degradation During Long Sessions
 
-Clear your context window between major commands: `/clear` in Claude Code. Forge is designed around fresh contexts -- every subagent gets a clean 200K window. If quality is dropping in the main session, clear and use `/forge:resume-work` or `/forge:progress` to restore state.
+Clear your context window between major commands: `/clear` in Claude Code. Forge is designed around fresh contexts -- every subagent gets a clean 200K window. If quality is dropping in the main session, clear and use `/forge-resume-work` or `/forge-progress` to restore state.
 
 ### Plans Seem Wrong or Misaligned
 
-Run `/forge:discuss-phase [N]` before planning. Most plan quality issues come from Claude making assumptions that `CONTEXT.md` would have prevented. You can also run `/forge:list-phase-assumptions [N]` to see what Claude intends to do before committing to a plan.
+Run `/forge-discuss-phase [N]` before planning. Most plan quality issues come from Claude making assumptions that `CONTEXT.md` would have prevented. You can also run `/forge-list-phase-assumptions [N]` to see what Claude intends to do before committing to a plan.
 
 ### Execution Fails or Produces Stubs
 
@@ -381,23 +381,23 @@ Check that the plan was not too ambitious. Plans should have 2-3 tasks maximum. 
 
 ### Lost Track of Where You Are
 
-Run `/forge:progress`. It reads all state files and tells you exactly where you are and what to do next.
+Run `/forge-progress`. It reads all state files and tells you exactly where you are and what to do next.
 
 ### Need to Change Something After Execution
 
-Do not re-run `/forge:execute-phase`. Use `/forge:quick` for targeted fixes, or `/forge:verify-work` to systematically identify and fix issues through UAT.
+Do not re-run `/forge-execute-phase`. Use `/forge-quick` for targeted fixes, or `/forge-verify-work` to systematically identify and fix issues through UAT.
 
 ### Model Costs Too High
 
-Switch to budget profile: `/forge:set-profile budget`. Disable research and plan-check agents via `/forge:settings` if the domain is familiar to you (or to Claude).
+Switch to budget profile: `/forge-set-profile budget`. Disable research and plan-check agents via `/forge-settings` if the domain is familiar to you (or to Claude).
 
 ### Working on a Sensitive/Private Project
 
-Set `commit_docs: false` during `/forge:new-project` or via `/forge:settings`. Add `.planning/` to your `.gitignore`. Planning artifacts stay local and never touch git.
+Set `commit_docs: false` during `/forge-new-project` or via `/forge-settings`. Add `.planning/` to your `.gitignore`. Planning artifacts stay local and never touch git.
 
 ### Forge Update Overwrote My Local Changes
 
-Since v1.17, the installer backs up locally modified files to `forge-local-patches/`. Run `/forge:reapply-patches` to merge your changes back.
+Since v1.17, the installer backs up locally modified files to `forge-local-patches/`. Run `/forge-reapply-patches` to merge your changes back.
 
 ### Subagent Appears to Fail but Work Was Done
 
@@ -409,15 +409,15 @@ A known workaround exists for a Claude Code classification bug. Forge's orchestr
 
 | Problem | Solution |
 |---------|----------|
-| Lost context / new session | `/forge:resume-work` or `/forge:progress` |
+| Lost context / new session | `/forge-resume-work` or `/forge-progress` |
 | Phase went wrong | `git revert` the phase commits, then re-plan |
-| Need to change scope | `/forge:add-phase`, `/forge:insert-phase`, or `/forge:remove-phase` |
-| Milestone audit found gaps | `/forge:plan-milestone-gaps` |
-| Something broke | `/forge:debug "description"` |
-| Quick targeted fix | `/forge:quick` |
-| Plan doesn't match your vision | `/forge:discuss-phase [N]` then re-plan |
-| Costs running high | `/forge:set-profile budget` and `/forge:settings` to toggle agents off |
-| Update broke local changes | `/forge:reapply-patches` |
+| Need to change scope | `/forge-add-phase`, `/forge-insert-phase`, or `/forge-remove-phase` |
+| Milestone audit found gaps | `/forge-plan-milestone-gaps` |
+| Something broke | `/forge-debug "description"` |
+| Quick targeted fix | `/forge-quick` |
+| Plan doesn't match your vision | `/forge-discuss-phase [N]` then re-plan |
+| Costs running high | `/forge-set-profile budget` and `/forge-settings` to toggle agents off |
+| Update broke local changes | `/forge-reapply-patches` |
 
 ---
 
@@ -433,13 +433,13 @@ For reference, here is what Forge creates in your project:
   STATE.md                # Decisions, blockers, session memory
   config.json             # Workflow configuration
   MILESTONES.md           # Completed milestone archive
-  research/               # Domain research from /forge:new-project
+  research/               # Domain research from /forge-new-project
   todos/
     pending/              # Captured ideas awaiting work
     done/                 # Completed todos
   debug/                  # Active debug sessions
     resolved/             # Archived debug sessions
-  codebase/               # Brownfield codebase mapping (from /forge:map-codebase)
+  codebase/               # Brownfield codebase mapping (from /forge-map-codebase)
   phases/
     XX-phase-name/
       XX-YY-PLAN.md       # Atomic execution plans

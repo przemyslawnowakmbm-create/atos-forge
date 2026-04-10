@@ -1,5 +1,5 @@
 <purpose>
-Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /forge:plan-phase --gaps.
+Validate built features through conversational testing with persistent state. Creates UAT.md that tracks test progress, survives /clear, and feeds gaps into /forge-plan-phase --gaps.
 
 User tests, Claude records. One test at a time. Plain text responses.
 </purpose>
@@ -17,6 +17,10 @@ No Pass/Fail buttons. No severity questions. Just: "Here's what should happen. D
 <template>
 @~/.claude/atos-forge/templates/UAT.md
 </template>
+
+<required_reading>
+@~/.claude/atos-forge/references/json-safety.md
+</required_reading>
 
 <process>
 
@@ -69,7 +73,7 @@ If no, continue to `create_uat_file`.
 ```
 No active UAT sessions.
 
-Provide a phase number to start testing (e.g., /forge:verify-work 4)
+Provide a phase number to start testing (e.g., /forge-verify-work 4)
 ```
 
 **If no active sessions AND $ARGUMENTS provided:**
@@ -302,15 +306,41 @@ Wait for user response (plain text, no AskUserQuestion).
 
 **If test has type: database|api|auth|worker|infra:**
 
-Claude executes the command directly via Bash tool, then presents the result:
+Claude executes the command directly via Bash tool, then **auto-evaluates** the result:
 
 1. Execute: `{command}` via Bash tool
-2. Capture output (stdout + stderr)
-3. Display:
+2. Capture output (stdout + stderr) and exit code (`$?`)
+3. **Auto-evaluate** the result (see `auto_evaluate_backend` step below)
+4. Display result based on auto-evaluation outcome
+
+**If auto-evaluation → PASS:**
+
+Do NOT wait for user response. Record as `auto_pass` and collect into a batch.
+After all consecutive auto-passing backend tests are collected (or a manual-review
+test is encountered, or backend tests end), display the batch:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ BACKEND CHECKS — {N} tests auto-passed
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ ✓ Test 1: {name} (EXIT:0{, key output detail if short})
+ ✓ Test 2: {name} (EXIT:0{, key output detail if short})
+ ✓ Test 3: {name} (EXIT:0{, key output detail if short})
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Update each test's result to `auto_pass` with `auto_check` field.
+Advance to the next test (or flush batch if a manual-review test follows).
+
+**If auto-evaluation → FAIL or INCONCLUSIVE:**
+
+Flush any pending auto-pass batch first, then display the failing test for manual review:
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║  BACKEND CHECK [{type}]                                      ║
+║  BACKEND CHECK [{type}]  ⚠ NEEDS REVIEW                     ║
 ╚══════════════════════════════════════════════════════════════╝
 
 **Test {number}: {name}**
@@ -322,23 +352,103 @@ Claude executes the command directly via Bash tool, then presents the result:
 {actual output from command}
 
 **Expected:** {expected}
+**Auto-check:** FAILED — {reason, e.g. "exit code 1, expected 0" or "expected pattern 'tenant_id' not found in output"}
 
 ──────────────────────────────────────────────────────────────
-→ Type "pass" if output matches, or describe the issue
+→ Type "pass" to override, or describe the issue
 ──────────────────────────────────────────────────────────────
 ```
 
 Wait for user response (plain text, no AskUserQuestion).
 
-**If command fails (non-zero exit code or error):**
-Display the error output and mark as a potential issue. Still wait for user
-confirmation — the user decides whether the error is expected or an actual failure.
+**If command times out (>60s) or produces no output when output was expected:**
+Treat as auto-evaluation → FAIL with reason "command timed out" or "no output produced".
+Show to user for manual review.
+</step>
+
+<step name="auto_evaluate_backend" depends="present_test">
+**Auto-evaluate backend test result against expected criteria:**
+
+After executing the command, apply these rules IN ORDER to determine pass/fail:
+
+### Rule 1: Exit Code Check
+Parse the `expected` field for exit code expectations:
+- Contains "EXIT:0", "exit code 0", "succeeds", "without errors", "zero errors",
+  "no errors", "compiles", "builds", "passes" → **expect exit code 0**
+- Contains "EXIT:{N}" or "exit code {N}" for specific N → **expect that exit code**
+- Contains "should fail", "expect 403", "expect 404", "should return {4xx/5xx}" → **expect non-zero or specific HTTP code**
+- No exit code signal in expected → **skip exit code check** (do not fail on this alone)
+
+**If exit code expectation exists and actual exit code does NOT match → auto-evaluation: FAIL**
+Reason: "exit code {actual}, expected {expected_code}"
+
+### Rule 2: Positive Pattern Match
+Parse the `expected` field for required output patterns:
+- "Should show {X}" → grep for X in output (case-insensitive)
+- "Should contain {X}" → grep for X in output
+- "JSON with {field}" or "containing {field}" → check output contains the field name
+- "Should list {X}" → check output contains X
+- "{N} modules" or "{N} files" → check a number appears near the keyword
+
+For EACH required pattern:
+- If pattern found in output → pattern passes
+- If pattern NOT found → **auto-evaluation: FAIL**
+  Reason: "expected pattern '{pattern}' not found in output"
+
+### Rule 3: Negative Pattern Check
+Scan command output for unexpected failure indicators (ONLY when expected suggests success):
+- `error:`, `Error:`, `ERROR` (but NOT in "0 errors" or "zero errors" or "without errors")
+- `FAILED`, `FAILURE`, `panic`, `Traceback`, `fatal`
+- `segfault`, `SIGSEGV`, `core dumped`
+- `command not found`, `No such file or directory` (infrastructure missing)
+
+If negative pattern found AND expected does not anticipate errors → **auto-evaluation: FAIL**
+Reason: "unexpected error indicator '{matched_pattern}' in output"
+
+### Rule 4: Output Presence Check
+If expected mentions specific output content but command produced empty stdout:
+- **auto-evaluation: FAIL**
+  Reason: "no output produced, expected '{summary of expected}'"
+
+### Final Determination
+- **All applicable rules pass → auto-evaluation: PASS**
+  `auto_check`: "exit code {N}, output matches expected"
+- **Any rule fails → auto-evaluation: FAIL**
+  `auto_check`: "{first failure reason}"
+- **No rules could be applied** (expected is too vague to parse) → **auto-evaluation: INCONCLUSIVE**
+  Fall back to manual review with reason: "could not parse expected criteria for auto-check"
+
+### Ambiguity Handling
+If `expected` text is:
+- A single vague sentence like "Should work correctly" → INCONCLUSIVE
+- References visual/manual inspection → INCONCLUSIVE
+- Contains "verify", "check that", "ensure" with specific criteria → apply rules above
+- Contains only a description with no testable assertion → INCONCLUSIVE
+
+**Conservative principle:** When in doubt, mark INCONCLUSIVE and show to user.
+Auto-pass only when the evidence is unambiguous.
 </step>
 
 <step name="process_response">
-**Process user response and update file:**
+**Process user response (or auto-evaluation result) and update file:**
 
-**If response indicates pass:**
+**If test was auto-evaluated as PASS (from auto_evaluate_backend):**
+- No user response needed
+
+Update Tests section:
+```
+### {N}. {name}
+type: {type}
+command: |
+  {command}
+expected: {expected}
+result: auto_pass
+auto_check: "{auto_check reason, e.g. exit code 0, output matches expected}"
+```
+
+Count as passed in Summary. Log to ledger as decision (not warning).
+
+**If response indicates pass (manual confirmation):**
 - Empty response, "yes", "y", "ok", "pass", "next", "approved", "✓"
 
 Update Tests section:
@@ -398,8 +508,14 @@ Update frontmatter.updated timestamp.
 
 **Ledger:** On issue detection, log the warning:
 ```bash
-TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+TOOLS="$HOME/.claude/atos-forge/bin/forge-tools.cjs"
 node "$TOOLS" ledger log-warning "UAT issue: ${TEST_NAME} — ${USER_RESPONSE}" --severity "${SEVERITY}" --source "verify-work" 2>/dev/null
+```
+
+**Ledger:** On auto-pass, log the decision:
+```bash
+TOOLS="$HOME/.claude/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger log-decision "UAT auto-pass: ${TEST_NAME} — ${AUTO_CHECK}" --rationale "Backend test auto-evaluated" --source "verify-work" 2>/dev/null
 ```
 
 If more tests remain → Update Current Test, go to `present_test`
@@ -488,8 +604,8 @@ Only show rows for categories that have tests. Pure UI phases show no breakdown 
 ```
 All tests passed. Ready to continue.
 
-- `/forge:plan-phase {next}` — Plan next phase
-- `/forge:execute-phase {next}` — Execute next phase
+- `/forge-plan-phase {next}` — Plan next phase
+- `/forge-execute-phase {next}` — Execute next phase
 ```
 </step>
 
@@ -548,7 +664,7 @@ Task(
 </planning_context>
 
 <downstream_consumer>
-Output consumed by /forge:execute-phase
+Output consumed by /forge-execute-phase
 Plans must be executable prompts.
 </downstream_consumer>
 """,
@@ -655,7 +771,7 @@ Display: `Max iterations reached. {N} issues remain.`
 Offer options:
 1. Force proceed (execute despite issues)
 2. Provide guidance (user gives direction, retry)
-3. Abandon (exit, user runs /forge:plan-phase manually)
+3. Abandon (exit, user runs /forge-plan-phase manually)
 
 Wait for user response.
 </step>
@@ -683,7 +799,7 @@ Plans verified and ready for execution.
 
 **Execute fixes** — run fix plans
 
-`/clear` then `/forge:execute-phase {phase} --gaps-only`
+`/clear` then `/forge-execute-phase {phase} --gaps-only`
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -704,7 +820,8 @@ Keep results in memory. Write to file only when:
 | Frontmatter.status | OVERWRITE | Start, complete |
 | Frontmatter.updated | OVERWRITE | On any file write |
 | Current Test | OVERWRITE | On any file write |
-| Tests.{N}.result | OVERWRITE | On any file write |
+| Tests.{N}.result | OVERWRITE | On any file write (values: pass, auto_pass, issue, skipped) |
+| Tests.{N}.auto_check | WRITE ONCE | When auto_pass result recorded |
 | Summary | OVERWRITE | On any file write |
 | Gaps | APPEND | When issue found |
 
@@ -730,10 +847,12 @@ Default to **major** if unclear. User can correct if needed.
 - [ ] UAT file created with all tests from SUMMARY.md
 - [ ] Phase classified for backend test needs (subsystem/tags heuristic)
 - [ ] Backend tests generated with verification commands when phase has infra content
-- [ ] Backend tests executed by Claude via Bash — output shown to user for confirmation
+- [ ] Backend tests executed by Claude via Bash — auto-evaluated against expected criteria
+- [ ] Backend tests that auto-pass shown in compact batch (no user prompt needed)
+- [ ] Backend tests that auto-fail or are inconclusive shown to user for manual review
 - [ ] Backend tests run BEFORE UI tests (foundation first)
-- [ ] Tests presented one at a time with expected behavior
-- [ ] User responses processed as pass/issue/skip
+- [ ] Tests presented one at a time with expected behavior (UI tests and manual-review backend tests)
+- [ ] User responses processed as pass/issue/skip; auto_pass recorded for auto-evaluated tests
 - [ ] Severity inferred from description (never asked)
 - [ ] Summary shows per-category breakdown for mixed phases
 - [ ] Batched writes: on issue, every 5 passes, or completion
@@ -742,5 +861,5 @@ Default to **major** if unclear. User can correct if needed.
 - [ ] If issues: forge-planner creates fix plans (gap_closure mode)
 - [ ] If issues: forge-plan-checker verifies fix plans
 - [ ] If issues: revision loop until plans pass (max 3 iterations)
-- [ ] Ready for `/forge:execute-phase --gaps-only` when complete
+- [ ] Ready for `/forge-execute-phase --gaps-only` when complete
 </success_criteria>

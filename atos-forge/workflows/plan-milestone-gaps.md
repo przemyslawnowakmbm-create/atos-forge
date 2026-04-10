@@ -1,5 +1,5 @@
 <purpose>
-Create all phases necessary to close gaps identified by `/forge:audit-milestone`. Reads MILESTONE-AUDIT.md, groups gaps into logical phases, creates phase entries in ROADMAP.md, and offers to plan each phase. One command creates all fix phases — no manual `/forge:add-phase` per gap.
+Create all phases necessary to close gaps identified by `/forge-audit-milestone`. Reads MILESTONE-AUDIT.md, groups gaps into logical phases, creates phase entries in ROADMAP.md, and offers to plan each phase. One command creates all fix phases — no manual `/forge-add-phase` per gap.
 </purpose>
 
 <required_reading>
@@ -22,7 +22,7 @@ Parse YAML frontmatter to extract structured gaps:
 
 If no audit file exists or has no gaps, error:
 ```
-No audit gaps found. Run `/forge:audit-milestone` first.
+No audit gaps found. Run `/forge-audit-milestone` first.
 ```
 
 ## 2. Prioritize Gaps
@@ -164,22 +164,22 @@ node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs(roadmap): add gap clo
 
 **Plan first gap closure phase**
 
-`/forge:plan-phase {N}`
+`/forge-plan-phase {N}`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/forge:execute-phase {N}` — if plans already exist
+- `/forge-execute-phase {N}` — if plans already exist
 - `cat .planning/ROADMAP.md` — see updated roadmap
 
 ---
 
 **After all gap phases complete:**
 
-`/forge:audit-milestone` — re-audit to verify gaps closed
-`/forge:complete-milestone {version}` — archive when audit passes
+`/forge-audit-milestone` — re-audit to verify gaps closed
+`/forge-complete-milestone {version}` — archive when audit passes
 ```
 
 </process>
@@ -270,5 +270,5 @@ becomes:
 - [ ] Coverage count updated in REQUIREMENTS.md
 - [ ] Phase directories created
 - [ ] Changes committed (includes REQUIREMENTS.md)
-- [ ] User knows to run `/forge:plan-phase` next
+- [ ] User knows to run `/forge-plan-phase` next
 </success_criteria>

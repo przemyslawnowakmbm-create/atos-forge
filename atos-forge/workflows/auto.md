@@ -20,7 +20,7 @@ Auto mode will:
 5. After each unit: log metrics, clear crash lock, read disk state again
 6. Repeat until milestone complete or stuck (same unit fails 2x)
 
-To stop: press Ctrl+C or run /forge:auto-stop in another terminal.
+To stop: press Ctrl+C or run /forge-auto-stop in another terminal.
 
 Auto mode is crash-safe: if it's interrupted, the next run recovers automatically.
 </step>

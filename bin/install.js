@@ -20,6 +20,7 @@ const pkg = require('../package.json');
 const args = process.argv.slice(2);
 const hasGlobal = args.includes('--global') || args.includes('-g');
 const hasLocal = args.includes('--local') || args.includes('-l');
+const hasCodex = args.includes('--codex');
 const hasOpencode = args.includes('--opencode');
 const hasClaude = args.includes('--claude');
 const hasGemini = args.includes('--gemini');
@@ -30,10 +31,11 @@ const hasUninstall = args.includes('--uninstall') || args.includes('-u');
 // Runtime selection - can be set by flags or interactive prompt
 let selectedRuntimes = [];
 if (hasAll) {
-  selectedRuntimes = ['claude', 'opencode', 'gemini'];
+  selectedRuntimes = ['claude', 'codex', 'opencode', 'gemini'];
 } else if (hasBoth) {
   selectedRuntimes = ['claude', 'opencode'];
 } else {
+  if (hasCodex) selectedRuntimes.push('codex');
   if (hasOpencode) selectedRuntimes.push('opencode');
   if (hasClaude) selectedRuntimes.push('claude');
   if (hasGemini) selectedRuntimes.push('gemini');
@@ -41,6 +43,7 @@ if (hasAll) {
 
 // Helper to get directory name for a runtime (used for local/project installs)
 function getDirName(runtime) {
+  if (runtime === 'codex') return '.codex';
   if (runtime === 'opencode') return '.opencode';
   if (runtime === 'gemini') return '.gemini';
   return '.claude';
@@ -98,6 +101,16 @@ function getOpencodeGlobalDir() {
  * @param {string|null} explicitDir - Explicit directory from --config-dir flag
  */
 function getGlobalDir(runtime, explicitDir = null) {
+  if (runtime === 'codex') {
+    if (explicitDir) {
+      return path.join(expandTilde(explicitDir), 'forge');
+    }
+    if (process.env.CODEX_HOME) {
+      return path.join(expandTilde(process.env.CODEX_HOME), 'forge');
+    }
+    return path.join(os.homedir(), '.codex', 'forge');
+  }
+
   if (runtime === 'opencode') {
     // For OpenCode, --config-dir overrides env vars
     if (explicitDir) {
@@ -137,7 +150,7 @@ const banner = '\n' +
   '\n' +
   '  Forge ' + dim + 'v' + pkg.version + reset + '\n' +
   '  A meta-prompting, context engineering and spec-driven\n' +
-  '  development system for Claude Code, OpenCode, and Gemini by Forge Team.\n';
+  '  development system for Claude Code, Codex, OpenCode, and Gemini by Forge Team.\n';
 
 // Parse --config-dir argument
 function parseConfigDirArg() {
@@ -171,7 +184,7 @@ console.log(banner);
 
 // Show help if requested
 if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} node bin/install.js [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall Forge (remove all Forge files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    node bin/install.js\n\n    ${dim}# Install for Claude Code globally${reset}\n    node bin/install.js --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    node bin/install.js --gemini --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    node bin/install.js --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    node bin/install.js --claude --global --config-dir ~/.claude-bc\n\n    ${dim}# Install to current project only${reset}\n    node bin/install.js --claude --local\n\n    ${dim}# Uninstall Forge from Claude Code globally${reset}\n    node bin/install.js --claude --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR environment variables.\n`);
+  console.log(`  ${yellow}Usage:${reset} node bin/install.js [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--codex${reset}                   Install for Codex only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall Forge (remove all Forge files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    node bin/install.js\n\n    ${dim}# Install for Claude Code globally${reset}\n    node bin/install.js --claude --global\n\n    ${dim}# Install for Codex globally${reset}\n    node bin/install.js --codex --global\n\n    ${dim}# Install for Gemini globally${reset}\n    node bin/install.js --gemini --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    node bin/install.js --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    node bin/install.js --claude --global --config-dir ~/.claude-bc\n\n    ${dim}# Install to current project only${reset}\n    node bin/install.js --claude --local\n\n    ${dim}# Uninstall Forge from Claude Code globally${reset}\n    node bin/install.js --claude --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR / CODEX_HOME environment variables.\n`);
   process.exit(0);
 }
 
@@ -615,22 +628,61 @@ function convertClaudeToGeminiToml(content) {
   return toml;
 }
 
+function mergeExecutionContextBlocks(content, references = []) {
+  if (!content || !Array.isArray(references) || references.length === 0) return content;
+
+  const lines = [];
+  for (const ref of references) {
+    if (ref && !lines.includes(ref)) lines.push(ref);
+  }
+
+  const openTag = '<execution_context>';
+  const closeTag = '</execution_context>';
+  const frontmatterStart = content.startsWith('---\n') ? 0 : -1;
+  const frontmatterEnd = frontmatterStart === 0 ? content.indexOf('\n---\n', 4) : -1;
+
+  const head = frontmatterEnd >= 0
+    ? content.slice(0, frontmatterEnd + '\n---\n'.length)
+    : '';
+  let body = frontmatterEnd >= 0
+    ? content.slice(frontmatterEnd + '\n---\n'.length)
+    : content;
+
+  while (true) {
+    const start = body.indexOf(openTag);
+    if (start === -1) break;
+    const end = body.indexOf(closeTag, start);
+    if (end === -1) break;
+    const block = body.slice(start + openTag.length, end);
+    for (const rawLine of block.split('\n')) {
+      const line = rawLine.trim();
+      if (line && !lines.includes(line)) lines.push(line);
+    }
+    body = body.slice(0, start) + body.slice(end + closeTag.length);
+  }
+
+  const mergedBlock = `\n${openTag}\n${lines.join('\n')}\n${closeTag}\n\n`;
+  return head
+    ? head + mergedBlock + body.replace(/^\n+/, '')
+    : mergedBlock + body.replace(/^\n+/, '');
+}
+
 /**
- * Copy commands to a flat structure for OpenCode
+ * Copy skills to a flat structure for OpenCode
  * OpenCode expects: command/forge-help.md (invoked as /forge-help)
- * Source structure: commands/forge/help.md
- * 
- * @param {string} srcDir - Source directory (e.g., commands/forge/)
+ * Source structure: skill-sources/forge-help/SKILL.md
+ *
+ * @param {string} srcSkillsDir - Source skills directory (e.g., skill-sources/)
  * @param {string} destDir - Destination directory (e.g., command/)
- * @param {string} prefix - Prefix for filenames (e.g., 'forge')
+ * @param {string} prefix - Prefix to match skill directories (e.g., 'forge')
  * @param {string} pathPrefix - Path prefix for file references
  * @param {string} runtime - Target runtime ('claude' or 'opencode')
  */
-function copyFlattenedCommands(srcDir, destDir, prefix, pathPrefix, runtime) {
-  if (!fs.existsSync(srcDir)) {
+function copyFlattenedCommands(srcSkillsDir, destDir, prefix, pathPrefix, runtime) {
+  if (!fs.existsSync(srcSkillsDir)) {
     return;
   }
-  
+
   // Remove old forge-*.md files before copying new ones
   if (fs.existsSync(destDir)) {
     for (const file of fs.readdirSync(destDir)) {
@@ -641,34 +693,99 @@ function copyFlattenedCommands(srcDir, destDir, prefix, pathPrefix, runtime) {
   } else {
     fs.mkdirSync(destDir, { recursive: true });
   }
-  
-  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-  
+
+  // Read skill directories from source (skill-sources/forge-*/SKILL.md)
+  const entries = fs.readdirSync(srcSkillsDir, { withFileTypes: true });
+
   for (const entry of entries) {
-    const srcPath = path.join(srcDir, entry.name);
-    
-    if (entry.isDirectory()) {
-      // Recurse into subdirectories, adding to prefix
-      // e.g., commands/forge/debug/start.md -> command/forge-debug-start.md
-      copyFlattenedCommands(srcPath, destDir, `${prefix}-${entry.name}`, pathPrefix, runtime);
-    } else if (entry.name.endsWith('.md')) {
-      // Flatten: help.md -> forge-help.md
-      const baseName = entry.name.replace('.md', '');
-      const destName = `${prefix}-${baseName}.md`;
-      const destPath = path.join(destDir, destName);
+    if (!entry.isDirectory() || !entry.name.startsWith(`${prefix}-`)) continue;
 
-      let content = fs.readFileSync(srcPath, 'utf8');
-      const globalClaudeRegex = /~\/\.claude\//g;
-      const localClaudeRegex = /\.\/\.claude\//g;
-      const opencodeDirRegex = /~\/\.opencode\//g;
-      content = content.replace(globalClaudeRegex, pathPrefix);
-      content = content.replace(localClaudeRegex, `./${getDirName(runtime)}/`);
-      content = content.replace(opencodeDirRegex, pathPrefix);
-      content = processAttribution(content, getCommitAttribution(runtime));
+    const srcSkillFile = path.join(srcSkillsDir, entry.name, 'SKILL.md');
+    if (!fs.existsSync(srcSkillFile)) continue;
+
+    const skillName = entry.name;
+    const destPath = path.join(destDir, `${skillName}.md`);
+
+    let content = fs.readFileSync(srcSkillFile, 'utf8');
+    content = mergeExecutionContextBlocks(content, ['@~/.claude/atos-forge/references/agent-directives.md']);
+    const globalClaudeRegex = /~\/\.claude\//g;
+    const localClaudeRegex = /\.\/\.claude\//g;
+    const opencodeDirRegex = /~\/\.opencode\//g;
+    content = content.replace(globalClaudeRegex, pathPrefix);
+    content = content.replace(localClaudeRegex, `./${getDirName(runtime)}/`);
+    content = content.replace(opencodeDirRegex, pathPrefix);
+    content = processAttribution(content, getCommitAttribution(runtime));
+
+    // Ensure frontmatter name: field matches skill name
+    content = content.replace(/^(name:\s*).*$/m, `$1${skillName}`);
+
+    if (runtime === 'opencode') {
       content = convertClaudeToOpencodeFrontmatter(content);
-
-      fs.writeFileSync(destPath, content);
     }
+
+    fs.writeFileSync(destPath, content);
+  }
+}
+
+/**
+ * Install skills from source skill-sources/ directory to target skills/ directory.
+ * Source: skill-sources/forge-init/SKILL.md -> Target: ~/.claude/skills/forge-init/SKILL.md
+ *
+ * @param {string} srcSkillsDir - Source skills directory (e.g., skill-sources/)
+ * @param {string} destSkillsDir - Target skills directory (e.g., ~/.claude/skills/)
+ * @param {string} prefix - Prefix to match skill directories (e.g., 'forge')
+ * @param {string} pathPrefix - Path prefix for file references
+ * @param {string} runtime - Target runtime
+ */
+function copyAsSkills(srcSkillsDir, destSkillsDir, prefix, pathPrefix, runtime) {
+  if (!fs.existsSync(srcSkillsDir)) {
+    return;
+  }
+
+  // Remove old forge-* skill directories before copying new ones
+  if (fs.existsSync(destSkillsDir)) {
+    for (const entry of fs.readdirSync(destSkillsDir, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith(`${prefix}-`)) {
+        fs.rmSync(path.join(destSkillsDir, entry.name), { recursive: true });
+      }
+    }
+  } else {
+    fs.mkdirSync(destSkillsDir, { recursive: true });
+  }
+
+  // Read skill directories from source (skill-sources/forge-*/SKILL.md)
+  const entries = fs.readdirSync(srcSkillsDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !entry.name.startsWith(`${prefix}-`)) continue;
+
+    const srcSkillFile = path.join(srcSkillsDir, entry.name, 'SKILL.md');
+    if (!fs.existsSync(srcSkillFile)) continue;
+
+    const skillName = entry.name;
+    const destSkillDir = path.join(destSkillsDir, skillName);
+    fs.mkdirSync(destSkillDir, { recursive: true });
+
+    let content = fs.readFileSync(srcSkillFile, 'utf8');
+    content = mergeExecutionContextBlocks(content, ['@~/.claude/atos-forge/references/agent-directives.md']);
+    const globalClaudeRegex = /~\/\.claude\//g;
+    const localClaudeRegex = /\.\/\.claude\//g;
+    const opencodeDirRegex = /~\/\.opencode\//g;
+    content = content.replace(globalClaudeRegex, pathPrefix);
+    content = content.replace(localClaudeRegex, `./${getDirName(runtime)}/`);
+    content = content.replace(opencodeDirRegex, pathPrefix);
+    content = processAttribution(content, getCommitAttribution(runtime));
+
+    // Ensure frontmatter name: field matches skill directory name
+    content = content.replace(/^(name:\s*).*$/m, `$1${skillName}`);
+
+    // Convert allowed-tools YAML list to skills tools: comma format
+    // e.g., "allowed-tools:\n  - Bash\n  - Read" -> "tools: Bash, Read"
+    content = content.replace(/^allowed-tools:\s*\n((?:\s+-\s+.+\n?)*)/m, (match, list) => {
+      const tools = list.trim().split('\n').map(l => l.replace(/^\s*-\s*/, '').trim()).filter(Boolean);
+      return tools.length > 0 ? `tools: ${tools.join(', ')}\n` : '';
+    });
+
+    fs.writeFileSync(path.join(destSkillDir, 'SKILL.md'), content);
   }
 }
 
@@ -809,19 +926,22 @@ function cleanupOrphanedHooks(settings) {
  * @param {string} runtime - Target runtime ('claude', 'opencode', 'gemini')
  */
 function uninstall(isGlobal, runtime = 'claude') {
+  const isCodex = runtime === 'codex';
   const isOpencode = runtime === 'opencode';
   const dirName = getDirName(runtime);
 
   // Get the target directory based on runtime and install type
   const targetDir = isGlobal
     ? getGlobalDir(runtime, explicitConfigDir)
-    : path.join(process.cwd(), dirName);
+    : isCodex ? path.join(process.cwd(), dirName, 'forge') : path.join(process.cwd(), dirName);
+  const runtimeRoot = isCodex ? path.dirname(targetDir) : targetDir;
 
   const locationLabel = isGlobal
     ? targetDir.replace(os.homedir(), '~')
     : targetDir.replace(process.cwd(), '.');
 
   let runtimeLabel = 'Claude Code';
+  if (runtime === 'codex') runtimeLabel = 'Codex';
   if (runtime === 'opencode') runtimeLabel = 'OpenCode';
   if (runtime === 'gemini') runtimeLabel = 'Gemini';
 
@@ -837,7 +957,22 @@ function uninstall(isGlobal, runtime = 'claude') {
   let removedCount = 0;
 
   // 1. Remove Forge commands directory
-  if (isOpencode) {
+  if (isCodex) {
+    const skillsDir = path.join(runtimeRoot, 'skills');
+    if (fs.existsSync(skillsDir)) {
+      let skillCount = 0;
+      for (const entry of fs.readdirSync(skillsDir)) {
+        if (entry.startsWith('forge-')) {
+          fs.rmSync(path.join(skillsDir, entry), { recursive: true, force: true });
+          skillCount++;
+        }
+      }
+      if (skillCount > 0) {
+        removedCount++;
+        console.log(`  ${green}✓${reset} Removed ${skillCount} Codex Forge skills`);
+      }
+    }
+  } else if (isOpencode) {
     // OpenCode: remove command/forge-*.md files
     const commandDir = path.join(targetDir, 'command');
     if (fs.existsSync(commandDir)) {
@@ -851,13 +986,32 @@ function uninstall(isGlobal, runtime = 'claude') {
       console.log(`  ${green}✓${reset} Removed Forge commands from command/`);
     }
   } else {
-    // Claude Code & Gemini: remove commands/forge/ directory
+    // Claude Code & Gemini: remove forge skills + legacy commands
+    const skillsDir = path.join(targetDir, 'skills');
+    if (fs.existsSync(skillsDir)) {
+      for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+        if (entry.isDirectory() && entry.name.startsWith('forge-')) {
+          fs.rmSync(path.join(skillsDir, entry.name), { recursive: true });
+          removedCount++;
+        }
+      }
+    }
+    // Also remove legacy commands (flat forge-*.md and nested commands/forge/)
+    const commandsDir = path.join(targetDir, 'commands');
+    if (fs.existsSync(commandsDir)) {
+      for (const file of fs.readdirSync(commandsDir)) {
+        if (file.startsWith('forge-') && file.endsWith('.md')) {
+          fs.unlinkSync(path.join(commandsDir, file));
+          removedCount++;
+        }
+      }
+    }
     const forgeCommandsDir = path.join(targetDir, 'commands', 'forge');
     if (fs.existsSync(forgeCommandsDir)) {
       fs.rmSync(forgeCommandsDir, { recursive: true });
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed commands/forge/`);
     }
+    console.log(`  ${green}✓${reset} Removed forge skills`);
   }
 
   // 2. Remove atos-forge directory
@@ -869,13 +1023,13 @@ function uninstall(isGlobal, runtime = 'claude') {
   }
 
   // 3. Remove Forge agents (forge-*.md files only)
-  const agentsDir = path.join(targetDir, 'agents');
+  const agentsDir = path.join(isCodex ? runtimeRoot : targetDir, 'agents');
   if (fs.existsSync(agentsDir)) {
     const files = fs.readdirSync(agentsDir);
     let agentCount = 0;
     for (const file of files) {
-      if (file.startsWith('forge-') && file.endsWith('.md')) {
-        fs.unlinkSync(path.join(agentsDir, file));
+      if (file.startsWith('forge-')) {
+        fs.rmSync(path.join(agentsDir, file), { recursive: true, force: true });
         agentCount++;
       }
     }
@@ -904,7 +1058,7 @@ function uninstall(isGlobal, runtime = 'claude') {
   }
 
   // 4. Remove Forge hooks
-  const hooksDir = path.join(targetDir, 'hooks');
+  const hooksDir = path.join(isCodex ? runtimeRoot : targetDir, 'hooks');
   if (fs.existsSync(hooksDir)) {
     const forgeHooks = ['forge-statusline.js', 'forge-check-update.js', 'forge-check-update.sh', 'forge-context-monitor.js'];
     let hookCount = 0;
@@ -918,6 +1072,30 @@ function uninstall(isGlobal, runtime = 'claude') {
     if (hookCount > 0) {
       removedCount++;
       console.log(`  ${green}✓${reset} Removed ${hookCount} Forge hooks`);
+    }
+  }
+
+  if (isCodex) {
+    const hooksPath = path.join(runtimeRoot, 'hooks.json');
+    if (fs.existsSync(hooksPath)) {
+      try {
+        const hooksJson = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+        let modified = false;
+        for (const [eventName, entries] of Object.entries(hooksJson.hooks || {})) {
+          const filtered = entries.filter(entry =>
+            !(entry.hooks || []).some(h => typeof h.command === 'string' && h.command.includes('forge-'))
+          );
+          if (filtered.length !== entries.length) {
+            hooksJson.hooks[eventName] = filtered;
+            modified = true;
+          }
+        }
+        if (modified) {
+          fs.writeFileSync(hooksPath, JSON.stringify(hooksJson, null, 2) + '\n');
+          removedCount++;
+          console.log(`  ${green}✓${reset} Removed Forge hooks from hooks.json`);
+        }
+      } catch { /* ignore */ }
     }
   }
 
@@ -939,7 +1117,7 @@ function uninstall(isGlobal, runtime = 'claude') {
 
   // 6. Clean up settings.json (remove Forge hooks and statusline)
   const settingsPath = path.join(targetDir, 'settings.json');
-  if (fs.existsSync(settingsPath)) {
+  if (!isCodex && fs.existsSync(settingsPath)) {
     let settings = readSettings(settingsPath);
     let settingsModified = false;
 
@@ -1195,6 +1373,69 @@ function copyDirectoryRecursive(srcDir, destDir) {
   }
 }
 
+function copyCodexAssetTree(srcDir, destDir, pathPrefix, codexRootPrefix = null) {
+  if (!fs.existsSync(srcDir)) return;
+  if (fs.existsSync(destDir)) fs.rmSync(destDir, { recursive: true });
+  fs.mkdirSync(destDir, { recursive: true });
+
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyCodexAssetTree(srcPath, destPath, pathPrefix, codexRootPrefix);
+      continue;
+    }
+
+    const content = fs.readFileSync(srcPath);
+    if (entry.name.endsWith('.md') || entry.name.endsWith('.toml') || entry.name.endsWith('.json')) {
+      const codexRoot = codexRootPrefix || pathPrefix;
+      let text = content.toString('utf8');
+      if (entry.name.endsWith('.md') && srcPath.includes(`${path.sep}.codex${path.sep}skills${path.sep}`)) {
+        text = mergeExecutionContextBlocks(text, ['@~/.codex/forge/atos-forge/references/agent-directives.md']);
+      }
+      text = text
+        .replace(/~\/\.codex\/forge\//g, pathPrefix)
+        .replace(/~\/\.codex\/agents\//g, `${codexRoot}agents/`)
+        .replace(/~\/\.codex\/hooks\//g, `${codexRoot}hooks/`)
+        .replace(/~\/\.claude\//g, pathPrefix);
+      fs.writeFileSync(destPath, text);
+    } else {
+      fs.writeFileSync(destPath, content);
+    }
+  }
+}
+
+function mergeCodexHooks(codexRoot) {
+  const sourceHooksPath = path.join(__dirname, '..', '.codex', 'hooks.json');
+  if (!fs.existsSync(sourceHooksPath)) return false;
+
+  const targetHooksPath = path.join(codexRoot, 'hooks.json');
+  let target = { hooks: {} };
+  if (fs.existsSync(targetHooksPath)) {
+    try {
+      target = JSON.parse(fs.readFileSync(targetHooksPath, 'utf8'));
+    } catch {
+      target = { hooks: {} };
+    }
+  }
+
+  const source = JSON.parse(fs.readFileSync(sourceHooksPath, 'utf8'));
+  if (!target.hooks) target.hooks = {};
+
+  for (const [eventName, entries] of Object.entries(source.hooks || {})) {
+    const existing = Array.isArray(target.hooks[eventName]) ? target.hooks[eventName] : [];
+    const filtered = existing.filter(entry =>
+      !(entry.hooks || []).some(h => typeof h.command === 'string' && h.command.includes('forge-'))
+    );
+    target.hooks[eventName] = [...filtered, ...entries];
+  }
+
+  fs.mkdirSync(codexRoot, { recursive: true });
+  fs.writeFileSync(targetHooksPath, JSON.stringify(target, null, 2) + '\n');
+  return true;
+}
+
 /**
  * Verify a directory exists and contains files
  */
@@ -1273,7 +1514,7 @@ function generateManifest(dir, baseDir) {
  */
 function writeManifest(configDir) {
   const forgeDir = path.join(configDir, 'atos-forge');
-  const commandsDir = path.join(configDir, 'commands', 'forge');
+  const commandsDir = path.join(configDir, 'commands');
   const agentsDir = path.join(configDir, 'agents');
   const manifest = { version: pkg.version, timestamp: new Date().toISOString(), files: {} };
 
@@ -1281,10 +1522,16 @@ function writeManifest(configDir) {
   for (const [rel, hash] of Object.entries(forgeHashes)) {
     manifest.files['atos-forge/' + rel] = hash;
   }
-  if (fs.existsSync(commandsDir)) {
-    const cmdHashes = generateManifest(commandsDir);
-    for (const [rel, hash] of Object.entries(cmdHashes)) {
-      manifest.files['commands/forge/' + rel] = hash;
+  // Track forge skills in skills/<name>/SKILL.md
+  const skillsDir = path.join(configDir, 'skills');
+  if (fs.existsSync(skillsDir)) {
+    for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith('forge-')) {
+        const skillFile = path.join(skillsDir, entry.name, 'SKILL.md');
+        if (fs.existsSync(skillFile)) {
+          manifest.files['skills/' + entry.name + '/SKILL.md'] = fileHash(skillFile);
+        }
+      }
     }
   }
   // Include forge-* engine modules in manifest
@@ -1373,7 +1620,7 @@ function reportLocalPatches(configDir) {
     }
     console.log('');
     console.log('  Your modifications are saved in ' + cyan + PATCHES_DIR_NAME + '/' + reset);
-    console.log('  Run ' + cyan + '/forge:reapply-patches' + reset + ' to merge them into the new version.');
+    console.log('  Run ' + cyan + '/forge-reapply-patches' + reset + ' to merge them into the new version.');
     console.log('  Or manually compare and merge the files.');
     console.log('');
   }
@@ -1381,6 +1628,7 @@ function reportLocalPatches(configDir) {
 }
 
 function install(isGlobal, runtime = 'claude') {
+  const isCodex = runtime === 'codex';
   const isOpencode = runtime === 'opencode';
   const isGemini = runtime === 'gemini';
   const dirName = getDirName(runtime);
@@ -1389,7 +1637,8 @@ function install(isGlobal, runtime = 'claude') {
   // Get the target directory based on runtime and install type
   const targetDir = isGlobal
     ? getGlobalDir(runtime, explicitConfigDir)
-    : path.join(process.cwd(), dirName);
+    : isCodex ? path.join(process.cwd(), dirName, 'forge') : path.join(process.cwd(), dirName);
+  const runtimeRoot = isCodex ? path.dirname(targetDir) : targetDir;
 
   const locationLabel = isGlobal
     ? targetDir.replace(os.homedir(), '~')
@@ -1400,9 +1649,13 @@ function install(isGlobal, runtime = 'claude') {
   // For local installs: use relative
   const pathPrefix = isGlobal
     ? `${targetDir.replace(/\\/g, '/')}/`
-    : `./${dirName}/`;
+    : isCodex ? `./${dirName}/forge/` : `./${dirName}/`;
+  const codexRootPrefix = isCodex
+    ? (isGlobal ? `${runtimeRoot.replace(/\\/g, '/')}/` : `./${dirName}/`)
+    : null;
 
   let runtimeLabel = 'Claude Code';
+  if (isCodex) runtimeLabel = 'Codex';
   if (isOpencode) runtimeLabel = 'OpenCode';
   if (isGemini) runtimeLabel = 'Gemini';
 
@@ -1417,15 +1670,24 @@ function install(isGlobal, runtime = 'claude') {
   // Clean up orphaned files from previous versions
   cleanupOrphanedFiles(targetDir);
 
-  // OpenCode uses 'command/' (singular) with flat structure
-  // Claude Code & Gemini use 'commands/' (plural) with nested structure
-  if (isOpencode) {
+  // OpenCode uses 'command/' (singular) with flat .md files
+  // Claude Code & Gemini use 'skills/' with nested SKILL.md structure
+  if (isCodex) {
+    const codexSkillsSrc = path.join(src, '.codex', 'skills');
+    const codexSkillsDest = path.join(runtimeRoot, 'skills');
+    copyCodexAssetTree(codexSkillsSrc, codexSkillsDest, pathPrefix, codexRootPrefix);
+    if (verifyInstalled(codexSkillsDest, '.codex/skills')) {
+      console.log(`  ${green}✓${reset} Installed Codex skills`);
+    } else {
+      failures.push('.codex/skills');
+    }
+  } else if (isOpencode) {
     // OpenCode: flat structure in command/ directory
     const commandDir = path.join(targetDir, 'command');
     fs.mkdirSync(commandDir, { recursive: true });
-    
-    // Copy commands/forge/*.md as command/forge-*.md (flatten structure)
-    const forgeSrc = path.join(src, 'commands', 'forge');
+
+    // Copy skill-sources/forge-*/SKILL.md as command/forge-*.md (flatten for OpenCode)
+    const forgeSrc = path.join(src, 'skill-sources');
     copyFlattenedCommands(forgeSrc, commandDir, 'forge', pathPrefix, runtime);
     if (verifyInstalled(commandDir, 'command/forge-*')) {
       const count = fs.readdirSync(commandDir).filter(f => f.startsWith('forge-')).length;
@@ -1434,17 +1696,24 @@ function install(isGlobal, runtime = 'claude') {
       failures.push('command/forge-*');
     }
   } else {
-    // Claude Code & Gemini: nested structure in commands/ directory
-    const commandsDir = path.join(targetDir, 'commands');
-    fs.mkdirSync(commandsDir, { recursive: true });
-    
-    const forgeSrc = path.join(src, 'commands', 'forge');
-    const forgeDest = path.join(commandsDir, 'forge');
-    copyWithPathReplacement(forgeSrc, forgeDest, pathPrefix, runtime);
-    if (verifyInstalled(forgeDest, 'commands/forge')) {
-      console.log(`  ${green}✓${reset} Installed commands/forge`);
+    // Claude Code & Gemini: skills/ directory structure
+    // Source in skill-sources/forge-*/SKILL.md, installed to skills/
+    const skillsDir = path.join(targetDir, 'skills');
+    fs.mkdirSync(skillsDir, { recursive: true });
+
+    const forgeSrc = path.join(src, 'skill-sources');
+    copyAsSkills(forgeSrc, skillsDir, 'forge', pathPrefix, runtime);
+    if (fs.existsSync(skillsDir)) {
+      const count = fs.readdirSync(skillsDir).filter(d => {
+        return d.startsWith('forge-') && fs.statSync(path.join(skillsDir, d)).isDirectory();
+      }).length;
+      if (count > 0) {
+        console.log(`  ${green}✓${reset} Installed ${count} forge skills`);
+      } else {
+        failures.push('forge skills');
+      }
     } else {
-      failures.push('commands/forge');
+      failures.push('forge skills');
     }
   }
 
@@ -1458,11 +1727,11 @@ function install(isGlobal, runtime = 'claude') {
     failures.push('atos-forge');
   }
 
-  // Copy forge-* engine modules (graph, config, session, verify, assess, agents, containers)
+  // Copy forge-* engine modules used by forge-tools.cjs and skill workflows
   // These are Node.js modules required by forge-tools.cjs at runtime
   const forgeModules = [
     'forge-graph', 'forge-config', 'forge-session', 'forge-verify',
-    'forge-assess', 'forge-agents', 'forge-containers'
+    'forge-assess', 'forge-agents', 'forge-containers', 'forge-system', 'forge-analyze'
   ];
   for (const mod of forgeModules) {
     const modSrc = path.join(src, mod);
@@ -1479,7 +1748,16 @@ function install(isGlobal, runtime = 'claude') {
 
   // Copy agents to agents directory
   const agentsSrc = path.join(src, 'agents');
-  if (fs.existsSync(agentsSrc)) {
+  if (isCodex) {
+    const codexAgentsSrc = path.join(src, '.codex', 'agents');
+    const codexAgentsDest = path.join(runtimeRoot, 'agents');
+    copyCodexAssetTree(codexAgentsSrc, codexAgentsDest, pathPrefix, codexRootPrefix);
+    if (verifyInstalled(codexAgentsDest, '.codex/agents')) {
+      console.log(`  ${green}✓${reset} Installed Codex agents`);
+    } else {
+      failures.push('.codex/agents');
+    }
+  } else if (fs.existsSync(agentsSrc)) {
     const agentsDest = path.join(targetDir, 'agents');
     fs.mkdirSync(agentsDest, { recursive: true });
 
@@ -1548,7 +1826,19 @@ function install(isGlobal, runtime = 'claude') {
   // Copy hooks from dist/ (bundled with dependencies)
   // Template paths for the target runtime (replaces '.claude' with correct config dir)
   const hooksSrc = path.join(src, 'hooks', 'dist');
-  if (fs.existsSync(hooksSrc)) {
+  if (isCodex) {
+    const codexHooksSrc = path.join(src, '.codex', 'hooks');
+    const codexHooksDest = path.join(runtimeRoot, 'hooks');
+    copyCodexAssetTree(codexHooksSrc, codexHooksDest, pathPrefix, codexRootPrefix);
+    if (verifyInstalled(codexHooksDest, '.codex/hooks')) {
+      console.log(`  ${green}✓${reset} Installed Codex hooks`);
+    } else {
+      failures.push('.codex/hooks');
+    }
+    if (mergeCodexHooks(runtimeRoot)) {
+      console.log(`  ${green}✓${reset} Merged Codex hooks.json`);
+    }
+  } else if (fs.existsSync(hooksSrc)) {
     const hooksDest = path.join(targetDir, 'hooks');
     fs.mkdirSync(hooksDest, { recursive: true });
     const hookEntries = fs.readdirSync(hooksSrc);
@@ -1577,6 +1867,13 @@ function install(isGlobal, runtime = 'claude') {
   if (failures.length > 0) {
     console.error(`\n  ${yellow}Installation incomplete!${reset} Failed: ${failures.join(', ')}`);
     process.exit(1);
+  }
+
+  if (isCodex) {
+    writeManifest(targetDir);
+    console.log(`  ${green}✓${reset} Wrote file manifest (${MANIFEST_NAME})`);
+    reportLocalPatches(targetDir);
+    return { settingsPath: null, settings: null, statuslineCommand: null, runtime };
   }
 
   // Configure statusline and hooks in settings.json
@@ -1664,9 +1961,10 @@ function install(isGlobal, runtime = 'claude') {
  * Apply statusline config, then print completion message
  */
 function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallStatusline, runtime = 'claude', isGlobal = true) {
+  const isCodex = runtime === 'codex';
   const isOpencode = runtime === 'opencode';
 
-  if (shouldInstallStatusline && !isOpencode) {
+  if (shouldInstallStatusline && !isOpencode && !isCodex) {
     settings.statusLine = {
       type: 'command',
       command: statuslineCommand
@@ -1674,8 +1972,10 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
     console.log(`  ${green}✓${reset} Configured statusline`);
   }
 
-  // Always write settings
-  writeSettings(settingsPath, settings);
+  // Always write settings when this runtime uses settings.json
+  if (settingsPath && settings) {
+    writeSettings(settingsPath, settings);
+  }
 
   // Configure OpenCode permissions
   if (isOpencode) {
@@ -1683,10 +1983,11 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   }
 
   let program = 'Claude Code';
+  if (runtime === 'codex') program = 'Codex';
   if (runtime === 'opencode') program = 'OpenCode';
   if (runtime === 'gemini') program = 'Gemini';
 
-  const command = isOpencode ? '/forge-help' : '/forge:help';
+  const command = isCodex ? '$forge-help' : '/forge-help';
   console.log(`
   ${green}Done!${reset} Launch ${program} and run ${cyan}${command}${reset}.
 
@@ -1764,21 +2065,24 @@ function promptRuntime(callback) {
   });
 
   console.log(`  ${yellow}Which runtime(s) would you like to install for?${reset}\n\n  ${cyan}1${reset}) Claude Code ${dim}(~/.claude)${reset}
-  ${cyan}2${reset}) OpenCode    ${dim}(~/.config/opencode)${reset} - open source, free models
-  ${cyan}3${reset}) Gemini      ${dim}(~/.gemini)${reset}
-  ${cyan}4${reset}) All
+  ${cyan}2${reset}) Codex       ${dim}(~/.codex/forge)${reset}
+  ${cyan}3${reset}) OpenCode    ${dim}(~/.config/opencode)${reset} - open source, free models
+  ${cyan}4${reset}) Gemini      ${dim}(~/.gemini)${reset}
+  ${cyan}5${reset}) All
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
     answered = true;
     rl.close();
     const choice = answer.trim() || '1';
-    if (choice === '4') {
-      callback(['claude', 'opencode', 'gemini']);
-    } else if (choice === '3') {
+    if (choice === '5') {
+      callback(['claude', 'codex', 'opencode', 'gemini']);
+    } else if (choice === '4') {
       callback(['gemini']);
-    } else if (choice === '2') {
+    } else if (choice === '3') {
       callback(['opencode']);
+    } else if (choice === '2') {
+      callback(['codex']);
     } else {
       callback(['claude']);
     }
@@ -1842,6 +2146,7 @@ function installAllRuntimes(runtimes, isGlobal, isInteractive) {
   }
 
   // Handle statusline for Claude & Gemini (OpenCode uses themes)
+  const codexResult = results.find(r => r.runtime === 'codex');
   const claudeResult = results.find(r => r.runtime === 'claude');
   const geminiResult = results.find(r => r.runtime === 'gemini');
 
@@ -1853,6 +2158,9 @@ function installAllRuntimes(runtimes, isGlobal, isInteractive) {
     const primaryResult = claudeResult || geminiResult;
     
     handleStatusline(primaryResult.settings, isInteractive, (shouldInstallStatusline) => {
+      if (codexResult) {
+        finishInstall(codexResult.settingsPath, codexResult.settings, codexResult.statuslineCommand, false, 'codex', isGlobal);
+      }
       if (claudeResult) {
         finishInstall(claudeResult.settingsPath, claudeResult.settings, claudeResult.statuslineCommand, shouldInstallStatusline, 'claude', isGlobal);
       }
@@ -1866,9 +2174,13 @@ function installAllRuntimes(runtimes, isGlobal, isInteractive) {
       }
     });
   } else {
-    // Only OpenCode
-    const opencodeResult = results[0];
-    finishInstall(opencodeResult.settingsPath, opencodeResult.settings, opencodeResult.statuslineCommand, false, 'opencode', isGlobal);
+    if (codexResult) {
+      finishInstall(codexResult.settingsPath, codexResult.settings, codexResult.statuslineCommand, false, 'codex', isGlobal);
+    } else {
+      // Only OpenCode
+      const opencodeResult = results[0];
+      finishInstall(opencodeResult.settingsPath, opencodeResult.settings, opencodeResult.statuslineCommand, false, 'opencode', isGlobal);
+    }
   }
 }
 

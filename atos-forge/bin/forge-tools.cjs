@@ -44,6 +44,8 @@
  * Requirements Operations:
  *   requirements mark-complete <ids>   Mark requirement IDs as complete in REQUIREMENTS.md
  *                                      Accepts: REQ-01,REQ-02 or REQ-01 REQ-02 or [REQ-01, REQ-02]
+ *   requirements enhance [mode]        Analyze requirements and return stats for enhancement
+ *                                      Modes: full (default), quality, gaps, add
  *
  * Milestone Operations:
  *   milestone complete <version>       Archive milestone, create MILESTONES.md
@@ -158,8 +160,8 @@ const configMod = require('./lib/config.cjs');
 const { cmdConfigEnsureSection, cmdConfigSet, cmdConfigGet } = configMod;
 const miscMod = require('./lib/misc.cjs');
 const { cmdGenerateSlug, cmdCurrentTimestamp, cmdListTodos, cmdVerifyPathExists, cmdTodoComplete,
-        cmdWebsearch, cmdSummaryExtract, cmdRequirementsMarkComplete, cmdResolveModel,
-        cmdFindPhase, cmdCommit, cmdVerifySummary, cmdTemplateSelect } = miscMod;
+        cmdWebsearch, cmdSummaryExtract, cmdRequirementsMarkComplete, cmdRequirementsEnhance,
+        cmdResolveModel, cmdFindPhase, cmdCommit, cmdVerifySummary, cmdTemplateSelect } = miscMod;
 const phaseMod = require('./lib/phase.cjs');
 const { cmdPhaseNextDecimal, cmdPhaseAdd, cmdPhaseInsert, cmdPhaseRemove, cmdPhaseComplete, cmdPhasesList, cmdPhasePlanIndex } = phaseMod;
 const roadmapMod = require('./lib/roadmap.cjs');
@@ -453,8 +455,10 @@ async function main() {
       const subcommand = args[1];
       if (subcommand === 'mark-complete') {
         cmdRequirementsMarkComplete(cwd, args.slice(2), raw);
+      } else if (subcommand === 'enhance') {
+        cmdRequirementsEnhance(cwd, args[2], raw);
       } else {
-        error('Unknown requirements subcommand. Available: mark-complete');
+        error('Unknown requirements subcommand. Available: mark-complete, enhance');
       }
       break;
     }

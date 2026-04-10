@@ -11,7 +11,7 @@ const os = require('os');
 // ============================================================
 // One command to bootstrap an entire multi-repo system:
 //   1. Discover repos (GitHub org / repos.json / filesystem)
-//   2. Run full forge:init per repo in parallel
+//   2. Run full forge-init per repo in parallel
 //   3. Build system-graph.db from all interfaces.yaml
 //   4. Validate cross-repo contracts
 //   5. Generate summary
@@ -326,7 +326,7 @@ async function initOneRepo(repo, opts) {
     }
   }
 
-  // Run full forge:init via forge-tools.cjs
+  // Run full forge-init via forge-tools.cjs
   const forgeToolsPath = resolveForgeTools();
 
   try {
@@ -347,7 +347,7 @@ async function initOneRepo(repo, opts) {
     result.interfaces = initResult.interfaces_detected || 0;
     result.build_time = initResult.build_time;
   } catch (e) {
-    // forge:init failed — try lightweight detection only
+    // forge-init failed — try lightweight detection only
     try {
       const detect = require('./detect');
       const detection = detect.detectInterfaces(repoPath);

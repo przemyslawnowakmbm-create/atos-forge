@@ -174,7 +174,7 @@ function cmdGraphStatus(cwd, raw) {
   if (!graphDbExists(cwd)) {
     output({
       graph_exists: false,
-      message: 'No code graph found. Run /forge:init to build one.',
+      message: 'No code graph found. Run /forge-init to build one.',
     }, raw);
     return;
   }
@@ -226,7 +226,7 @@ function cmdGraphStatus(cwd, raw) {
  */
 function cmdGraphImpact(cwd, args, raw) {
   if (!graphDbExists(cwd)) {
-    error('No code graph found. Run /forge:init first.');
+    error('No code graph found. Run /forge-init first.');
   }
 
   const graphDir = getForgeGraphDir();
@@ -266,7 +266,7 @@ function cmdGraphImpact(cwd, args, raw) {
  */
 function cmdGraphContext(cwd, args, raw) {
   if (!graphDbExists(cwd)) {
-    error('No code graph found. Run /forge:init first.');
+    error('No code graph found. Run /forge-init first.');
   }
 
   const files = args.filter(a => !a.startsWith('--') && a !== 'context');
@@ -286,7 +286,7 @@ function cmdGraphContext(cwd, args, raw) {
  */
 function cmdGraphVisualize(cwd, args, raw) {
   if (!graphDbExists(cwd)) {
-    error('No code graph found. Run /forge:init first.');
+    error('No code graph found. Run /forge-init first.');
   }
 
   const graphDir = getForgeGraphDir();
@@ -331,7 +331,7 @@ function cmdGraphVisualize(cwd, args, raw) {
  */
 function cmdGraphSnapshot(cwd, args, raw) {
   if (!graphDbExists(cwd)) {
-    error('No code graph found. Run /forge:init first.');
+    error('No code graph found. Run /forge-init first.');
   }
 
   const graphDir = getForgeGraphDir();
@@ -359,7 +359,7 @@ function cmdGraphSnapshot(cwd, args, raw) {
  */
 function cmdGraphSnapshotDiff(cwd, args, raw) {
   if (!graphDbExists(cwd)) {
-    error('No code graph found. Run /forge:init first.');
+    error('No code graph found. Run /forge-init first.');
   }
 
   const graphDir = getForgeGraphDir();
@@ -375,7 +375,7 @@ function cmdGraphSnapshotDiff(cwd, args, raw) {
  */
 function cmdGraphQuery(cwd, command, args, raw) {
   if (!graphDbExists(cwd)) {
-    error('No code graph found. Run /forge:init first.');
+    error('No code graph found. Run /forge-init first.');
   }
   const graphDir = getForgeGraphDir();
   const queryPath = path.join(graphDir, 'query.js');

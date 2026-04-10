@@ -1715,7 +1715,7 @@ function main() {
 
   if (!fs.existsSync(dbPath)) {
     console.error(`Error: Database not found: ${dbPath}`);
-    console.error('Run /forge:init first to build the code graph.');
+    console.error('Run /forge-init first to build the code graph.');
     process.exit(1);
   }
 

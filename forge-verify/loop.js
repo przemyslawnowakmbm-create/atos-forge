@@ -26,6 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { resolveProvider } = require('../forge-agents/provider');
 const { execSync, spawnSync } = require('child_process');
 
 // ============================================================
@@ -473,9 +474,10 @@ function patchFingerprint(patchContent) {
  */
 async function runFixAgent(agentConfig, cwd, timeout) {
   const orch = worktreeOrch();
+  const provider = resolveProvider(cwd, { provider: agentConfig.provider });
 
-  // If worktree orchestrator is available and Claude CLI exists, use it
-  if (orch && orch.checkClaude && orch.checkClaude().available) {
+  // If a supported agent CLI exists, use the orchestrator path.
+  if (orch && provider.available) {
     return runViaWorktree(agentConfig, cwd, timeout);
   }
 

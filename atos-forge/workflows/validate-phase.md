@@ -38,7 +38,7 @@ Output: `Forge ► Validating phase {N}: {phase-name}`
 3. Parse frontmatter fields: title, wave, depends_on, verify, files, modules.
 4. If zero plans found, output:
    ```
-   Forge ► No plans found in {phase-dir}. Run /forge:plan-phase {N} first.
+   Forge ► No plans found in {phase-dir}. Run /forge-plan-phase {N} first.
    ```
    and STOP.
 
@@ -165,7 +165,7 @@ Issues:
 Final verdict:
 - If all PASS → `Forge ► Phase {N} is ready for execution.`
 - If any WARN (no FAIL) → `Forge ► Phase {N} has warnings. Review before executing.`
-- If any FAIL → `Forge ► Phase {N} has failures. Fix issues before running /forge:execute-phase {N}.`
+- If any FAIL → `Forge ► Phase {N} has failures. Fix issues before running /forge-execute-phase {N}.`
 </step>
 
 </process>

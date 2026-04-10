@@ -27,6 +27,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync, execSync } = require('child_process');
+const { resolveProvider, buildInvocation } = require('../forge-agents/provider');
 
 let cache; try { cache = require('./cache'); } catch { cache = null; }
 
@@ -981,30 +982,50 @@ function layerArchitectural(opts) {
     };
   }
 
-  // Build prompt for Claude agent
+  // Build prompt for the configured agent provider.
   const prompt = buildArchitecturalPrompt(archContent, convContent, fileContents);
 
-  // Invoke Claude CLI
+  // Invoke provider CLI
   try {
-    const result = spawnSync('claude', ['--print', '-p', prompt], {
-      cwd,
-      timeout: 120000,
-      encoding: 'utf-8',
-      env: { ...process.env, TERM: 'dumb' },
-    });
-
-    if (result.status !== 0 || !result.stdout) {
+    const provider = resolveProvider(cwd);
+    if (!provider.available) {
       return {
         passed: true,
         skipped: true,
-        reason: 'Claude CLI not available or failed',
+        reason: 'No supported agent CLI available',
+        issues: [],
+        duration_ms: Date.now() - start,
+      };
+    }
+
+    const outputPath = path.join(cwd, '.forge', 'architectural-last-message.txt');
+    const invocation = buildInvocation(provider.name, prompt, {
+      outputFile: provider.name === 'codex' ? outputPath : null,
+    });
+    const result = spawnSync(provider.path, invocation.args, {
+      cwd,
+      timeout: 120000,
+      input: invocation.stdin || undefined,
+      encoding: 'utf-8',
+      env: invocation.env,
+    });
+    const stdout = provider.name === 'codex' && fs.existsSync(outputPath)
+      ? fs.readFileSync(outputPath, 'utf8')
+      : result.stdout;
+    try { fs.unlinkSync(outputPath); } catch { /* ignore */ }
+
+    if (result.status !== 0 || !stdout) {
+      return {
+        passed: true,
+        skipped: true,
+        reason: `${provider.label} CLI not available or failed`,
         issues: [],
         duration_ms: Date.now() - start,
       };
     }
 
     // Parse JSON response
-    const issues = parseArchitecturalResponse(result.stdout);
+    const issues = parseArchitecturalResponse(stdout);
     return {
       passed: issues.length === 0,
       skipped: false,

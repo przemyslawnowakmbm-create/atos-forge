@@ -107,7 +107,7 @@ Current state:
 - Status: [in_progress/blocked]
 - Committed as WIP
 
-To resume: /forge:resume-work
+To resume: /forge-resume-work
 
 ```
 </step>

@@ -49,16 +49,51 @@ cat "$PHASE_DIR"/*-VERIFICATION.md 2>/dev/null
 
 Set `is_re_verification = false`, proceed with Step 1.
 
+## Step 0b: Check for UAT Results
+
+```bash
+cat "$PHASE_DIR"/*-UAT.md 2>/dev/null
+```
+
+**If UAT.md exists with `status: complete` or `status: resolved` or `status: diagnosed`:**
+
+1. Set `has_uat = true`
+2. Parse all test results from the `## Tests` section:
+   - Extract each test's `name`, `type`, `result`, `reported`, `severity`
+   - Build a map: `uat_results[test_name] = { result, type, reported, severity }`
+3. Parse `## Summary` section for aggregate counts: `total`, `passed`, `issues`, `skipped`
+4. Parse `## Gaps` section for unresolved issues (entries with `status: failed`)
+
+**UAT results are used in two places:**
+
+- **Step 8 (Human Verification):** Before flagging an item as `human_needed`, check if a matching UAT test exists with `result: pass` or `result: auto_pass`. If so, mark as `✓ VERIFIED` with evidence `"Confirmed by user in UAT session (test N, {test_name})"` (for pass) or `"Auto-verified by backend check (test N, {test_name}: {auto_check})"` (for auto_pass) instead of flagging for human verification.
+- **Step 9 (Overall Status):** If all automated checks pass AND all `human_needed` items are resolved by UAT passes (including auto_pass), status can be `passed` instead of `human_needed`.
+
+**If UAT has unresolved issues** (gaps with `status: failed` and no matching resolved gap-closure phase):
+- Cross-reference with verification truths — if a UAT issue maps to a truth, mark that truth as `✗ FAILED` with evidence `"UAT issue: {reported} (severity: {severity})"`.
+
+**If no UAT.md exists:** Set `has_uat = false`, proceed normally. UAT is optional — its absence does not block verification.
+
 ## Step 1: Load Context (Initial Mode Only)
 
 ```bash
 ls "$PHASE_DIR"/*-PLAN.md 2>/dev/null
 ls "$PHASE_DIR"/*-SUMMARY.md 2>/dev/null
+cat "$PHASE_DIR"/*-CONTEXT.md 2>/dev/null
 node ~/.claude/atos-forge/bin/forge-tools.cjs roadmap get-phase "$PHASE_NUM"
 grep -E "^| $PHASE_NUM" .planning/REQUIREMENTS.md 2>/dev/null
 ```
 
 Extract phase goal from ROADMAP.md — this is the outcome to verify, not the tasks.
+
+**If CONTEXT.md exists**, also verify user decision compliance:
+- **Phase Boundary** — implementation stays within scope
+- **Upstream Decisions** — all pre-decided constraints are respected in code
+- **Locked Decisions** — all user decisions are implemented as specified
+- **Specific Ideas** — legacy references / design guidance are reflected in implementation
+- **Deferred Ideas** — none of these appear in the implementation
+
+Add a `## Context Compliance` section to VERIFICATION.md reporting any violations found.
 
 ## Step 2: Establish Must-Haves (Initial Mode Only)
 
@@ -259,6 +294,119 @@ grep -E "Phase $PHASE_NUM" .planning/REQUIREMENTS.md 2>/dev/null
 
 If REQUIREMENTS.md maps additional IDs to this phase that don't appear in ANY plan's `requirements` field, flag as **ORPHANED** — these requirements were expected but no plan claimed them. ORPHANED requirements MUST appear in the verification report.
 
+## Step 6c: Verify Test Coverage
+
+Check that tests exist and pass for the phase's key artifacts.
+
+**1. Check plan frontmatter for test expectations:**
+```bash
+grep "has_tests:" "$PHASE_DIR"/*-PLAN.md 2>/dev/null
+```
+
+**2. Find test files for phase artifacts:**
+
+For each key source file from SUMMARY.md's `key-files`:
+```bash
+# Common test file patterns
+SOURCE_FILE="src/lib/billing.ts"
+BASE=$(basename "$SOURCE_FILE" | sed 's/\.[^.]*$//')
+DIR=$(dirname "$SOURCE_FILE")
+
+# Search for co-located tests
+find "$DIR" -name "${BASE}.test.*" -o -name "${BASE}.spec.*" -o -name "${BASE}_test.*" 2>/dev/null
+
+# Search in __tests__ directories
+find "$DIR/__tests__" -name "${BASE}.*" 2>/dev/null
+
+# Search in top-level tests directory
+find tests/ test/ -name "${BASE}.*" 2>/dev/null
+
+# For Rust: check for #[cfg(test)] module in the source file itself
+grep -l "#\[cfg(test)\]" "$SOURCE_FILE" 2>/dev/null
+```
+
+**3. Classify each source file:**
+
+| Source File | Has Test? | Test Status | Classification |
+|-------------|-----------|-------------|----------------|
+| Business logic / API / exported fn | Required | - | testable |
+| UI component | Recommended | - | testable |
+| Config / migration / types / glue | Not required | - | exempt |
+
+**4. Run test suite:**
+```bash
+# Detect and run
+if [ -f "Cargo.toml" ]; then cargo test 2>&1 | tail -30
+elif [ -f "package.json" ] && npm test --version >/dev/null 2>&1; then npm test 2>&1 | tail -30
+elif [ -f "pyproject.toml" ] || [ -f "pytest.ini" ]; then pytest 2>&1 | tail -30
+elif [ -f "go.mod" ]; then go test ./... 2>&1 | tail -30
+fi
+```
+
+**5. Record in VERIFICATION.md under `### Test Coverage`:**
+
+| Source File | Test File | Status | Notes |
+|-------------|-----------|--------|-------|
+| `src/lib/billing.ts` | `src/lib/billing.test.ts` | ✓ EXISTS + PASSES | 5 tests, 0 failures |
+| `src/api/users/route.ts` | — | ✗ MISSING | Testable: API endpoint |
+| `src/types/user.ts` | — | ○ EXEMPT | Type definitions only |
+
+**Test coverage: {N}/{M} testable files have tests**
+**Test results: {passed} passed, {failed} failed, {skipped} skipped**
+
+**6. Severity:**
+- Test files missing for business logic / API endpoints → ⚠️ Warning (not blocker — allows gap-closure path)
+- Tests exist but fail → ⚠️ Warning (documents the regression)
+- No test framework configured in project → ℹ️ Info
+- All testable files covered and passing → ✓ No issue
+
+Test coverage gaps are recorded as warnings, NOT blockers. They feed into milestone-level aggregation where systemic lack of tests becomes visible.
+
+## Step 6d: Verify UI/UX Quality (Frontend Phases Only)
+
+**Activation:** Phase goal mentions UI, components, frontend, styling, dashboard, or visual output. Skip for backend-only, CLI, or infrastructure phases.
+
+Reference standards: `@~/.claude/atos-forge/references/ui-ux-quality.md`
+
+For each modified `.tsx`, `.jsx`, `.vue`, `.svelte`, or `.html` file, check:
+
+**Accessibility (CRITICAL — failures are gaps):**
+```bash
+# Missing alt text on images
+grep -n "<img" "$file" | grep -v "alt=" 2>/dev/null
+# Icon-only buttons without aria-label
+grep -n "<button" "$file" | grep -v "aria-label" | grep -v ">[^<]*[a-zA-Z]" 2>/dev/null
+# Form inputs without labels
+grep -n "<input\|<textarea\|<select" "$file" | grep -v "aria-label\|id=" 2>/dev/null
+# Missing focus indicators (search for interactive elements without focus styles)
+grep -n "onClick\|onPress\|href=" "$file" | grep -v "focus:" 2>/dev/null
+```
+
+**Visual Consistency (warnings):**
+```bash
+# Raw hex/rgb colors in component (should use tokens)
+grep -n "#[0-9a-fA-F]\{3,8\}\|rgb(" "$file" | grep -v "\.css\|\.scss\|tokens\|variables\|theme" 2>/dev/null
+# Magic number spacing (not on 4/8px grid)
+grep -n -E "p-[13579]|m-[13579]|gap-[13579]" "$file" 2>/dev/null
+# Emoji used as icons
+grep -n -P "[\x{1F300}-\x{1F9FF}]" "$file" 2>/dev/null
+```
+
+**Interaction Quality (warnings):**
+```bash
+# Buttons/links without hover/active states
+grep -n "<button\|<a " "$file" | grep -v "hover:" 2>/dev/null
+# Animations without reduced-motion
+grep -n "transition\|animate-\|keyframes" "$file" | grep -v "motion-reduce\|prefers-reduced-motion" 2>/dev/null
+```
+
+**Categorize findings:**
+- 🛑 **Blocker:** Missing alt text, no keyboard access, form inputs without labels
+- ⚠️ **Warning:** Raw hex colors, missing hover states, emoji as icons, magic spacing
+- ℹ️ **Info:** Missing reduced-motion (if no animations exist), missing dark mode support
+
+Include findings in VERIFICATION.md under `### UI/UX Quality` section. Blockers count as gaps.
+
 ## Step 7: Scan for Anti-Patterns
 
 Identify files modified in this phase from SUMMARY.md key-files section, or extract commits and verify:
@@ -319,7 +467,7 @@ Categorize: 🛑 Blocker (prevents goal) | ⚠️ Warning (incomplete) | ℹ️ 
 
 ## Step 10: Structure Gap Output (If Gaps Found)
 
-Structure gaps in YAML frontmatter for `/forge:plan-phase --gaps`:
+Structure gaps in YAML frontmatter for `/forge-plan-phase --gaps`:
 
 ```yaml
 gaps:
@@ -377,6 +525,21 @@ human_verification: # Only if status: human_needed
   - test: "What to do"
     expected: "What should happen"
     why_human: "Why can't verify programmatically"
+uat_cross_reference: # Only if UAT.md exists for this phase
+  uat_status: "complete | resolved | diagnosed | missing"
+  total_tests: N
+  passed: N
+  issues: N
+  skipped: N
+  human_items_resolved_by_uat: N  # human_needed items confirmed by UAT passes
+  uat_issues_unresolved: N  # UAT failures not yet fixed
+test_coverage: # Test existence and pass/fail status
+  testable_files: N  # Source files that should have tests
+  files_with_tests: N  # Source files that actually have test files
+  tests_passed: N
+  tests_failed: N
+  tests_skipped: N
+  missing_tests: []  # Source files without test coverage
 ---
 
 # Phase {X}: {Name} Verification Report
@@ -413,14 +576,43 @@ human_verification: # Only if status: human_needed
 | Requirement | Source Plan | Description | Status | Evidence |
 | ----------- | ---------- | ----------- | ------ | -------- |
 
+### Test Coverage
+
+| Source File | Test File | Status | Notes |
+|-------------|-----------|--------|-------|
+| `{source_path}` | `{test_path}` | ✓ EXISTS + PASSES | {N} tests, 0 failures |
+| `{source_path}` | — | ✗ MISSING | Testable: {reason} |
+| `{source_path}` | — | ○ EXEMPT | {reason} |
+
+**Test coverage:** {N}/{M} testable files have tests
+**Test results:** {passed} passed, {failed} failed, {skipped} skipped
+
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 | ---- | ---- | ------- | -------- | ------ |
 
+### UAT Cross-Reference
+
+{If UAT.md exists for this phase:}
+
+**UAT Session:** {uat_status} ({passed}/{total} passed, {issues} issues, {skipped} skipped)
+
+| # | UAT Test | Type | UAT Result | Mapped Truth | Resolution |
+|---|----------|------|------------|--------------|------------|
+| 1 | {test_name} | {ui/database/auth/api} | pass | Truth #{N} | Human-confirmed ✓ |
+| 2 | {test_name} | {type} | issue | Truth #{N} | UAT issue: {reported} |
+| 3 | {test_name} | {type} | pass | — | No matching truth (informational) |
+
+**Human items resolved by UAT:** {N} items originally flagged as `human_needed` were confirmed by UAT test passes.
+
+{If no UAT.md exists:}
+
+No UAT session conducted for this phase. Human verification items (if any) remain unconfirmed.
+
 ### Human Verification Required
 
-{Items needing human testing — detailed format for user}
+{Items needing human testing that were NOT resolved by UAT passes — detailed format for user}
 
 ### Gaps Summary
 
@@ -454,7 +646,7 @@ All must-haves verified. Phase goal achieved. Ready to proceed.
 1. **{Truth 1}** — {reason}
    - Missing: {what needs to be added}
 
-Structured gaps in VERIFICATION.md frontmatter for `/forge:plan-phase --gaps`.
+Structured gaps in VERIFICATION.md frontmatter for `/forge-plan-phase --gaps`.
 
 {If human_needed:}
 ### Human Verification Required
@@ -475,7 +667,7 @@ Automated checks passed. Awaiting human verification.
 
 **DO NOT skip key link verification.** 80% of stubs hide here — pieces exist but aren't connected.
 
-**Structure gaps in YAML frontmatter** for `/forge:plan-phase --gaps`.
+**Structure gaps in YAML frontmatter** for `/forge-plan-phase --gaps`.
 
 **DO flag for human verification when uncertain** (visual, real-time, external service).
 
@@ -539,15 +731,23 @@ return <div>No messages</div>  // Always shows "no messages"
 <success_criteria>
 
 - [ ] Previous VERIFICATION.md checked (Step 0)
+- [ ] UAT.md checked for existing user test results (Step 0b)
+- [ ] If UAT exists: human_needed items cross-referenced against UAT passes
+- [ ] If UAT has unresolved issues: mapped to verification truths as FAILED
 - [ ] If re-verification: must-haves loaded from previous, focus on failed items
 - [ ] If initial: must-haves established (from frontmatter or derived)
 - [ ] All truths verified with status and evidence
 - [ ] All artifacts checked at all three levels (exists, substantive, wired)
 - [ ] All key links verified
 - [ ] Requirements coverage assessed (if applicable)
+- [ ] Test coverage verified (Step 6c): test files checked for key artifacts, test suite run
+- [ ] Test Coverage section included in VERIFICATION.md with per-file status
+- [ ] test_coverage frontmatter populated
 - [ ] Anti-patterns scanned and categorized
-- [ ] Human verification items identified
-- [ ] Overall status determined
+- [ ] Human verification items identified (excluding those resolved by UAT)
+- [ ] Overall status determined (UAT passes can resolve human_needed → passed)
+- [ ] UAT Cross-Reference section included in VERIFICATION.md (if UAT exists)
+- [ ] uat_cross_reference frontmatter included (if UAT exists)
 - [ ] Gaps structured in YAML frontmatter (if gaps_found)
 - [ ] Re-verification metadata included (if previous existed)
 - [ ] VERIFICATION.md created with complete report

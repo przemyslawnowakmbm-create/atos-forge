@@ -378,7 +378,7 @@ Next: Phase [X+1] — [Name]
 ⚡ Auto-continuing: Plan Phase [X+1] in detail
 ```
 
-Exit skill and invoke SlashCommand("/forge:plan-phase [X+1] --auto")
+Exit skill and invoke SlashCommand("/forge-plan-phase [X+1] --auto")
 
 **If CONTEXT.md does NOT exist:**
 
@@ -390,7 +390,7 @@ Next: Phase [X+1] — [Name]
 ⚡ Auto-continuing: Discuss Phase [X+1] first
 ```
 
-Exit skill and invoke SlashCommand("/forge:discuss-phase [X+1] --auto")
+Exit skill and invoke SlashCommand("/forge-discuss-phase [X+1] --auto")
 
 </if>
 
@@ -407,15 +407,15 @@ Exit skill and invoke SlashCommand("/forge:discuss-phase [X+1] --auto")
 
 **Phase [X+1]: [Name]** — [Goal from ROADMAP.md]
 
-`/forge:discuss-phase [X+1]` — gather context and clarify approach
+`/forge-discuss-phase [X+1]` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/forge:plan-phase [X+1]` — skip discussion, plan directly
-- `/forge:research-phase [X+1]` — investigate unknowns
+- `/forge-plan-phase [X+1]` — skip discussion, plan directly
+- `/forge-research-phase [X+1]` — investigate unknowns
 
 ---
 ```
@@ -432,15 +432,15 @@ Exit skill and invoke SlashCommand("/forge:discuss-phase [X+1] --auto")
 **Phase [X+1]: [Name]** — [Goal from ROADMAP.md]
 <sub>✓ Context gathered, ready to plan</sub>
 
-`/forge:plan-phase [X+1]`
+`/forge-plan-phase [X+1]`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/forge:discuss-phase [X+1]` — revisit context
-- `/forge:research-phase [X+1]` — investigate unknowns
+- `/forge-discuss-phase [X+1]` — revisit context
+- `/forge-research-phase [X+1]` — investigate unknowns
 
 ---
 ```
@@ -466,7 +466,7 @@ Phase {X} marked complete.
 ⚡ Auto-continuing: Complete milestone and archive
 ```
 
-Exit skill and invoke SlashCommand("/forge:complete-milestone {version}")
+Exit skill and invoke SlashCommand("/forge-complete-milestone {version}")
 
 </if>
 
@@ -483,7 +483,7 @@ Exit skill and invoke SlashCommand("/forge:complete-milestone {version}")
 
 **Complete Milestone {version}** — archive and prepare for next
 
-`/forge:complete-milestone {version}`
+`/forge-complete-milestone {version}`
 
 <sub>`/clear` first → fresh context window</sub>
 

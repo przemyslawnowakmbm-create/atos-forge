@@ -31,7 +31,8 @@ type: database
 command: |
   docker compose exec db psql -U l1auto -d l1auto -c "SELECT polname FROM pg_policy WHERE polrelid='tickets'::regclass"
 expected: Should show an RLS policy name like `tenant_isolation_tickets`
-result: [pending]
+result: auto_pass
+auto_check: "exit code 0, output contains 'tenant_isolation_tickets'"
 
 ### 2. [Backend Test Name]
 type: auth
@@ -39,7 +40,9 @@ command: |
   curl -s -X POST http://localhost:8001/api/auth/login -H 'Content-Type: application/json' \
     -d '{"email":"admin@l1auto.local","password":"admin"}' | python3 -c "import sys,json,base64; t=json.load(sys.stdin)['access_token'].split('.')[1]; print(json.loads(base64.b64decode(t+'==')))"
 expected: JSON payload containing `tenant_id` field with a UUID value
-result: [pending]
+result: issue
+reported: "auto-check failed: expected pattern 'tenant_id' not found in output"
+severity: blocker
 
 ### 3. [UI Test Name]
 type: ui
@@ -112,9 +115,11 @@ ui: [passed]/[total]
 - `type` values: ui (default), database, api, auth, worker, infra
 - If type is NOT ui: `command` field is REQUIRED (executable verification command)
 - Backend tests (non-ui types) always ordered before UI tests
-- `result` values: [pending], pass, issue, skipped
+- `result` values: [pending], pass, auto_pass, issue, skipped
+- If auto_pass: add `auto_check` field with evaluation reason (e.g. "exit code 0, output matches expected")
 - If issue: add `reported` (verbatim) and `severity` (inferred)
 - If skipped: add `reason` if provided
+- `auto_pass` counts as passed in Summary totals and By Type breakdown
 
 **Summary:**
 - OVERWRITE counts after each response
@@ -127,7 +132,7 @@ ui: [passed]/[total]
 - Include `type` field matching the test type (ui, database, auth, api, worker, infra)
 - Include `command` field for backend tests (helps diagnose-issues agents understand verification method)
 - After diagnosis: fill `root_cause`, `artifacts`, `missing`, `debug_session`
-- This section feeds directly into /forge:plan-phase --gaps
+- This section feeds directly into /forge-plan-phase --gaps
 
 </section_rules>
 
@@ -141,7 +146,7 @@ ui: [passed]/[total]
 4. UAT.md Gaps section updated with diagnosis:
    - Each gap gets `root_cause`, `artifacts`, `missing`, `debug_session` filled
 5. status → "diagnosed"
-6. Ready for /forge:plan-phase --gaps with root causes
+6. Ready for /forge-plan-phase --gaps with root causes
 
 **After diagnosis:**
 ```yaml
@@ -165,7 +170,7 @@ ui: [passed]/[total]
 
 <lifecycle>
 
-**Creation:** When /forge:verify-work starts new session
+**Creation:** When /forge-verify-work starts new session
 - Extract tests from SUMMARY.md files
 - Set status to "testing"
 - Current Test points to test 1
@@ -303,14 +308,16 @@ type: database
 command: |
   docker compose exec db psql -U l1auto -d l1auto -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tenants' ORDER BY ordinal_position"
 expected: Should show columns: id (uuid), name (varchar), slug (varchar), created_at (timestamp)
-result: pass
+result: auto_pass
+auto_check: "exit code 0, output contains 'uuid', 'varchar', 'timestamp'"
 
 ### 2. RLS Policies on Tickets
 type: database
 command: |
   docker compose exec db psql -U l1auto -d l1auto -c "SELECT polname, polcmd FROM pg_policy WHERE polrelid='tickets'::regclass"
 expected: Should show tenant_isolation policy with polcmd='*' (all commands)
-result: pass
+result: auto_pass
+auto_check: "exit code 0, output contains 'tenant_isolation'"
 
 ### 3. JWT Contains tenant_id
 type: auth

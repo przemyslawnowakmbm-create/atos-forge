@@ -50,7 +50,7 @@ Parse JSON for: `state_exists`, `roadmap_exists`, `project_exists`, `planning_ex
 
 **If `state_exists` is true:** Proceed to load_state
 **If `state_exists` is false but `roadmap_exists` or `project_exists` is true:** Offer to reconstruct STATE.md
-**If `planning_exists` is false:** This is a new project - route to /forge:new-project
+**If `planning_exists` is false:** This is a new project - route to /forge-new-project
 </step>
 
 <step name="load_state">
@@ -147,7 +147,7 @@ Present complete project status to user:
     Resume with: Task tool (resume parameter with agent ID)
 
 [If pending todos exist:]
-📋 [N] pending todos — /forge:check-todos to review
+📋 [N] pending todos — /forge-check-todos to review
 
 [If blockers exist:]
 ⚠️  Carried concerns:
@@ -203,11 +203,11 @@ What would you like to do?
 [Primary action based on state - e.g.:]
 1. Resume interrupted agent [if interrupted agent found]
    OR
-1. Execute phase (/forge:execute-phase {phase})
+1. Execute phase (/forge-execute-phase {phase})
    OR
-1. Discuss Phase 3 context (/forge:discuss-phase 3) [if CONTEXT.md missing]
+1. Discuss Phase 3 context (/forge-discuss-phase 3) [if CONTEXT.md missing]
    OR
-1. Plan Phase 3 (/forge:plan-phase 3) [if CONTEXT.md exists or discuss option declined]
+1. Plan Phase 3 (/forge-plan-phase 3) [if CONTEXT.md exists or discuss option declined]
 
 [Secondary options:]
 2. Review current phase status
@@ -238,7 +238,7 @@ Based on user selection, route to appropriate workflow:
 
   **{phase}-{plan}: [Plan Name]** — [objective from PLAN.md]
 
-  `/forge:execute-phase {phase}`
+  `/forge-execute-phase {phase}`
 
   <sub>`/clear` first → fresh context window</sub>
 
@@ -252,15 +252,15 @@ Based on user selection, route to appropriate workflow:
 
   **Phase [N]: [Name]** — [Goal from ROADMAP.md]
 
-  `/forge:plan-phase [phase-number]`
+  `/forge-plan-phase [phase-number]`
 
   <sub>`/clear` first → fresh context window</sub>
 
   ---
 
   **Also available:**
-  - `/forge:discuss-phase [N]` — gather context first
-  - `/forge:research-phase [N]` — investigate unknowns
+  - `/forge-discuss-phase [N]` — gather context first
+  - `/forge-research-phase [N]` — investigate unknowns
 
   ---
   ```

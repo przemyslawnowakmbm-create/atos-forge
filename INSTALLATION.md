@@ -59,25 +59,33 @@ node bin/install.js --claude --global
 ```
 
 This copies to `~/.claude/`:
-- `commands/forge/` — 33 slash commands (`/forge:*`)
+- `skills/` — 41 forge skills (from `skill-sources/forge-*/SKILL.md`)
 - `agents/` — 11 specialized agent definitions
 - `atos-forge/` — workflows, templates, references, CLI (forge-tools.cjs + 21 lib modules)
 - `forge-graph/` — code graph engine (builder, query, schema, dashboard, conventions, watcher)
+- `forge-config/` — unified configuration and doctor/settings helpers
 - `forge-session/` — session memory (ledger, decisions, knowledge, crash-recovery, metrics)
 - `forge-verify/` — verification pipeline (9-layer engine, auto-fix loop, cache, test stubs, browser layer)
 - `forge-assess/` — task assessment (assessor, splitter with connected_component strategy)
 - `forge-agents/` — agent factory, parallel planner, output schema
 - `forge-containers/` — Docker/worktree orchestration with 3-tier timeout
-- `forge-auto/` — auto mode state machine
+- `forge-system/` — multi-repo system graph and interface validation
+- `forge-analyze/` — requirement impact analyzer
 - `hooks/` — statusline, context monitor, update checker
 - `CHANGELOG.md`, `VERSION`, `package.json` (CommonJS mode)
+
+Directive propagation:
+- Claude / Gemini / OpenCode main sessions load the directives through installed Forge skill `execution_context`
+- Codex main session loads the same directives through installed Codex skill `execution_context`
+- Spawned Forge sub-agents receive the directives through `forge-agents/factory.js`
+- `CLAUDE.md` mirrors the same directive text when working directly inside the FDP repo
 
 ### Step 6: Initialize Forge in your project
 
 ```bash
 cd /path/to/your/project
 claude
-/forge:init
+/forge-init
 ```
 
 Creates `.forge/` directory with:
@@ -92,7 +100,7 @@ Creates `.forge/` directory with:
 ### Step 7: Verify installation
 
 ```bash
-/forge:doctor
+/forge-doctor
 ```
 
 Runs 18 health checks across dependencies, project health, and system resources.
@@ -144,7 +152,7 @@ git pull
 
 Or from within Claude Code:
 ```
-/forge:update
+/forge-update
 ```
 
 ---
@@ -166,8 +174,8 @@ Removes all Forge files from `~/.claude/` but preserves your project's `.forge/`
 | `node: command not found` | Install Node.js 20+: `brew install node` (macOS) or `nvm install 20` |
 | `claude: command not found` | Install Claude Code: `npm install -g @anthropic-ai/claude-code` |
 | `better-sqlite3` build fails | Ensure build tools: `xcode-select --install` (macOS) or `apt install build-essential` (Linux) |
-| `/forge:*` commands not found | Re-run `./scripts/setup.sh` or restart Claude Code |
-| `graph.db` missing | Run `/forge:init` in your project |
+| `/forge-*` commands not found | Re-run `./scripts/setup.sh` or restart Claude Code |
+| `graph.db` missing | Run `/forge-init` in your project |
 | Docker not available | Forge falls back to git worktrees automatically — no action needed |
 
 ---
@@ -176,34 +184,36 @@ Removes all Forge files from `~/.claude/` but preserves your project's `.forge/`
 
 ```
 ~/.claude/                          Global Claude Code config
-├── commands/forge/                 33 Forge slash commands
+├── skills/                         41 Forge skills (forge-*/SKILL.md)
 ├── agents/                         11 specialized agents
 ├── atos-forge/                     CLI, workflows, templates
 │   ├── bin/forge-tools.cjs         Thin dispatcher (709L)
 │   ├── bin/lib/                    21 CLI modules
 │   ├── workflows/                  34 workflow definitions
 │   └── templates/                  Plan/summary templates
+├── forge-config/                   Unified config + settings + doctor
 ├── forge-graph/                    Code graph engine
 ├── forge-session/                  Session memory
 ├── forge-verify/                   Verification pipeline
 ├── forge-assess/                   Task assessment
 ├── forge-agents/                   Agent factory
 ├── forge-containers/               Execution isolation
-├── forge-auto/                     Auto mode
+├── forge-system/                   Multi-repo system graph
+├── forge-analyze/                  Requirement impact analyzer
 ├── hooks/                          Claude Code hooks
 └── settings.json                   Updated with Forge hooks
 
 ~/.forge-src/                       Forge source (if installed via curl)
 
 /your/project/
-├── .forge/                         Created by /forge:init
+├── .forge/                         Created by /forge-init
 │   ├── graph.db                    SQLite code graph
 │   ├── config.json                 Project config
 │   ├── dashboard.html              Interactive dashboard
 │   ├── session/                    Ledger, decisions.db, metrics
 │   ├── snapshots/                  Graph snapshots
 │   └── knowledge/                  Persistent learnings
-└── .planning/                      Created by /forge:new-project
+└── .planning/                      Created by /forge-new-project
     ├── PROJECT.md, ROADMAP.md, STATE.md
     └── phases/                     Phase plans and summaries
 ```

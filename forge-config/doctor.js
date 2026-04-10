@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
+const { checkProvider } = require('../forge-agents/provider');
 
 // ============================================================
 // Chalk — graceful fallback
@@ -110,32 +111,21 @@ function checkDocker() {
 }
 
 function checkClaude() {
-  // Try which first
-  try {
-    const which = execSync('which claude 2>/dev/null', { stdio: 'pipe', timeout: 5000, encoding: 'utf8' }).trim();
-    if (which) {
-      try {
-        const v = execSync(`"${which}" --version 2>/dev/null`, { stdio: 'pipe', timeout: 10000, encoding: 'utf8' }).trim();
-        return { name: 'Claude CLI', status: 'ok', detail: `${v}` };
-      } catch {
-        return { name: 'Claude CLI', status: 'ok', detail: which };
-      }
-    }
-  } catch { /* not in PATH */ }
+  const claude = checkProvider('claude');
+  return {
+    name: 'Claude CLI',
+    status: claude.available ? 'ok' : 'fail',
+    detail: claude.available ? (claude.version || claude.path) : 'NOT FOUND',
+  };
+}
 
-  // Check common paths
-  const candidates = [
-    path.join(os.homedir(), '.claude', 'local', 'claude'),
-    path.join(os.homedir(), '.local', 'bin', 'claude'),
-    '/usr/local/bin/claude',
-    '/opt/homebrew/bin/claude',
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) {
-      return { name: 'Claude CLI', status: 'ok', detail: c };
-    }
-  }
-  return { name: 'Claude CLI', status: 'fail', detail: 'NOT FOUND' };
+function checkCodex() {
+  const codex = checkProvider('codex');
+  return {
+    name: 'Codex CLI',
+    status: codex.available ? 'ok' : 'warn',
+    detail: codex.available ? (codex.version || codex.path) : 'NOT FOUND (optional)',
+  };
 }
 
 function checkTreeSitter(cwd) {
@@ -214,7 +204,7 @@ function checkGraph(cwd) {
     }
     const status = stale ? 'warn' : 'ok';
     const detail = `${fileCount} files, ${moduleCount} modules${freshness ? ` (${freshness})` : ''}`;
-    const extra = stale ? 'graph is stale — run forge:init or commit to trigger auto-update' : undefined;
+    const extra = stale ? 'graph is stale — run forge-init or commit to trigger auto-update' : undefined;
     return { name: 'Code Graph', status, detail, extra };
   } catch (e) {
     return { name: 'Code Graph', status: 'fail', detail: `error: ${e.message.slice(0, 60)}` };
@@ -369,7 +359,7 @@ function checkSystemGraph(cwd) {
 function checkInterfaces(cwd) {
   const interfacesPath = path.join(cwd, '.forge', 'interfaces.yaml');
   if (!fs.existsSync(interfacesPath)) {
-    return { name: 'Interfaces', status: 'skip', detail: 'no interfaces.yaml (run forge:init)' };
+    return { name: 'Interfaces', status: 'skip', detail: 'no interfaces.yaml (run forge-init)' };
   }
 
   try {
@@ -413,6 +403,7 @@ function doctor(cwd, opts = {}) {
   checks.push(checkGit());
   checks.push(checkDocker());
   checks.push(checkClaude());
+  checks.push(checkCodex());
   checks.push(checkTreeSitter(root));
   checks.push(checkBetterSqlite3(root));
   checks.push(checkChalk(root));
@@ -433,7 +424,7 @@ function doctor(cwd, opts = {}) {
     const crashRecovery = require('../forge-session/crash-recovery');
     const lock = crashRecovery.readCrashLock(root);
     if (lock && !lock.processAlive) {
-      checks.push({ name: 'Crash Lock', status: 'warn', message: `Stale lock from ${lock.startedAt} — run /forge:resume-work` });
+      checks.push({ name: 'Crash Lock', status: 'warn', message: `Stale lock from ${lock.startedAt} — run /forge-resume-work` });
     } else {
       checks.push({ name: 'Crash Lock', status: 'ok', message: lock ? 'Active session' : 'No crash detected' });
     }

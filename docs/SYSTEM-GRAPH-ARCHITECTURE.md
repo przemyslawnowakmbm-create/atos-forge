@@ -62,21 +62,21 @@ Forge supports two initialization modes depending on the project shape:
 
 | Command | Use Case | What It Does |
 |---------|----------|-------------|
-| `forge:init` | Single repo, greenfield, small project | Unchanged. Builds local graph, creates `.forge/` env, detects interfaces. One repo at a time. |
-| `forge:system-init` | Multi-repo brownfield, 10-500+ repos | **Runs full `forge:init` across all repos in parallel**, then builds the system graph on top. One command bootstraps everything. |
+| `forge-init` | Single repo, greenfield, small project | Unchanged. Builds local graph, creates `.forge/` env, detects interfaces. One repo at a time. |
+| `forge-system-init` | Multi-repo brownfield, 10-500+ repos | **Runs full `forge-init` across all repos in parallel**, then builds the system graph on top. One command bootstraps everything. |
 
 The assumption behind `system-init` is that **all developers work with AI agents across all repos**. Every repo is an active repo — agents may land in any of them for cross-repo changes. Therefore every repo gets full Forge capabilities (local graph, session, interfaces) from day one, not just lightweight metadata.
 
 ```
-forge:system-init --github-org myorg
+forge-system-init --github-org myorg
   │
   ├── Discover all repos (GitHub org / repos.json / filesystem glob)
   │
   ├── For each repo (parallel, 16 workers):
   │   ├── Clone (shallow) if not local
-  │   ├── Tree-sitter parse → graph.db          ← same as forge:init
-  │   ├── Interface detection → interfaces.yaml  ← same as forge:init
-  │   └── Create .forge/ environment             ← same as forge:init
+  │   ├── Tree-sitter parse → graph.db          ← same as forge-init
+  │   ├── Interface detection → interfaces.yaml  ← same as forge-init
+  │   └── Create .forge/ environment             ← same as forge-init
   │
   ├── Build system-graph.db from all interfaces.yaml
   ├── Validate cross-repo contracts
@@ -93,11 +93,11 @@ atos-forge/          (existing — CLI entry point)
 forge-graph/         (existing — per-repo code graph)
 forge-system/        (NEW — system-level graph)
   ├── schema.sql           — SQLite schema for system-graph.db
-  ├── system-init.js       — Batch orchestrator: discovers repos, runs forge:init in parallel, builds system graph
+  ├── system-init.js       — Batch orchestrator: discovers repos, runs forge-init in parallel, builds system graph
   ├── builder.js           — Build/rebuild system graph from interfaces.yaml files
   ├── query.js             — Query API (CLI + programmatic)
   ├── sync.js              — Sync one repo's interfaces.yaml into system graph
-  ├── detect.js            — Auto-detect interfaces (used by both forge:init and system-init)
+  ├── detect.js            — Auto-detect interfaces (used by both forge-init and system-init)
   ├── dashboard.js         — System-level dashboard generator
   └── validate.js          — Validate interfaces.yaml + cross-repo contract checks
 ```
@@ -108,7 +108,7 @@ forge-system/        (NEW — system-level graph)
 
 ### 3.1 `interfaces.yaml` (per repo, in `.forge/`)
 
-This is the bridge between local and system graphs. Created by `forge:init`, maintained by developers, versioned in git.
+This is the bridge between local and system graphs. Created by `forge-init`, maintained by developers, versioned in git.
 
 ```yaml
 # .forge/interfaces.yaml
@@ -260,7 +260,7 @@ CREATE INDEX idx_interfaces_type ON interfaces(type);
 
 ## 4. Interface Detection (`forge-system/detect.js`)
 
-Auto-detect interfaces to generate a draft `interfaces.yaml`. Called by both `forge:init` (single repo) and `forge:system-init` (batch across all repos).
+Auto-detect interfaces to generate a draft `interfaces.yaml`. Called by both `forge-init` (single repo) and `forge-system-init` (batch across all repos).
 
 ### Detection Rules
 
@@ -280,7 +280,7 @@ Auto-detect interfaces to generate a draft `interfaces.yaml`. Called by both `fo
 
 ### Generation Flow
 
-Detection runs identically whether triggered by `forge:init` (single repo) or `forge:system-init` (batch):
+Detection runs identically whether triggered by `forge-init` (single repo) or `forge-system-init` (batch):
 
 ```
 Per-repo detection (same in both modes):
@@ -293,9 +293,9 @@ Per-repo detection (same in both modes):
   └── Print summary: "Detected 3 exports, 5 imports"
 ```
 
-**In `forge:init`:** Detection runs as a step within the single-repo init pipeline.
+**In `forge-init`:** Detection runs as a step within the single-repo init pipeline.
 
-**In `forge:system-init`:** Detection runs inside each parallel worker as part of the full per-repo init. The orchestrator collects all generated `interfaces.yaml` files afterward to build the system graph.
+**In `forge-system-init`:** Detection runs inside each parallel worker as part of the full per-repo init. The orchestrator collects all generated `interfaces.yaml` files afterward to build the system graph.
 
 The generated file is a **draft** — clearly marked with comments like `# AUTO-DETECTED — verify and adjust`. The developer reviews, corrects, and commits it.
 
@@ -339,7 +339,7 @@ Phase A — Repo Discovery
   3. Report: "Found 487 repos"
 
 Phase B — Parallel Full Init (per repo, 16 workers)
-  For each repo (same as forge:init):
+  For each repo (same as forge-init):
   4. Tree-sitter parse → .forge/graph.db
   5. Interface detection → .forge/interfaces.yaml (draft)
   6. Create .forge/ environment (config, session, snapshots)
@@ -377,7 +377,7 @@ node forge-system/builder.js --repos repos.json --output system-graph.db
 ```
 
 Useful when:
-- Repos already have `.forge/` from a previous `system-init` or individual `forge:init`
+- Repos already have `.forge/` from a previous `system-init` or individual `forge-init`
 - You want to rebuild the system graph without re-parsing all source code
 - CI pipeline aggregation step
 
@@ -403,10 +403,10 @@ node forge-system/sync.js --db /path/to/system-graph.db
 4. Log sync to `sync_log` with changes summary
 
 Can be triggered by:
-- `forge:init` or `forge:system-init` (initial registration)
+- `forge-init` or `forge-system-init` (initial registration)
 - Git hook (post-commit on `interfaces.yaml`)
 - CI pipeline step (recommended — auto-sync on merge to main)
-- Manual `forge:system-sync` command
+- Manual `forge-system-sync` command
 
 **Recommended CI integration** — generated by `system-init` with `--pr` or `--commit` modes:
 
@@ -580,12 +580,12 @@ This is the cross-repo ripple verification:
 verify locally → verify contracts → spawn verification agents in consumer repos
 ```
 
-### 7.5 `forge:init` (Single Repo — Unchanged + Interface Detection)
+### 7.5 `forge-init` (Single Repo — Unchanged + Interface Detection)
 
-`forge:init` remains the entry point for single-repo / greenfield projects. The only addition is interface detection at the end:
+`forge-init` remains the entry point for single-repo / greenfield projects. The only addition is interface detection at the end:
 
 ```
-forge:init (extended)
+forge-init (extended)
   ├── [existing] Build local code graph
   ├── [existing] Create .forge/ environment
   ├── [existing] Generate dashboard
@@ -597,22 +597,22 @@ forge:init (extended)
 
 No changes to existing behavior. Interface detection is additive. If no system graph is configured, the interfaces.yaml is still useful as documentation.
 
-### 7.6 `forge:system-init` (Multi-Repo Batch)
+### 7.6 `forge-system-init` (Multi-Repo Batch)
 
-The new command for brownfield multi-repo projects. Orchestrates full `forge:init` across all repos in parallel, then assembles the system graph:
+The new command for brownfield multi-repo projects. Orchestrates full `forge-init` across all repos in parallel, then assembles the system graph:
 
 ```
-forge:system-init --github-org myorg
+forge-system-init --github-org myorg
   ├── Discover all repos (GitHub API / repos.json / filesystem)
   ├── For each repo (parallel workers):
-  │   └── Run full forge:init pipeline (graph.db + interfaces.yaml + .forge/ env)
+  │   └── Run full forge-init pipeline (graph.db + interfaces.yaml + .forge/ env)
   ├── Build system-graph.db from all interfaces.yaml
   ├── Validate cross-repo contracts
   ├── Generate system dashboard
   └── Deliver changes back (--local / --pr / --commit / --dry-run)
 ```
 
-Internally, `system-init.js` reuses the exact same init logic as `forge:init` — it just orchestrates it at scale with a parallel worker pool and adds the system graph assembly step on top.
+Internally, `system-init.js` reuses the exact same init logic as `forge-init` — it just orchestrates it at scale with a parallel worker pool and adds the system graph assembly step on top.
 
 ### 7.7 Dashboard
 
@@ -681,13 +681,13 @@ Tabs:
 ### New `forge-tools.cjs` commands
 
 ```
-forge:system-init                    — Full system bootstrap: init all repos + build system graph
-forge:system-rebuild                 — Rebuild system graph from existing interfaces.yaml files
-forge:system-sync                    — Sync current repo into system graph
-forge:system-status                  — Show system graph health + stats
-forge:system-impact <service>        — Cross-repo impact analysis
-forge:system-validate                — Check all contracts and flag issues
-forge:system-dashboard               — Generate system-level dashboard
+forge-system-init                    — Full system bootstrap: init all repos + build system graph
+forge-system-rebuild                 — Rebuild system graph from existing interfaces.yaml files
+forge-system-sync                    — Sync current repo into system graph
+forge-system-status                  — Show system graph health + stats
+forge-system-impact <service>        — Cross-repo impact analysis
+forge-system-validate                — Check all contracts and flag issues
+forge-system-dashboard               — Generate system-level dashboard
 ```
 
 ### New `forge-system/` CLI
@@ -724,11 +724,11 @@ node forge-system/detect.js [--root .]                         — Detect interf
 
 1. Define `interfaces.yaml` schema (the spec in section 3.1)
 2. Implement `detect.js` — auto-detect interfaces from codebase signals (see detection rules in section 4)
-3. Integrate detection into existing `forge:init` — generate draft `.forge/interfaces.yaml` as a new step
+3. Integrate detection into existing `forge-init` — generate draft `.forge/interfaces.yaml` as a new step
 4. Implement basic `validate.js` — schema validation of interfaces.yaml (structural correctness)
 5. Create `schema.sql` — SQLite schema for system-graph.db (needed by Phase 2)
 
-**Verification:** Run `forge:init` on L1 project → should detect REST API exports (FastAPI routes), Celery task events, Redis pub/sub, PostgreSQL tables. Run on HEXAI → should detect NestJS controllers, Keycloak auth, Neo4j connections.
+**Verification:** Run `forge-init` on L1 project → should detect REST API exports (FastAPI routes), Celery task events, Redis pub/sub, PostgreSQL tables. Run on HEXAI → should detect NestJS controllers, Keycloak auth, Neo4j connections.
 
 ### Phase 2: System Graph Core — Build + Query + Sync (3 new files)
 
@@ -748,7 +748,7 @@ node forge-system/detect.js [--root .]                         — Detect interf
 This is the key new capability — one command to bootstrap an entire multi-repo system:
 
 1. Implement `system-init.js` — repo discovery (GitHub org, repos.json, filesystem glob)
-2. Parallel worker pool — runs full `forge:init` per repo (reuses existing init logic)
+2. Parallel worker pool — runs full `forge-init` per repo (reuses existing init logic)
 3. After all repos initialized: call `builder.js` to assemble system graph
 4. Call `validate.js` for cross-repo contract checks
 5. Delivery modes: `--local`, `--pr`, `--commit`, `--dry-run`
@@ -756,7 +756,7 @@ This is the key new capability — one command to bootstrap an entire multi-repo
 7. Add `system` section to unified config schema in `forge-config/config.js`
 8. Optionally generate CI workflow file (`.github/workflows/forge-sync.yml`) per repo
 
-**Verification:** Run `forge:system-init --path "/code/*"` across L1 + HEXAI → both repos get full `.forge/` environment + system-graph.db built with cross-repo edges. Re-run with `--dry-run` → no changes written, summary printed.
+**Verification:** Run `forge-system-init --path "/code/*"` across L1 + HEXAI → both repos get full `.forge/` environment + system-graph.db built with cross-repo edges. Re-run with `--dry-run` → no changes written, summary printed.
 
 ### Phase 4: Agent Integration — Cross-Repo Context (modify 3 existing files)
 
@@ -802,7 +802,7 @@ This is the key new capability — one command to bootstrap an entire multi-repo
 1. Add commands: `system-init`, `system-rebuild`, `system-sync`, `system-status`, `system-impact`, `system-validate`, `system-dashboard`
 2. Wire commands to `forge-system/` modules
 3. Integrate system graph path into unified config
-4. Add system health checks to `forge:doctor` (system-graph.db staleness, orphan imports, contract violations)
+4. Add system health checks to `forge-doctor` (system-graph.db staleness, orphan imports, contract violations)
 
 **Verification:** `forge-tools.cjs system-status` shows system graph health. `forge-tools.cjs system-init --dry-run --path "/code/*"` previews what would be initialized.
 
@@ -872,7 +872,7 @@ Modified existing files:
   ├── forge-verify/engine.js            — Wire Layer 7 into verification pipeline
   └── forge-config/config.js            — system section in config schema
 
-New per-repo files (created by forge:init or forge:system-init):
+New per-repo files (created by forge-init or forge-system-init):
   ├── .forge/interfaces.yaml            — Declared service interfaces
   └── .github/workflows/forge-sync.yml  — CI auto-sync (optional, via --pr/--commit)
 ```

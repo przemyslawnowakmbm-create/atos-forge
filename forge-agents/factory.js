@@ -61,6 +61,27 @@ function agentCache() {
 // Constants
 // ============================================================
 
+// Agent Directives — loaded from reference file, injected into every agent system prompt
+let _agentDirectives;
+function loadAgentDirectives() {
+  if (_agentDirectives !== undefined) return _agentDirectives;
+  try {
+    // Resolve from forge root (sibling to forge-agents/)
+    const forgeRoot = path.resolve(__dirname, '..');
+    const directivesPath = path.join(forgeRoot, 'atos-forge', 'references', 'agent-directives.md');
+    if (fs.existsSync(directivesPath)) {
+      _agentDirectives = fs.readFileSync(directivesPath, 'utf8').trim();
+    } else {
+      // Fallback: installed location (forge root is ~/.claude/)
+      const altPath = path.join(forgeRoot, 'atos-forge', 'references', 'agent-directives.md');
+      _agentDirectives = fs.existsSync(altPath) ? fs.readFileSync(altPath, 'utf8').trim() : '';
+    }
+  } catch {
+    _agentDirectives = '';
+  }
+  return _agentDirectives;
+}
+
 const CHARS_PER_TOKEN = 4;
 
 // Context window budgets (tokens)
@@ -403,6 +424,12 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
 
   // Archetype behavior
   parts.push(ARCHETYPE_PROMPTS[archetypeResult.archetype] || ARCHETYPE_PROMPTS[ARCHETYPE.GENERAL]);
+
+  // Agent Directives — mechanical overrides for production-grade code quality
+  const directives = loadAgentDirectives();
+  if (directives) {
+    parts.push('\n' + directives);
+  }
 
   // Capability-specific instructions
   const allCaps = Object.values(analysis.capabilities).flat();

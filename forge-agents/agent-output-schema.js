@@ -16,8 +16,10 @@ const AGENT_OUTPUT_SCHEMA = {
 
 function parseAgentOutput(stdout) {
   if (!stdout || typeof stdout !== 'string') return null;
+  // Strip Claude Code's [rerun: bN] footer from persisted Bash tool outputs
+  const cleaned = stdout.replace(/\n?\[rerun: b\d+\]\s*$/g, '');
   // Look for ```json:agent-output ... ``` block
-  const match = stdout.match(/```json:agent-output\s*\n([\s\S]*?)```/);
+  const match = cleaned.match(/```json:agent-output\s*\n([\s\S]*?)```/);
   if (!match) return null;
   try {
     return JSON.parse(match[1].trim());

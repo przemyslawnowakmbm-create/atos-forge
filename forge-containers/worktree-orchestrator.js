@@ -10,6 +10,12 @@ const { execSync, spawn } = require('child_process');
 const { resolveConfig, formatMemory } = require('./config');
 const { ResourceManager } = require('./resource-manager');
 const { applyPatches, extractLearnings } = require('./patch-collector');
+const {
+  findProviderBinary,
+  checkProvider,
+  resolveProvider,
+  buildInvocation,
+} = require('../forge-agents/provider');
 
 // ============================================================
 // Docker-Free Worktree Orchestrator
@@ -87,48 +93,23 @@ function clearSupervision(timers) {
 // Claude Code Detection
 // ============================================================
 
-let _claudePath = null;
-
-/**
- * Find the Claude Code CLI binary.
- * Checks: `claude` in PATH, common install locations.
- */
 function findClaude() {
-  if (_claudePath) return _claudePath;
-
-  // Check PATH
-  try {
-    const which = execSync('which claude', { stdio: 'pipe', timeout: 5000 }).toString().trim();
-    if (which) { _claudePath = which; return which; }
-  } catch { /* not in PATH */ }
-
-  // Common locations
-  const candidates = [
-    path.join(os.homedir(), '.claude', 'local', 'claude'),
-    path.join(os.homedir(), '.local', 'bin', 'claude'),
-    '/usr/local/bin/claude',
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) { _claudePath = c; return c; }
-  }
-
-  return null;
+  return findProviderBinary('claude');
 }
 
 /**
  * Check if Claude Code is available.
  */
 function checkClaude() {
-  const claudeBin = findClaude();
-  if (!claudeBin) return { available: false, path: null, version: null };
-  try {
-    const version = execSync(`"${claudeBin}" --version 2>/dev/null || echo "unknown"`, {
-      stdio: 'pipe', timeout: 10000,
-    }).toString().trim();
-    return { available: true, path: claudeBin, version };
-  } catch {
-    return { available: true, path: claudeBin, version: 'unknown' };
-  }
+  return checkProvider('claude');
+}
+
+function findCodex() {
+  return findProviderBinary('codex');
+}
+
+function checkCodex() {
+  return checkProvider('codex');
 }
 
 // ============================================================
@@ -358,7 +339,7 @@ function buildPrompt(agentConfig) {
 // ============================================================
 
 /**
- * Invoke Claude Code in a worktree via `claude --print`.
+ * Invoke the configured agent CLI in a worktree.
  *
  * @param {string} prompt - Full prompt text.
  * @param {string} worktreePath - Working directory.
@@ -367,11 +348,11 @@ function buildPrompt(agentConfig) {
  * @param {string} opts.outputDir - Directory for stdout/stderr logs.
  * @returns {Promise<{ exitCode: number, duration_ms: number, timedOut: boolean }>}
  */
-function invokeClaude(prompt, worktreePath, opts = {}) {
+function invokeProvider(prompt, worktreePath, opts = {}) {
   return new Promise((resolve) => {
-    const claudeBin = findClaude();
-    if (!claudeBin) {
-      resolve({ exitCode: 1, duration_ms: 0, timedOut: false, error: 'Claude Code CLI not found' });
+    const provider = resolveProvider(worktreePath, opts);
+    if (!provider.available) {
+      resolve({ exitCode: 1, duration_ms: 0, timedOut: false, error: 'No supported agent CLI found' });
       return;
     }
 
@@ -388,26 +369,30 @@ function invokeClaude(prompt, worktreePath, opts = {}) {
     let timedOut = false;
     let finished = false;
 
-    const args = [
-      '--print',
-      '--dangerously-skip-permissions',
-      '-p', prompt,
-      '--allowedTools', 'Bash,Read,Write,Edit,Glob,Grep',
-    ];
+    const lastMessagePath = path.join(outputDir, 'last-message.txt');
+    const invocation = buildInvocation(provider.name, prompt, {
+      outputFile: provider.name === 'codex' ? lastMessagePath : null,
+      entrypoint: 'forge-worktree-agent',
+      model: opts.model,
+    });
 
-    const proc = spawn(claudeBin, args, {
+    const proc = spawn(provider.path, invocation.args, {
       cwd: worktreePath,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: {
-        ...process.env,
+        ...invocation.env,
         HOME: os.homedir(),
-        CLAUDE_CODE_ENTRYPOINT: 'forge-worktree-agent',
       },
     });
 
     // 3-tier supervision
     const taskCtx = { taskId: opts.taskId || 'claude-agent', worktreePath };
     const supervisionTimers = startSupervision(taskCtx, timeout);
+
+    if (invocation.stdin) {
+      proc.stdin.write(invocation.stdin);
+      proc.stdin.end();
+    }
 
     proc.stdout.pipe(stdoutStream);
     proc.stderr.pipe(stderrStream);
@@ -430,6 +415,7 @@ function invokeClaude(prompt, worktreePath, opts = {}) {
       stdoutStream.end();
       stderrStream.end();
       resolve({
+        provider: provider.name,
         exitCode: code ?? 1,
         duration_ms: Date.now() - startTime,
         timedOut,
@@ -445,6 +431,7 @@ function invokeClaude(prompt, worktreePath, opts = {}) {
       stdoutStream.end();
       stderrStream.end();
       resolve({
+        provider: provider.name,
         exitCode: 1,
         duration_ms: Date.now() - startTime,
         timedOut: false,
@@ -454,6 +441,10 @@ function invokeClaude(prompt, worktreePath, opts = {}) {
       });
     });
   });
+}
+
+function invokeClaude(prompt, worktreePath, opts = {}) {
+  return invokeProvider(prompt, worktreePath, { ...opts, provider: 'claude' });
 }
 
 // ============================================================
@@ -593,13 +584,14 @@ async function launch(agentConfig, params) {
     // 5. Build prompt
     const prompt = buildPrompt(agentConfig);
 
-    // 6. Invoke Claude Code
+    // 6. Invoke agent CLI
     result.status = 'running';
-    const invokeResult = await invokeClaude(prompt, worktreePath, {
+    const invokeResult = await invokeProvider(prompt, worktreePath, {
       timeout: config.timeout_seconds,
       outputDir,
     });
 
+    result.provider = invokeResult.provider || resolveProvider(cwd, opts).name;
     result.exitCode = invokeResult.exitCode;
     result.timedOut = invokeResult.timedOut;
     result.duration_ms = invokeResult.duration_ms;
@@ -808,6 +800,15 @@ function cleanup(cwd) {
  * @returns {{ mode: string, orchestrator: object, reason: string }}
  */
 function autoDetect(cwd) {
+  const provider = resolveProvider(cwd);
+  if (!provider.available) {
+    return {
+      mode: 'none',
+      orchestrator: null,
+      reason: 'No supported agent CLI available (expected Claude Code or Codex)',
+    };
+  }
+
   // Check Docker
   let dockerAvailable = false;
   try {
@@ -816,7 +817,7 @@ function autoDetect(cwd) {
     dockerAvailable = docker.available;
   } catch { /* orchestrator not loadable */ }
 
-  if (dockerAvailable) {
+  if (dockerAvailable && provider.container_supported) {
     const dockerOrch = require('./orchestrator');
     return {
       mode: 'container',
@@ -825,17 +826,7 @@ function autoDetect(cwd) {
         launchAll: dockerOrch.launchAll,
         cleanup: dockerOrch.cleanup,
       },
-      reason: 'Docker available',
-    };
-  }
-
-  // Check Claude Code
-  const claude = checkClaude();
-  if (!claude.available) {
-    return {
-      mode: 'none',
-      orchestrator: null,
-      reason: 'Neither Docker nor Claude Code CLI available',
+      reason: `Docker available (${provider.label})`,
     };
   }
 
@@ -846,7 +837,9 @@ function autoDetect(cwd) {
       launchAll,
       cleanup,
     },
-    reason: `Docker not available, using worktree mode (Claude ${claude.version})`,
+    reason: provider.container_supported
+      ? `Docker not available, using worktree mode (${provider.label} ${provider.version})`
+      : `${provider.label} does not support container mode, using worktree mode`,
   };
 }
 
@@ -861,12 +854,14 @@ if (require.main === module) {
 
   if (cmd === 'status') {
     const claude = checkClaude();
+    const codex = checkCodex();
     const config = resolveConfig(cwd);
     const detection = autoDetect(cwd);
 
     console.log('Worktree Orchestrator Status');
     console.log('─'.repeat(50));
     console.log(`Claude Code: ${claude.available ? `${claude.path} (${claude.version})` : 'NOT FOUND'}`);
+    console.log(`Codex: ${codex.available ? `${codex.path} (${codex.version})` : 'NOT FOUND'}`);
     console.log(`System: ${config.system.total_cores} cores, ${config.system.total_memory_str} RAM`);
     console.log(`Limits: ${config.max_concurrent} concurrent, timeout ${config.timeout_seconds}s`);
     console.log(`Detection: ${detection.mode} — ${detection.reason}`);
@@ -907,8 +902,11 @@ module.exports = {
 
   // Claude Code
   invokeClaude,
+  invokeProvider,
   findClaude,
   checkClaude,
+  findCodex,
+  checkCodex,
   buildPrompt,
 
   // Patch collection

@@ -7,6 +7,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 
 @~/.claude/atos-forge/references/ui-brand.md
 @~/.claude/atos-forge/references/session-continuity.md
+@~/.claude/atos-forge/references/json-safety.md
 </required_reading>
 
 <process>
@@ -16,22 +17,14 @@ Read all files referenced by the invoking prompt's execution_context before star
 Load all context in one call (include file contents to avoid redundant reads):
 
 ```bash
-INIT_RAW=$(node ~/.claude/atos-forge/bin/forge-tools.cjs init plan-phase "$PHASE" --include state,roadmap,requirements,context,research,verification,uat)
-# Large payloads are written to a tmpfile — output starts with @file:/path
-if [[ "$INIT_RAW" == @file:* ]]; then
-  INIT_FILE="${INIT_RAW#@file:}"
-  INIT=$(cat "$INIT_FILE")
-  rm -f "$INIT_FILE"
-else
-  INIT="$INIT_RAW"
-fi
+INIT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs init plan-phase "$PHASE" --include state,roadmap,requirements,context,research,verification,uat)
 ```
 
 Parse JSON for: `researcher_model`, `planner_model`, `checker_model`, `research_enabled`, `plan_checker_enabled`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `padded_phase`, `has_research`, `has_context`, `has_plans`, `plan_count`, `planning_exists`, `roadmap_exists`.
 
 **File contents (from --include):** `state_content`, `roadmap_content`, `requirements_content`, `context_content`, `research_content`, `verification_content`, `uat_content`. These are null if files don't exist.
 
-**If `planning_exists` is false:** Error — run `/forge:new-project` first.
+**If `planning_exists` is false:** Error — run `/forge-new-project` first.
 
 ## 2. Parse and Normalize Arguments
 
@@ -72,7 +65,7 @@ Use AskUserQuestion:
   - "Run discuss-phase first" — Capture design decisions before planning
 
 If "Continue without context": Proceed to step 5.
-If "Run discuss-phase first": Display `/forge:discuss-phase {X}` and exit workflow.
+If "Run discuss-phase first": Display `/forge-discuss-phase {X}` and exit workflow.
 
 ## 5. Handle Research
 
@@ -111,9 +104,12 @@ Answer: "What do I need to know to PLAN this phase well?"
 </objective>
 
 <phase_context>
-IMPORTANT: If CONTEXT.md exists below, it contains user decisions from /forge:discuss-phase.
+IMPORTANT: If CONTEXT.md exists below, it contains user decisions from /forge-discuss-phase.
+- **Phase Boundary** = SCOPE — research WITHIN this boundary only
+- **Upstream Decisions** = LOCKED — research THESE as locked, same weight as Decisions
 - **Decisions** = Locked — research THESE deeply, no alternatives
 - **Claude's Discretion** = Freedom areas — research options, recommend
+- **Specific Ideas** = GUIDANCE — use legacy references as design anchors, preserve names
 - **Deferred Ideas** = Out of scope — ignore
 
 {context_content}
@@ -208,7 +204,7 @@ fi
 
 **If `graph_available` is false:** Display a one-line note:
 ```
-◇ No code graph — run /forge:init for dependency-aware planning
+◇ No code graph — run /forge-init for dependency-aware planning
 ```
 
 ## 7.6. Requirement Impact Analysis (if system-graph.db exists)
@@ -275,9 +271,12 @@ Planner prompt:
 **Requirements:** {requirements_content}
 
 **Phase Context:**
-IMPORTANT: If context exists below, it contains USER DECISIONS from /forge:discuss-phase.
+IMPORTANT: If context exists below, it contains USER DECISIONS from /forge-discuss-phase.
+- **Phase Boundary** = SCOPE — do not exceed
+- **Upstream Decisions** = LOCKED — honor exactly, same weight as Decisions
 - **Decisions** = LOCKED — honor exactly, do not revisit
 - **Claude's Discretion** = Freedom — make implementation choices
+- **Specific Ideas** = GUIDANCE — use legacy references as design anchors, preserve names
 - **Deferred Ideas** = Out of scope — do NOT include
 
 {context_content}
@@ -291,7 +290,7 @@ IMPORTANT: If context exists below, it contains USER DECISIONS from /forge:discu
 </planning_context>
 
 <downstream_consumer>
-Output consumed by /forge:execute-phase. Plans need:
+Output consumed by /forge-execute-phase. Plans need:
 - Frontmatter (wave, depends_on, files_modified, autonomous)
 - Tasks in XML format
 - Verification criteria
@@ -370,8 +369,11 @@ Checker prompt:
 
 **Phase Context:**
 IMPORTANT: Plans MUST honor user decisions. Flag as issue if plans contradict.
+- **Phase Boundary** = SCOPE — plans must not exceed
+- **Upstream Decisions** = LOCKED — same weight as Decisions
 - **Decisions** = LOCKED — plans must implement exactly
 - **Claude's Discretion** = Freedom areas — plans can choose approach
+- **Specific Ideas** = GUIDANCE — legacy references must be reflected in plan design
 - **Deferred Ideas** = Out of scope — plans must NOT include
 
 {context_content}
@@ -429,7 +431,7 @@ Revision prompt:
 **Checker issues:** {structured_issues_from_checker}
 
 **Phase Context:**
-Revisions MUST still honor user decisions.
+Revisions MUST still honor ALL user decisions (Phase Boundary, Upstream Decisions, Locked Decisions, Specific Ideas). Deferred Ideas must remain excluded.
 {context_content}
 </revision_context>
 
@@ -494,7 +496,7 @@ Plans ready. Spawning execute-phase...
 Spawn execute-phase as Task:
 ```
 Task(
-  prompt="Run /forge:execute-phase ${PHASE} --auto",
+  prompt="Run /forge-execute-phase ${PHASE} --auto",
   subagent_type="general-purpose",
   description="Execute Phase ${PHASE}"
 )
@@ -509,14 +511,14 @@ Task(
 
   Auto-advance pipeline finished.
 
-  Next: /forge:discuss-phase ${NEXT_PHASE} --auto
+  Next: /forge-discuss-phase ${NEXT_PHASE} --auto
   ```
 - **GAPS FOUND / VERIFICATION FAILED** → Display result, stop chain:
   ```
   Auto-advance stopped: Execution needs review.
 
   Review the output above and continue manually:
-  /forge:execute-phase ${PHASE}
+  /forge-execute-phase ${PHASE}
   ```
 
 **If neither `--auto` nor config enabled:**
@@ -547,7 +549,7 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Execute Phase {X}** — run all {N} plans
 
-/forge:execute-phase {X}
+/forge-execute-phase {X}
 
 <sub>/clear first → fresh context window</sub>
 
@@ -555,7 +557,7 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Also available:**
 - cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
-- /forge:plan-phase {X} --research — re-research first
+- /forge-plan-phase {X} --research — re-research first
 
 ───────────────────────────────────────────────────────────────
 </offer_next>

@@ -1,7 +1,7 @@
 <purpose>
 Re-evaluate the project roadmap after a phase completes. Reads completed work, learnings, and warnings to determine
 if the plan is still optimal. Proposes additions, removals, or reordering of future phases.
-Triggered automatically after /forge:execute-phase or manually.
+Triggered automatically after /forge-execute-phase or manually.
 </purpose>
 
 <process>
@@ -79,7 +79,7 @@ Report what was changed:
 
 **Phase {N}: {name}** — {description}
 
-`/forge:plan-phase {N}`
+`/forge-plan-phase {N}`
 
 ───────────────────────────────────────────────────────────────
 </step>

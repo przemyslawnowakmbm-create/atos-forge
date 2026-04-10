@@ -17,7 +17,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 - Read PROJECT.md (existing project, validated requirements, decisions)
 - Read MILESTONES.md (what shipped previously)
 - Read STATE.md (pending todos, blockers)
-- Check for MILESTONE-CONTEXT.md (from /forge:discuss-milestone)
+- Check for MILESTONE-CONTEXT.md (from /forge-discuss-milestone)
 
 ## 2. Gather Milestone Goals
 
@@ -88,7 +88,7 @@ AskUserQuestion: "Research the domain ecosystem for new features before defining
 - "Research first (Recommended)" — Discover patterns, features, architecture for NEW capabilities
 - "Skip research" — Go straight to requirements
 
-**Persist choice to config** (so future `/forge:plan-phase` honors it):
+**Persist choice to config** (so future `/forge-plan-phase` honors it):
 
 ```bash
 # If "Research first": persist true
@@ -219,13 +219,9 @@ Track: Selected → this milestone. Unselected table stakes → future. Unselect
 
 **REQ-ID format:** `[CATEGORY]-[NUMBER]` (AUTH-01, NOTIF-02). Continue numbering from existing.
 
-**Requirement quality criteria:**
+**Requirement quality criteria:** Apply all 5 criteria from the requirements template (`templates/requirements.md`): Specific and Testable, User-Centric, Atomic, Independent, Unambiguous. Reject vague requirements — push for specificity using the Common Rewrites table from the template.
 
-Good requirements are:
-- **Specific and testable:** "User can reset password via email link" (not "Handle password reset")
-- **User-centric:** "User can X" (not "System does Y")
-- **Atomic:** One capability per requirement (not "User can login and manage profile")
-- **Independent:** Minimal dependencies on other requirements
+**Tip:** After initial creation, run `/forge-enhance-requirements` for deeper quality analysis and domain gap detection.
 
 Present FULL requirements list for confirmation:
 
@@ -346,11 +342,11 @@ node ~/.claude/atos-forge/bin/forge-tools.cjs commit "docs: create milestone v[X
 
 **Phase [N]: [Phase Name]** — [Goal]
 
-`/forge:discuss-phase [N]` — gather context and clarify approach
+`/forge-discuss-phase [N]` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
-Also: `/forge:plan-phase [N]` — skip discussion, plan directly
+Also: `/forge-plan-phase [N]` — skip discussion, plan directly
 ```
 
 </process>
@@ -367,7 +363,7 @@ Also: `/forge:plan-phase [N]` — skip discussion, plan directly
 - [ ] User feedback incorporated (if any)
 - [ ] ROADMAP.md phases continue from previous milestone
 - [ ] All commits made (if planning docs committed)
-- [ ] User knows next step: `/forge:discuss-phase [N]`
+- [ ] User knows next step: `/forge-discuss-phase [N]`
 
 **Atomic commits:** Each phase commits its artifacts immediately.
 </success_criteria>

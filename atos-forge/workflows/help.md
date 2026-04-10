@@ -9,9 +9,9 @@ Display the complete Forge command reference. Output ONLY the reference content.
 
 ## Quick Start
 
-1. `/forge:new-project` - Initialize project (includes research, requirements, roadmap)
-2. `/forge:plan-phase 1` - Create detailed plan for first phase
-3. `/forge:execute-phase 1` - Execute the phase
+1. `/forge-new-project` - Initialize project (includes research, requirements, roadmap)
+2. `/forge-plan-phase 1` - Create detailed plan for first phase
+3. `/forge-execute-phase 1` - Execute the phase
 
 ## Staying Updated
 
@@ -24,12 +24,12 @@ node bin/install.js@latest
 ## Core Workflow
 
 ```
-/forge:new-project → /forge:plan-phase → /forge:execute-phase → repeat
+/forge-new-project → /forge-plan-phase → /forge-execute-phase → repeat
 ```
 
 ### Project Initialization
 
-**`/forge:new-project`**
+**`/forge-new-project`**
 Initialize new project through unified flow.
 
 One command takes you from idea to ready-for-planning:
@@ -46,30 +46,30 @@ Creates all `.planning/` artifacts:
 - `ROADMAP.md` — phases mapped to requirements
 - `STATE.md` — project memory
 
-Usage: `/forge:new-project`
+Usage: `/forge-new-project`
 
-**`/forge:map-codebase`**
+**`/forge-map-codebase`**
 Map an existing codebase for brownfield projects.
 
 - Analyzes codebase with parallel Explore agents
 - Creates `.planning/codebase/` with 7 focused documents
 - Covers stack, architecture, structure, conventions, testing, integrations, concerns
-- Use before `/forge:new-project` on existing codebases
+- Use before `/forge-new-project` on existing codebases
 
-Usage: `/forge:map-codebase`
+Usage: `/forge-map-codebase`
 
 ### Phase Planning
 
-**`/forge:discuss-phase <number>`**
+**`/forge-discuss-phase <number>`**
 Help articulate your vision for a phase before planning.
 
 - Captures how you imagine this phase working
 - Creates CONTEXT.md with your vision, essentials, and boundaries
 - Use when you have ideas about how something should look/feel
 
-Usage: `/forge:discuss-phase 2`
+Usage: `/forge-discuss-phase 2`
 
-**`/forge:research-phase <number>`**
+**`/forge-research-phase <number>`**
 Comprehensive ecosystem research for niche/complex domains.
 
 - Discovers standard stack, architecture patterns, pitfalls
@@ -77,18 +77,18 @@ Comprehensive ecosystem research for niche/complex domains.
 - Use for 3D, games, audio, shaders, ML, and other specialized domains
 - Goes beyond "which library" to ecosystem knowledge
 
-Usage: `/forge:research-phase 3`
+Usage: `/forge-research-phase 3`
 
-**`/forge:list-phase-assumptions <number>`**
+**`/forge-list-phase-assumptions <number>`**
 See what Claude is planning to do before it starts.
 
 - Shows Claude's intended approach for a phase
 - Lets you course-correct if Claude misunderstood your vision
 - No files created - conversational output only
 
-Usage: `/forge:list-phase-assumptions 3`
+Usage: `/forge-list-phase-assumptions 3`
 
-**`/forge:plan-phase <number>`**
+**`/forge-plan-phase <number>`**
 Create detailed execution plan for a specific phase.
 
 - Generates `.planning/phases/XX-phase-name/XX-YY-PLAN.md`
@@ -96,10 +96,10 @@ Create detailed execution plan for a specific phase.
 - Includes verification criteria and success measures
 - Multiple plans per phase supported (XX-01, XX-02, etc.)
 
-Usage: `/forge:plan-phase 1`
+Usage: `/forge-plan-phase 1`
 Result: Creates `.planning/phases/01-foundation/01-01-PLAN.md`
 
-**`/forge:validate-phase <number>`**
+**`/forge-validate-phase <number>`**
 Validate phase plans before execution.
 
 - Checks plan completeness (frontmatter, tasks, verify criteria)
@@ -108,11 +108,11 @@ Validate phase plans before execution.
 - Cross-checks against code graph (file existence, impact)
 - Reports PASS/WARN/FAIL per plan with fix suggestions
 
-Usage: `/forge:validate-phase 3`
+Usage: `/forge-validate-phase 3`
 
 ### Execution
 
-**`/forge:execute-phase <phase-number>`**
+**`/forge-execute-phase <phase-number>`**
 Execute all plans in a phase.
 
 - Groups plans by wave (from frontmatter), executes waves sequentially
@@ -120,11 +120,11 @@ Execute all plans in a phase.
 - Verifies phase goal after all plans complete
 - Updates REQUIREMENTS.md, ROADMAP.md, STATE.md
 
-Usage: `/forge:execute-phase 5`
+Usage: `/forge-execute-phase 5`
 
 ### Auto Mode
 
-**`/forge:auto`**
+**`/forge-auto`**
 Run autonomous mode — walk away and come back to built software.
 
 - Reads disk state to determine next unit of work
@@ -133,12 +133,12 @@ Run autonomous mode — walk away and come back to built software.
 - Stuck detection (retry once, then stop)
 - Cost tracking per unit
 
-Usage: `/forge:auto`
-Usage: `/forge:auto --verbose --timeout 900`
+Usage: `/forge-auto`
+Usage: `/forge-auto --verbose --timeout 900`
 
 ### Quick Mode
 
-**`/forge:quick`**
+**`/forge-quick`**
 Execute small, ad-hoc tasks with Forge guarantees but skip optional agents.
 
 Quick mode uses the same system with a shorter path:
@@ -148,31 +148,31 @@ Quick mode uses the same system with a shorter path:
 
 Use when you know exactly what to do and the task is small enough to not need research or verification.
 
-Usage: `/forge:quick`
+Usage: `/forge-quick`
 Result: Creates `.planning/quick/NNN-slug/PLAN.md`, `.planning/quick/NNN-slug/SUMMARY.md`
 
 ### Roadmap Management
 
-**`/forge:add-phase <description>`**
+**`/forge-add-phase <description>`**
 Add new phase to end of current milestone.
 
 - Appends to ROADMAP.md
 - Uses next sequential number
 - Updates phase directory structure
 
-Usage: `/forge:add-phase "Add admin dashboard"`
+Usage: `/forge-add-phase "Add admin dashboard"`
 
-**`/forge:insert-phase <after> <description>`**
+**`/forge-insert-phase <after> <description>`**
 Insert urgent work as decimal phase between existing phases.
 
 - Creates intermediate phase (e.g., 7.1 between 7 and 8)
 - Useful for discovered work that must happen mid-milestone
 - Maintains phase ordering
 
-Usage: `/forge:insert-phase 7 "Fix critical auth bug"`
+Usage: `/forge-insert-phase 7 "Fix critical auth bug"`
 Result: Creates Phase 7.1
 
-**`/forge:remove-phase <number>`**
+**`/forge-remove-phase <number>`**
 Remove a future phase and renumber subsequent phases.
 
 - Deletes phase directory and all references
@@ -180,10 +180,10 @@ Remove a future phase and renumber subsequent phases.
 - Only works on future (unstarted) phases
 - Git commit preserves historical record
 
-Usage: `/forge:remove-phase 17`
+Usage: `/forge-remove-phase 17`
 Result: Phase 17 deleted, phases 18-20 become 17-19
 
-**`/forge:reassess-roadmap`**
+**`/forge-reassess-roadmap`**
 Re-evaluate roadmap after phase completion.
 
 - Reads completed phase summaries and ledger learnings
@@ -191,11 +191,11 @@ Re-evaluate roadmap after phase completion.
 - Proposes reordering, adding, or removing future phases
 - Asks for approval before modifying ROADMAP.md
 
-Usage: `/forge:reassess-roadmap`
+Usage: `/forge-reassess-roadmap`
 
 ### Milestone Management
 
-**`/forge:new-milestone <name>`**
+**`/forge-new-milestone <name>`**
 Start a new milestone through unified flow.
 
 - Deep questioning to understand what you're building next
@@ -203,11 +203,11 @@ Start a new milestone through unified flow.
 - Requirements definition with scoping
 - Roadmap creation with phase breakdown
 
-Mirrors `/forge:new-project` flow for brownfield projects (existing PROJECT.md).
+Mirrors `/forge-new-project` flow for brownfield projects (existing PROJECT.md).
 
-Usage: `/forge:new-milestone "v2.0 Features"`
+Usage: `/forge-new-milestone "v2.0 Features"`
 
-**`/forge:complete-milestone <version>`**
+**`/forge-complete-milestone <version>`**
 Archive completed milestone and prepare for next version.
 
 - Creates MILESTONES.md entry with stats
@@ -215,11 +215,11 @@ Archive completed milestone and prepare for next version.
 - Creates git tag for the release
 - Prepares workspace for next version
 
-Usage: `/forge:complete-milestone 1.0.0`
+Usage: `/forge-complete-milestone 1.0.0`
 
 ### Progress Tracking
 
-**`/forge:progress`**
+**`/forge-progress`**
 Check project status and intelligently route to next action.
 
 - Shows visual progress bar and completion percentage
@@ -229,45 +229,45 @@ Check project status and intelligently route to next action.
 - Offers to execute next plan or create it if missing
 - Detects 100% milestone completion
 
-Usage: `/forge:progress`
+Usage: `/forge-progress`
 
 ### Session Management
 
-**`/forge:resume-work`**
+**`/forge-resume-work`**
 Resume work from previous session with full context restoration.
 
 - Reads STATE.md for project context
 - Shows current position and recent progress
 - Offers next actions based on project state
 
-Usage: `/forge:resume-work`
+Usage: `/forge-resume-work`
 
-**`/forge:pause-work`**
+**`/forge-pause-work`**
 Create context handoff when pausing work mid-phase.
 
 - Creates .continue-here file with current state
 - Updates STATE.md session continuity section
 - Captures in-progress work context
 
-Usage: `/forge:pause-work`
+Usage: `/forge-pause-work`
 
 ### Debugging
 
-**`/forge:debug [issue description]`**
+**`/forge-debug [issue description]`**
 Systematic debugging with persistent state across context resets.
 
 - Gathers symptoms through adaptive questioning
 - Creates `.planning/debug/[slug].md` to track investigation
 - Investigates using scientific method (evidence → hypothesis → test)
-- Survives `/clear` — run `/forge:debug` with no args to resume
+- Survives `/clear` — run `/forge-debug` with no args to resume
 - Archives resolved issues to `.planning/debug/resolved/`
 
-Usage: `/forge:debug "login button doesn't work"`
-Usage: `/forge:debug` (resume active session)
+Usage: `/forge-debug "login button doesn't work"`
+Usage: `/forge-debug` (resume active session)
 
 ### Todo Management
 
-**`/forge:add-todo [description]`**
+**`/forge-add-todo [description]`**
 Capture idea or task as todo from current conversation.
 
 - Extracts context from conversation (or uses provided description)
@@ -276,24 +276,24 @@ Capture idea or task as todo from current conversation.
 - Checks for duplicates before creating
 - Updates STATE.md todo count
 
-Usage: `/forge:add-todo` (infers from conversation)
-Usage: `/forge:add-todo Add auth token refresh`
+Usage: `/forge-add-todo` (infers from conversation)
+Usage: `/forge-add-todo Add auth token refresh`
 
-**`/forge:check-todos [area]`**
+**`/forge-check-todos [area]`**
 List pending todos and select one to work on.
 
 - Lists all pending todos with title, area, age
-- Optional area filter (e.g., `/forge:check-todos api`)
+- Optional area filter (e.g., `/forge-check-todos api`)
 - Loads full context for selected todo
 - Routes to appropriate action (work now, add to phase, brainstorm)
 - Moves todo to done/ when work begins
 
-Usage: `/forge:check-todos`
-Usage: `/forge:check-todos api`
+Usage: `/forge-check-todos`
+Usage: `/forge-check-todos api`
 
 ### User Acceptance Testing
 
-**`/forge:verify-work [phase]`**
+**`/forge-verify-work [phase]`**
 Validate built features through conversational UAT.
 
 - Extracts testable deliverables from SUMMARY.md files
@@ -301,11 +301,11 @@ Validate built features through conversational UAT.
 - Automatically diagnoses failures and creates fix plans
 - Ready for re-execution if issues found
 
-Usage: `/forge:verify-work 3`
+Usage: `/forge-verify-work 3`
 
 ### Milestone Auditing
 
-**`/forge:audit-milestone [version]`**
+**`/forge-audit-milestone [version]`**
 Audit milestone completion against original intent.
 
 - Reads all phase VERIFICATION.md files
@@ -313,41 +313,57 @@ Audit milestone completion against original intent.
 - Spawns integration checker for cross-phase wiring
 - Creates MILESTONE-AUDIT.md with gaps and tech debt
 
-Usage: `/forge:audit-milestone`
+Usage: `/forge-audit-milestone`
 
-**`/forge:plan-milestone-gaps`**
+**`/forge-plan-milestone-gaps`**
 Create phases to close gaps identified by audit.
 
 - Reads MILESTONE-AUDIT.md and groups gaps into phases
 - Prioritizes by requirement priority (must/should/nice)
 - Adds gap closure phases to ROADMAP.md
-- Ready for `/forge:plan-phase` on new phases
+- Ready for `/forge-plan-phase` on new phases
 
-Usage: `/forge:plan-milestone-gaps`
+Usage: `/forge-plan-milestone-gaps`
+
+### Requirements Enhancement
+
+**`/forge-enhance-requirements [--mode full|quality|gaps|add]`**
+Improve existing requirements through AI-powered analysis and domain research.
+
+- **Full Analysis** (default) — quality audit + domain research + gap detection
+- **Quality Audit** — check each requirement against 5 quality criteria, suggest rewrites
+- **Gap Detection** — spawn research agents to discover missing requirements
+- **Add Requirements** — interactively add new high-quality requirements with AI assistance
+- Presents all suggestions interactively — user accepts/rejects each
+- Warns if roadmap needs updating after changes
+
+Usage: `/forge-enhance-requirements`
+Usage: `/forge-enhance-requirements --mode quality`
+Usage: `/forge-enhance-requirements --mode gaps`
 
 ### Configuration
 
-**`/forge:settings`**
+**`/forge-settings`**
 Configure workflow toggles and model profile interactively.
 
 - Toggle researcher, plan checker, verifier agents
 - Select model profile (quality/balanced/budget)
 - Updates `.planning/config.json`
 
-Usage: `/forge:settings`
+Usage: `/forge-settings`
 
-**`/forge:set-profile <profile>`**
+**`/forge-set-profile <profile>`**
 Quick switch model profile for Forge agents.
 
 - `quality` — Opus everywhere except verification
 - `balanced` — Opus for planning, Sonnet for execution (default)
 - `budget` — Sonnet for writing, Haiku for research/verification
 
-Usage: `/forge:set-profile budget`
+Usage: `/forge-set-profile budget`
 
 ### Testing
 
-**`/forge:add-tests <phase> [instructions]`**
+**`/forge-add-tests <phase> [instructions]`**
 Generate unit and E2E tests for a completed phase.
 
 - Classifies changed files into TDD (unit), E2E (browser), Skip
@@ -356,12 +372,12 @@ Generate unit and E2E tests for a completed phase.
 - Discovers existing test structure and conventions
 - Commits tests with `test(phase-{N}):` prefix
 
-Usage: `/forge:add-tests 3`
-Usage: `/forge:add-tests 3 focus on edge cases`
+Usage: `/forge-add-tests 3`
+Usage: `/forge-add-tests 3 focus on edge cases`
 
 ### Utility Commands
 
-**`/forge:cleanup`**
+**`/forge-cleanup`**
 Archive accumulated phase directories from completed milestones.
 
 - Identifies phases from completed milestones still in `.planning/phases/`
@@ -369,12 +385,12 @@ Archive accumulated phase directories from completed milestones.
 - Moves phase dirs to `.planning/milestones/v{X.Y}-phases/`
 - Use after multiple milestones to reduce `.planning/phases/` clutter
 
-Usage: `/forge:cleanup`
+Usage: `/forge-cleanup`
 
-**`/forge:help`**
+**`/forge-help`**
 Show this command reference.
 
-**`/forge:update`**
+**`/forge-update`**
 Update Forge to latest version with changelog preview.
 
 - Shows installed vs latest version comparison
@@ -383,7 +399,7 @@ Update Forge to latest version with changelog preview.
 - Confirms before running install
 - Better than raw `node bin/install.js`
 
-Usage: `/forge:update`
+Usage: `/forge-update`
 
 
 - Get help, share what you're building, stay updated
@@ -406,7 +422,7 @@ Usage: `/forge:update`
 ├── milestones/
 │   ├── v1.0-ROADMAP.md       # Archived roadmap snapshot
 │   ├── v1.0-REQUIREMENTS.md  # Archived requirements
-│   └── v1.0-phases/          # Archived phase dirs (via /forge:cleanup or --archive-phases)
+│   └── v1.0-phases/          # Archived phase dirs (via /forge-cleanup or --archive-phases)
 │       ├── 01-foundation/
 │       └── 02-core-features/
 ├── codebase/             # Codebase map (brownfield projects)
@@ -428,7 +444,7 @@ Usage: `/forge:update`
 
 ## Workflow Modes
 
-Set during `/forge:new-project`:
+Set during `/forge-new-project`:
 
 **Interactive Mode**
 
@@ -476,51 +492,51 @@ Example config:
 **Starting a new project:**
 
 ```
-/forge:new-project        # Unified flow: questioning → research → requirements → roadmap
+/forge-new-project        # Unified flow: questioning → research → requirements → roadmap
 /clear
-/forge:plan-phase 1       # Create plans for first phase
+/forge-plan-phase 1       # Create plans for first phase
 /clear
-/forge:execute-phase 1    # Execute all plans in phase
+/forge-execute-phase 1    # Execute all plans in phase
 ```
 
 **Resuming work after a break:**
 
 ```
-/forge:progress  # See where you left off and continue
+/forge-progress  # See where you left off and continue
 ```
 
 **Adding urgent mid-milestone work:**
 
 ```
-/forge:insert-phase 5 "Critical security fix"
-/forge:plan-phase 5.1
-/forge:execute-phase 5.1
+/forge-insert-phase 5 "Critical security fix"
+/forge-plan-phase 5.1
+/forge-execute-phase 5.1
 ```
 
 **Completing a milestone:**
 
 ```
-/forge:complete-milestone 1.0.0
+/forge-complete-milestone 1.0.0
 /clear
-/forge:new-milestone  # Start next milestone (questioning → research → requirements → roadmap)
+/forge-new-milestone  # Start next milestone (questioning → research → requirements → roadmap)
 ```
 
 **Capturing ideas during work:**
 
 ```
-/forge:add-todo                    # Capture from conversation context
-/forge:add-todo Fix modal z-index  # Capture with explicit description
-/forge:check-todos                 # Review and work on todos
-/forge:check-todos api             # Filter by area
+/forge-add-todo                    # Capture from conversation context
+/forge-add-todo Fix modal z-index  # Capture with explicit description
+/forge-check-todos                 # Review and work on todos
+/forge-check-todos api             # Filter by area
 ```
 
 **Debugging an issue:**
 
 ```
-/forge:debug "form submission fails silently"  # Start debug session
+/forge-debug "form submission fails silently"  # Start debug session
 # ... investigation happens, context fills up ...
 /clear
-/forge:debug                                    # Resume from where you left off
+/forge-debug                                    # Resume from where you left off
 ```
 
 ## Getting Help
@@ -528,5 +544,5 @@ Example config:
 - Read `.planning/PROJECT.md` for project vision
 - Read `.planning/STATE.md` for current context
 - Check `.planning/ROADMAP.md` for phase status
-- Run `/forge:progress` to check where you're up to
+- Run `/forge-progress` to check where you're up to
 </reference>

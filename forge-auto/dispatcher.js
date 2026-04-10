@@ -1,7 +1,8 @@
 'use strict';
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { resolveProvider, buildInvocation } = require('../forge-agents/provider');
 
 function buildPrompt(cwd, unit) {
   const parts = [];
@@ -43,24 +44,31 @@ function buildPrompt(cwd, unit) {
 function dispatch(cwd, unit, opts = {}) {
   const prompt = buildPrompt(cwd, unit);
   const timeout = (opts.hardTimeout || 600) * 1000;
-
-  // Write prompt to temp file to avoid shell escaping issues
-  const tmpPrompt = path.join(cwd, '.forge', 'session', '_auto_prompt.md');
-  try {
-    const dir = path.dirname(tmpPrompt);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(tmpPrompt, prompt);
-  } catch {}
+  const provider = resolveProvider(cwd, opts);
+  const outputDir = path.join(cwd, '.forge', 'session');
+  const lastMessagePath = path.join(outputDir, '_auto_last_message.txt');
+  try { fs.mkdirSync(outputDir, { recursive: true }); } catch {}
 
   try {
-    const result = execSync(
-      `claude --print --dangerously-skip-permissions -p "${tmpPrompt}"`,
-      { cwd, encoding: 'utf8', timeout, maxBuffer: 10 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] }
-    );
-    try { fs.unlinkSync(tmpPrompt); } catch {}
-    return { success: true, output: result };
+    const invocation = buildInvocation(provider.name, prompt, {
+      outputFile: provider.name === 'codex' ? lastMessagePath : null,
+    });
+    const result = spawnSync(provider.path, invocation.args, {
+      cwd,
+      input: invocation.stdin || undefined,
+      encoding: 'utf8',
+      timeout,
+      maxBuffer: 10 * 1024 * 1024,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: invocation.env,
+    });
+    const output = provider.name === 'codex' && fs.existsSync(lastMessagePath)
+      ? fs.readFileSync(lastMessagePath, 'utf8')
+      : (result.stdout || '');
+    try { fs.unlinkSync(lastMessagePath); } catch {}
+    return { success: result.status === 0, output, error: result.stderr || '' };
   } catch (e) {
-    try { fs.unlinkSync(tmpPrompt); } catch {}
+    try { fs.unlinkSync(lastMessagePath); } catch {}
     return { success: false, error: e.message || 'unknown error', output: e.stdout || '' };
   }
 }

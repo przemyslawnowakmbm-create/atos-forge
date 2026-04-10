@@ -145,11 +145,11 @@ atos-forge/
 - Key files: install.js - handles local installation
 - Subdirectories: None
 
-**commands/forge/**
-- Purpose: Slash command definitions for Claude Code
-- Contains: *.md files (one per command)
-- Key files: new-project.md, plan-phase.md, execute-plan.md
-- Subdirectories: None (flat structure)
+**skill-sources/**
+- Purpose: Forge skill source definitions (installed to ~/.claude/skills/)
+- Contains: forge-*/SKILL.md (one per skill)
+- Key files: forge-new-project/SKILL.md, forge-plan-phase/SKILL.md, forge-execute-phase/SKILL.md
+- Subdirectories: One per skill (forge-*/)
 
 **atos-forge/references/**
 - Purpose: Core philosophy and guidance documents
@@ -206,7 +206,7 @@ atos-forge/
 ## Where to Add New Code
 
 **New Slash Command:**
-- Primary code: `commands/forge/{command-name}.md`
+- Primary code: `skill-sources/forge-{name}/SKILL.md`
 - Tests: `tests/commands/{command-name}.test.js` (if testing implemented)
 - Documentation: Update `README.md` with new command
 

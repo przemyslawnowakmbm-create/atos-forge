@@ -11,15 +11,15 @@ Read all files referenced by the invoking prompt's execution_context before star
 <step name="parse_arguments">
 Parse the command arguments:
 - Argument is the phase number to remove (integer or decimal)
-- Example: `/forge:remove-phase 17` → phase = 17
-- Example: `/forge:remove-phase 16.1` → phase = 16.1
+- Example: `/forge-remove-phase 17` → phase = 17
+- Example: `/forge-remove-phase 16.1` → phase = 16.1
 
 If no argument provided:
 
 ```
 ERROR: Phase number required
-Usage: /forge:remove-phase <phase-number>
-Example: /forge:remove-phase 17
+Usage: /forge-remove-phase <phase-number>
+Example: /forge-remove-phase 17
 ```
 
 Exit.
@@ -52,7 +52,7 @@ Only future phases can be removed:
 - Current phase: {current}
 - Phase {target} is current or completed
 
-To abandon current work, use /forge:pause-work instead.
+To abandon current work, use /forge-pause-work instead.
 ```
 
 Exit.
@@ -125,7 +125,7 @@ Changes:
 ## What's Next
 
 Would you like to:
-- `/forge:progress` — see updated roadmap status
+- `/forge-progress` — see updated roadmap status
 - Continue with current phase
 - Review roadmap
 

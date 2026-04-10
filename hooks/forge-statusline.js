@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Claude Code Statusline - Forge Edition
+// Claude Code Statusline - A-Forge Edition
 // Shows: model | current task | directory | context usage
 
 const fs = require('fs');
@@ -27,24 +27,9 @@ process.stdin.on('end', () => {
       // Scale: 80% real usage = 100% displayed
       const used = Math.min(100, Math.round((rawUsed / 80) * 100));
 
-      // Write context metrics to bridge file for the context-monitor PostToolUse hook
-      try {
-        if (session) {
-          const bridgePath = path.join(os.tmpdir(), `forge-ctx-${session}.json`);
-          const bridgeData = JSON.stringify({
-            remaining_percentage: Math.round(remaining),
-            used_pct: used,
-            timestamp: Math.floor(Date.now() / 1000)
-          });
-          fs.writeFileSync(bridgePath, bridgeData);
-        }
-      } catch (e) {
-        // Silent fail -- bridge is best-effort, don't break statusline
-      }
-
-      // Build progress bar (10 segments)
-      const filled = Math.floor(used / 10);
-      const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+      // Build progress bar (20 segments)
+      const filled = Math.floor(used / 5);
+      const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
 
       // Color based on scaled usage (thresholds adjusted for new scale)
       if (used < 63) {        // ~50% real
@@ -81,14 +66,14 @@ process.stdin.on('end', () => {
       }
     }
 
-    // Forge update available?
+    // A-Forge update available?
     let forgeUpdate = '';
     const cacheFile = path.join(homeDir, '.claude', 'cache', 'forge-update-check.json');
     if (fs.existsSync(cacheFile)) {
       try {
         const cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
         if (cache.update_available) {
-          forgeUpdate = '\x1b[33m⬆ /forge:update\x1b[0m │ ';
+          forgeUpdate = '\x1b[33m⬆ /forge-update\x1b[0m │ ';
         }
       } catch (e) {}
     }

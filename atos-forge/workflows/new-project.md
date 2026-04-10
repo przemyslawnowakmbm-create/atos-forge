@@ -23,7 +23,7 @@ Check if `--auto` flag is present in $ARGUMENTS.
 
 **Document requirement:**
 Auto mode requires an idea document — either:
-- File reference: `/forge:new-project --auto @prd.md`
+- File reference: `/forge-new-project --auto @prd.md`
 - Pasted/written text in the prompt
 
 If no document content provided, error:
@@ -32,8 +32,8 @@ If no document content provided, error:
 Error: --auto requires an idea document.
 
 Usage:
-  /forge:new-project --auto @your-idea.md
-  /forge:new-project --auto [paste or write your idea here]
+  /forge-new-project --auto @your-idea.md
+  /forge-new-project --auto [paste or write your idea here]
 
 The document should describe what you want to build.
 ```
@@ -51,7 +51,7 @@ INIT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs init new-project)
 
 Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`.
 
-**If `project_exists` is true:** Error — project already initialized. Use `/forge:progress`.
+**If `project_exists` is true:** Error — project already initialized. Use `/forge-progress`.
 
 **If `has_git` is false:** Initialize git:
 ```bash
@@ -77,12 +77,12 @@ Use AskUserQuestion:
 - header: "Codebase"
 - question: "I detected existing code in this directory. Would you like to map the codebase first?"
 - options:
-  - "Map codebase first" — Run /forge:map-codebase to understand existing architecture (Recommended)
+  - "Map codebase first" — Run /forge-map-codebase to understand existing architecture (Recommended)
   - "Skip mapping" — Proceed with project initialization
 
 **If "Map codebase first":**
 ```
-Run `/forge:map-codebase` first, then return to `/forge:new-project`
+Run `/forge-map-codebase` first, then return to `/forge-new-project`
 ```
 Exit command.
 
@@ -502,7 +502,7 @@ Create `.planning/config.json` with all settings:
 node ~/.claude/atos-forge/bin/forge-tools.cjs commit "chore: add project config" --files .planning/config.json
 ```
 
-**Note:** Run `/forge:settings` anytime to update these preferences.
+**Note:** Run `/forge-settings` anytime to update these preferences.
 
 ## 5.5. Resolve Model Profile
 
@@ -857,17 +857,9 @@ Create `.planning/REQUIREMENTS.md` with:
 
 **REQ-ID format:** `[CATEGORY]-[NUMBER]` (AUTH-01, CONTENT-02)
 
-**Requirement quality criteria:**
+**Requirement quality criteria:** Apply all 5 criteria from the requirements template (`templates/requirements.md`): Specific and Testable, User-Centric, Atomic, Independent, Unambiguous. Reject vague requirements — push for specificity using the Common Rewrites table from the template.
 
-Good requirements are:
-- **Specific and testable:** "User can reset password via email link" (not "Handle password reset")
-- **User-centric:** "User can X" (not "System does Y")
-- **Atomic:** One capability per requirement (not "User can login and manage profile")
-- **Independent:** Minimal dependencies on other requirements
-
-Reject vague requirements. Push for specificity:
-- "Handle authentication" → "User can log in with email/password and stay logged in across sessions"
-- "Support sharing" → "User can share post via link that opens in recipient's browser"
+**Tip:** After initial creation, run `/forge-enhance-requirements` for deeper quality analysis and domain gap detection.
 
 **Present full requirements list (interactive mode only):**
 
@@ -1063,7 +1055,7 @@ Present completion summary:
 ╚══════════════════════════════════════════╝
 ```
 
-Exit skill and invoke SlashCommand("/forge:discuss-phase 1 --auto")
+Exit skill and invoke SlashCommand("/forge-discuss-phase 1 --auto")
 
 **If interactive mode:**
 
@@ -1074,14 +1066,14 @@ Exit skill and invoke SlashCommand("/forge:discuss-phase 1 --auto")
 
 **Phase 1: [Phase Name]** — [Goal from ROADMAP.md]
 
-/forge:discuss-phase 1 — gather context and clarify approach
+/forge-discuss-phase 1 — gather context and clarify approach
 
 <sub>/clear first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- /forge:plan-phase 1 — skip discussion, plan directly
+- /forge-plan-phase 1 — skip discussion, plan directly
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -1122,7 +1114,7 @@ Exit skill and invoke SlashCommand("/forge:discuss-phase 1 --auto")
 - [ ] ROADMAP.md created with phases, requirement mappings, success criteria
 - [ ] STATE.md initialized
 - [ ] REQUIREMENTS.md traceability updated
-- [ ] User knows next step is `/forge:discuss-phase 1`
+- [ ] User knows next step is `/forge-discuss-phase 1`
 
 **Atomic commits:** Each phase commits its artifacts immediately. If context is lost, artifacts persist.
 

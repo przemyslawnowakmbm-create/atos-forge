@@ -7,6 +7,7 @@ Read STATE.md before any operation to load project context.
 Read config.json for planning behavior settings.
 
 @~/.claude/atos-forge/references/git-integration.md
+@~/.claude/atos-forge/references/json-safety.md
 </required_reading>
 
 <process>
@@ -445,9 +446,9 @@ ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
 
 | Condition | Route | Action |
 |-----------|-------|--------|
-| summaries < plans | **A: More plans** | Find next PLAN without SUMMARY. Yolo: auto-continue. Interactive: show next plan, suggest `/forge:execute-phase {phase}` + `/forge:verify-work`. STOP here. |
-| summaries = plans, current < highest phase | **B: Phase done** | Show completion, suggest `/forge:plan-phase {Z+1}` + `/forge:verify-work {Z}` + `/forge:discuss-phase {Z+1}` |
-| summaries = plans, current = highest phase | **C: Milestone done** | Show banner, suggest `/forge:complete-milestone` + `/forge:verify-work` + `/forge:add-phase` |
+| summaries < plans | **A: More plans** | Find next PLAN without SUMMARY. Yolo: auto-continue. Interactive: show next plan, suggest `/forge-execute-phase {phase}` + `/forge-verify-work`. STOP here. |
+| summaries = plans, current < highest phase | **B: Phase done** | Show completion, suggest `/forge-plan-phase {Z+1}` + `/forge-verify-work {Z}` + `/forge-discuss-phase {Z+1}` |
+| summaries = plans, current = highest phase | **C: Milestone done** | Show banner, suggest `/forge-complete-milestone` + `/forge-verify-work` + `/forge-add-phase` |
 
 All routes: `/clear` first for fresh context.
 </step>

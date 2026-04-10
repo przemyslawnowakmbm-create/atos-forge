@@ -392,7 +392,7 @@ body {
   <!-- Detection -->
   <div class="flow-row" style="margin-bottom:20px">
     <div class="box init" data-detail="new-project">
-      <div class="title">/forge:new-project</div>
+      <div class="title">/forge-new-project</div>
       <div class="desc">Detects existing code<br>package files, source files</div>
     </div>
     <div class="arrow">&rarr;</div>
@@ -425,7 +425,7 @@ body {
         </div>
       </div>
       <div style="font-size:9px;color:var(--text-dim);margin-top:10px;padding-left:4px">
-        /forge:init runs but indexes 0 files &mdash; .forge/ infra created, graph empty. Post-commit hook auto-updates as code is added.
+        /forge-init runs but indexes 0 files &mdash; .forge/ infra created, graph empty. Post-commit hook auto-updates as code is added.
       </div>
     </div>
 
@@ -437,7 +437,7 @@ body {
       <div style="position:absolute;top:-10px;left:20px;background:var(--bg);padding:0 8px;font-size:11px;font-weight:700;color:var(--c-agents);text-transform:uppercase;letter-spacing:0.5px">Brownfield &mdash; Existing Codebase</div>
       <div class="flow-row" style="margin-top:8px">
         <div class="box agents" data-detail="map-codebase">
-          <div class="title">/forge:map-codebase</div>
+          <div class="title">/forge-map-codebase</div>
           <div class="desc">4 parallel mapper agents<br>analyze existing code</div>
         </div>
         <div class="arrow">&rarr;</div>
@@ -464,12 +464,12 @@ body {
         </div>
         <div class="arrow">&rarr;</div>
         <div class="box graph" data-detail="brownfield-init">
-          <div class="title">/forge:init</div>
+          <div class="title">/forge-init</div>
           <div class="desc">Full index of existing code<br>modules, symbols, deps<br>capabilities, interfaces</div>
         </div>
       </div>
       <div style="font-size:9px;color:var(--text-dim);margin-top:10px;padding-left:4px">
-        /forge:init indexes all files immediately. Graph is fully populated. Agents use graph context to understand where to make changes.
+        /forge-init indexes all files immediately. Graph is fully populated. Agents use graph context to understand where to make changes.
       </div>
     </div>
   </div>
@@ -480,7 +480,7 @@ body {
     <div class="arrow down" style="width:auto">&darr;</div>
     <div class="box init" data-detail="converge-point" style="max-width:300px;border-left-color:var(--forge-secondary)">
       <div class="title" style="color:var(--forge-secondary)">Both paths converge</div>
-      <div class="desc">ROADMAP.md + .forge/ infra ready<br>Milestone lifecycle begins (Section 2)<br>/forge:init runs on every repo regardless</div>
+      <div class="desc">ROADMAP.md + .forge/ infra ready<br>Milestone lifecycle begins (Section 2)<br>/forge-init runs on every repo regardless</div>
     </div>
     <div class="arrow down" style="width:auto">&darr;</div>
     <div style="flex:1"></div>
@@ -495,10 +495,10 @@ body {
 
   <!-- Single repo init -->
   <div style="margin-bottom: 20px">
-    <div style="font-size:11px;font-weight:600;color:var(--c-init);margin-bottom:10px;padding-left:4px">Single Repo &mdash; /forge:init</div>
+    <div style="font-size:11px;font-weight:600;color:var(--c-init);margin-bottom:10px;padding-left:4px">Single Repo &mdash; /forge-init</div>
     <div class="flow-row">
       <div class="box init" data-detail="init-entry">
-        <div class="title">/forge:init</div>
+        <div class="title">/forge-init</div>
         <div class="desc">CLI entry point<br>forge-tools.cjs graph init</div>
       </div>
       <div class="arrow">&rarr;</div>
@@ -559,7 +559,7 @@ body {
 
   <!-- Multi repo init -->
   <div>
-    <div style="font-size:11px;font-weight:600;color:var(--c-system);margin-bottom:10px;padding-left:4px">Multi-Repo &mdash; /forge:system-init</div>
+    <div style="font-size:11px;font-weight:600;color:var(--c-system);margin-bottom:10px;padding-left:4px">Multi-Repo &mdash; /forge-system-init</div>
     <div class="flow-row">
       <div class="box system" data-detail="sys-init">
         <div class="title">system-init</div>
@@ -574,7 +574,7 @@ body {
       <div class="arrow">&rarr;</div>
       <div class="box system" data-detail="parallel-init">
         <div class="title">Parallel Init</div>
-        <div class="desc">N workers run /forge:init<br>per repo concurrently</div>
+        <div class="desc">N workers run /forge-init<br>per repo concurrently</div>
       </div>
       <div class="arrow">&rarr;</div>
       <div class="box system" data-detail="assembly">
@@ -608,7 +608,7 @@ body {
     <div class="loop-label" style="color:var(--c-plan)">Milestone Cycle &mdash; repeat per milestone</div>
     <div class="flow-row" style="margin-bottom:16px">
       <div class="box plan" data-detail="new-milestone">
-        <div class="title">/forge:new-milestone</div>
+        <div class="title">/forge-new-milestone</div>
         <div class="desc">Start milestone cycle<br>create PROJECT.md<br>gather requirements</div>
       </div>
       <div class="arrow">&rarr;</div>
@@ -619,7 +619,7 @@ body {
       <div class="arrow">&rarr;</div>
       <div class="box plan" data-detail="phase-mgmt">
         <div class="title">Phase Management</div>
-        <div class="desc">/forge:add-phase<br>/forge:insert-phase (3.1)<br>/forge:remove-phase</div>
+        <div class="desc">/forge-add-phase<br>/forge-insert-phase (3.1)<br>/forge-remove-phase</div>
       </div>
       <div class="arrow">&rarr;</div>
       <div class="box plan" data-detail="plan-execute-loop" style="border-left-color:var(--c-agents)">
@@ -628,7 +628,7 @@ body {
       </div>
       <div class="arrow">&rarr;</div>
       <div class="box verify" data-detail="audit-milestone">
-        <div class="title">/forge:audit-milestone</div>
+        <div class="title">/forge-audit-milestone</div>
         <div class="desc">Audit completion<br>identify gaps</div>
       </div>
       <div class="arrow">&rarr;</div>
@@ -640,14 +640,14 @@ body {
         <div class="arrow-label">yes</div>
       </div>
       <div class="box plan" data-detail="plan-gaps">
-        <div class="title">/forge:plan-gaps</div>
+        <div class="title">/forge-plan-gaps</div>
         <div class="desc">Create phases to<br>close audit gaps</div>
       </div>
     </div>
     <div class="flow-row">
       <div style="flex:1"></div>
       <div class="box session" data-detail="complete-milestone">
-        <div class="title">/forge:complete-milestone</div>
+        <div class="title">/forge-complete-milestone</div>
         <div class="desc">Archive milestone artifacts<br>prepare for next version</div>
       </div>
       <div class="arrow">&rarr;</div>
@@ -663,12 +663,12 @@ body {
   <div style="font-size:11px;font-weight:600;color:var(--c-plan);margin-bottom:10px;padding-left:4px">Per Phase &mdash; Planning</div>
   <div class="flow-row">
     <div class="box plan" data-detail="discuss-phase">
-      <div class="title">/forge:discuss-phase</div>
+      <div class="title">/forge-discuss-phase</div>
       <div class="desc">Adaptive questioning<br>gather phase context</div>
     </div>
     <div class="arrow">&rarr;</div>
     <div class="box plan" data-detail="plan-phase">
-      <div class="title">/forge:plan-phase</div>
+      <div class="title">/forge-plan-phase</div>
       <div class="desc">Phase planning workflow<br>context + research + plan</div>
     </div>
     <div class="arrow">&rarr;</div>
@@ -726,7 +726,7 @@ body {
   <!-- Step 1: Load & Assess -->
   <div class="flow-row" style="margin-bottom:20px">
     <div class="box plan" data-detail="exec-init">
-      <div class="title">/forge:execute-phase</div>
+      <div class="title">/forge-execute-phase</div>
       <div class="desc">Load plans, detect mode<br>check Docker + resources</div>
       <div class="file-tag">execute-phase.md</div>
     </div>
@@ -1019,7 +1019,7 @@ function zoomReset() { scale = 1; wrap.style.transform = 'scale(1)'; }
 // ── Detail data ──
 const details = {
   'init-entry': {
-    title: '/forge:init',
+    title: '/forge-init',
     sub: 'CLI Entry Point',
     sections: [
       { h: 'File', t: 'atos-forge/bin/forge-tools.cjs → cmdGraphInit()' },
@@ -1072,7 +1072,7 @@ const details = {
     sub: 'forge-system/system-init.js → systemInit()',
     sections: [
       { h: 'Discovery Sources', list: ['--path <dir> — 2-level filesystem scan for git repos', '--repos <file> — JSON registry of repo paths', '--github-org <org> — Clone from GitHub API'] },
-      { h: 'Pipeline', list: ['A. Discovery — find repos, apply ignore_repos filter', 'B. Parallel Init — N workers run /forge:init per repo', 'C. Assembly — builder.js merges interfaces.yaml → system-graph.db', 'D. Validation — validate.js checks cross-repo contracts'] },
+      { h: 'Pipeline', list: ['A. Discovery — find repos, apply ignore_repos filter', 'B. Parallel Init — N workers run /forge-init per repo', 'C. Assembly — builder.js merges interfaces.yaml → system-graph.db', 'D. Validation — validate.js checks cross-repo contracts'] },
     ]
   },
   'system-graph-db': {
@@ -1252,11 +1252,11 @@ const details = {
     ]
   },
   'new-milestone': {
-    title: '/forge:new-milestone',
+    title: '/forge-new-milestone',
     sub: 'Start a new milestone cycle',
     sections: [
       { h: 'What it does', list: ['Creates or updates PROJECT.md with project vision', 'Routes to requirements gathering (REQUIREMENTS.md)', 'Generates ROADMAP.md with numbered phases', 'Creates .planning/ directory structure', 'Initializes STATE.md for progress tracking'] },
-      { h: 'Also available', t: '/forge:new-project — for brand-new projects (deeper context gathering)' },
+      { h: 'Also available', t: '/forge-new-project — for brand-new projects (deeper context gathering)' },
     ]
   },
   'roadmap': {
@@ -1264,14 +1264,14 @@ const details = {
     sub: 'Phase-based execution plan',
     sections: [
       { h: 'Structure', list: ['Milestone header with version and goal', 'Numbered phases with descriptions and tags', 'Progress table tracking status per phase', 'Checkbox completion markers'] },
-      { h: 'Managed by', list: ['/forge:add-phase — append to end', '/forge:insert-phase — insert between (e.g., 3.1)', '/forge:remove-phase — remove + renumber', '/forge:progress — check status + route to next action'] },
+      { h: 'Managed by', list: ['/forge-add-phase — append to end', '/forge-insert-phase — insert between (e.g., 3.1)', '/forge-remove-phase — remove + renumber', '/forge-progress — check status + route to next action'] },
     ]
   },
   'phase-mgmt': {
     title: 'Phase Management',
     sub: 'Modify roadmap mid-flight',
     sections: [
-      { h: 'Commands', list: ['/forge:add-phase — append a new phase to end of current milestone', '/forge:insert-phase — insert urgent work as decimal phase (e.g., 3.1 between 3 and 4)', '/forge:remove-phase — remove a future phase and renumber subsequent ones'] },
+      { h: 'Commands', list: ['/forge-add-phase — append a new phase to end of current milestone', '/forge-insert-phase — insert urgent work as decimal phase (e.g., 3.1 between 3 and 4)', '/forge-remove-phase — remove a future phase and renumber subsequent ones'] },
       { h: 'Key Point', t: 'You can always extend or modify the roadmap. Start with whatever scope you have, add more phases later as needs evolve.' },
     ]
   },
@@ -1279,31 +1279,31 @@ const details = {
     title: 'Plan & Execute Per Phase',
     sub: 'Core phase lifecycle',
     sections: [
-      { h: 'Flow', list: ['1. /forge:discuss-phase — gather context through questions', '2. /forge:plan-phase — create PLAN.md files with research + planning agents', '3. /forge:execute-phase — run the full execution pipeline (Section 3)', '4. /forge:verify-work — UAT validation with user'] },
-      { h: 'Shortcuts', list: ['/forge:quick — execute simple tasks with forge guarantees but skip optional agents', '/forge:progress — auto-detect next action and route appropriately'] },
+      { h: 'Flow', list: ['1. /forge-discuss-phase — gather context through questions', '2. /forge-plan-phase — create PLAN.md files with research + planning agents', '3. /forge-execute-phase — run the full execution pipeline (Section 3)', '4. /forge-verify-work — UAT validation with user'] },
+      { h: 'Shortcuts', list: ['/forge-quick — execute simple tasks with forge guarantees but skip optional agents', '/forge-progress — auto-detect next action and route appropriately'] },
     ]
   },
   'audit-milestone': {
-    title: '/forge:audit-milestone',
+    title: '/forge-audit-milestone',
     sub: 'Verify milestone completeness',
     sections: [
       { h: 'What it does', list: ['Checks all phases against original milestone intent', 'Identifies gaps between planned and actual implementation', 'Flags incomplete features, missing tests, partial work', 'Produces audit report with gap list'] },
-      { h: 'Follow-up', t: 'If gaps found → /forge:plan-milestone-gaps creates new phases to close them' },
+      { h: 'Follow-up', t: 'If gaps found → /forge-plan-milestone-gaps creates new phases to close them' },
     ]
   },
   'plan-gaps': {
-    title: '/forge:plan-milestone-gaps',
+    title: '/forge-plan-milestone-gaps',
     sub: 'Close gaps from audit',
     sections: [
       { h: 'Process', list: ['Reads audit report for identified gaps', 'Creates new phases targeting each gap', 'Adds phases to ROADMAP.md', 'Each gap phase goes through normal plan → execute cycle'] },
     ]
   },
   'complete-milestone': {
-    title: '/forge:complete-milestone',
+    title: '/forge-complete-milestone',
     sub: 'Archive and transition',
     sections: [
       { h: 'What it does', list: ['Archives all milestone planning artifacts', 'Moves .planning/ to archive directory', 'Archives session ledger', 'Updates PROJECT.md with completed milestone', 'Cleans up temporary files'] },
-      { h: 'Next', t: 'Run /forge:new-milestone to start the next cycle with a fresh ROADMAP.md and planning directory' },
+      { h: 'Next', t: 'Run /forge-new-milestone to start the next cycle with a fresh ROADMAP.md and planning directory' },
     ]
   },
   'next-milestone': {
@@ -1314,19 +1314,19 @@ const details = {
     ]
   },
   'discuss-phase': {
-    title: '/forge:discuss-phase',
+    title: '/forge-discuss-phase',
     sub: 'Pre-planning context gathering',
     sections: [
       { h: 'Process', list: ['Adaptive questioning about the phase scope', 'Gathers constraints, preferences, priorities', 'Builds CONTEXT.md for the planning agent', 'Helps avoid wrong assumptions in the plan'] },
     ]
   },
   'new-project': {
-    title: '/forge:new-project',
+    title: '/forge-new-project',
     sub: 'Project initialization with brownfield detection',
     sections: [
       { h: 'Detection Heuristic', list: ['Scans for *.ts, *.js, *.py, *.go, *.rs, *.java (3 levels deep)', 'Checks for package.json, requirements.txt, Cargo.toml, go.mod', 'Sets is_brownfield=true if code or package files found', 'Sets needs_codebase_map=true if code exists but no .planning/codebase/'] },
       { h: 'Output', t: '{ has_existing_code, has_package_file, is_brownfield, needs_codebase_map, has_git }' },
-      { h: 'Routing', list: ['Brownfield detected → offers /forge:map-codebase first', 'No code → proceeds directly to PROJECT.md creation', 'Creates git repo if none exists'] },
+      { h: 'Routing', list: ['Brownfield detected → offers /forge-map-codebase first', 'No code → proceeds directly to PROJECT.md creation', 'Creates git repo if none exists'] },
     ]
   },
   'brownfield-detect': {
@@ -1338,10 +1338,10 @@ const details = {
     ]
   },
   'map-codebase': {
-    title: '/forge:map-codebase',
+    title: '/forge-map-codebase',
     sub: 'Brownfield-specific: analyze existing code',
     sections: [
-      { h: 'When to use', list: ['Brownfield projects before /forge:new-project', 'Refreshing after significant codebase changes', 'Onboarding to unfamiliar codebase', 'Before major refactoring'] },
+      { h: 'When to use', list: ['Brownfield projects before /forge-new-project', 'Refreshing after significant codebase changes', 'Onboarding to unfamiliar codebase', 'Before major refactoring'] },
       { h: 'When to skip', list: ['Greenfield projects (nothing to map)', 'Trivial codebases (<5 files)'] },
       { h: 'Process', list: ['Spawns 4 parallel mapper agents (all background)', 'Agent 1 (tech): STACK.md + INTEGRATIONS.md', 'Agent 2 (arch): ARCHITECTURE.md + STRUCTURE.md', 'Agent 3 (quality): CONVENTIONS.md + TESTING.md', 'Agent 4 (concerns): CONCERNS.md', 'Secret scan on output before committing'] },
       { h: 'Output', t: '7 documents in .planning/codebase/' },
@@ -1401,7 +1401,7 @@ const details = {
     ]
   },
   'brownfield-init': {
-    title: '/forge:init (Brownfield)',
+    title: '/forge-init (Brownfield)',
     sub: 'Full index of existing codebase',
     sections: [
       { h: 'What happens', list: ['tree-sitter parses ALL existing source files', 'Detects all modules, symbols, dependencies', 'Capability detection with confidence scores', 'Interface detection → interfaces.yaml', 'Graph is fully populated from day one', 'Agents use this graph to understand where to make changes'] },
@@ -1431,7 +1431,7 @@ const details = {
     sections: [
       { h: 'Archive Process', list: ['Capture ledger content before reset', 'Move to .forge/session/archive/ with timestamp', 'Create fresh ledger with carried-forward user preferences'] },
       { h: 'Knowledge Promotion', list: ['Calls knowledge.promote(cwd, archivedContent)', 'Extracts: Decisions → decision, HIGH warnings → warning', 'Extracts: Rejected approaches → pitfall, User preferences → preference', 'Deduplication via >80% Jaccard word similarity', 'Result: key learnings survive into next milestone'] },
-      { h: 'State Updates', t: 'Updates ROADMAP.md checkbox, STATE.md phase status, triggers /forge:complete-milestone flow' },
+      { h: 'State Updates', t: 'Updates ROADMAP.md checkbox, STATE.md phase status, triggers /forge-complete-milestone flow' },
     ]
   },
   'iface-yaml': {
@@ -1447,7 +1447,7 @@ const details = {
     title: 'Config Creation',
     sub: '.forge/config.json — Project Configuration',
     sections: [
-      { h: 'Created during', t: '/forge:init creates default project config' },
+      { h: 'Created during', t: '/forge-init creates default project config' },
       { h: 'Sections', list: ['graph — graph build settings, languages, ignore patterns', 'execution — context budget, mode, auto-split', 'containers — concurrency, memory, timeout', 'agents — factory, archetypes, model profiles', 'verification — per-layer toggles, test/type commands', 'knowledge — auto-promote, max entries, severity threshold', 'impact_analysis — auto-detect, max depth, scope threshold', 'session — ledger settings, auto-compact, archive', 'display — rich output, graph diff, agent learnings', 'git — atomic commits, prefix, branching', 'system — interface detection, workers, sync', 'project — name, description'] },
     ]
   },
@@ -1481,7 +1481,7 @@ const details = {
     title: 'Parallel Init',
     sub: 'System Init — Step B',
     sections: [
-      { h: 'Process', list: ['N workers (system.workers or auto-detect from CPU cores)', 'Each worker runs full /forge:init on one repo', 'Includes graph build, interface detection, config creation', 'Progress reporting per repo'] },
+      { h: 'Process', list: ['N workers (system.workers or auto-detect from CPU cores)', 'Each worker runs full /forge-init on one repo', 'Includes graph build, interface detection, config creation', 'Progress reporting per repo'] },
       { h: 'Output', t: 'Each repo gets .forge/ with graph.db + interfaces.yaml' },
     ]
   },
@@ -1505,21 +1505,21 @@ const details = {
     title: 'Gaps Found?',
     sub: 'Decision after milestone audit',
     sections: [
-      { h: 'Flow', list: ['Audit finds gaps → /forge:plan-milestone-gaps creates new phases', 'No gaps → /forge:complete-milestone archives and transitions', 'Partial gaps → user decides which to address now vs later'] },
+      { h: 'Flow', list: ['Audit finds gaps → /forge-plan-milestone-gaps creates new phases', 'No gaps → /forge-complete-milestone archives and transitions', 'Partial gaps → user decides which to address now vs later'] },
     ]
   },
   'plan-phase': {
-    title: '/forge:plan-phase',
+    title: '/forge-plan-phase',
     sub: 'Create PLAN.md files for a phase',
     sections: [
-      { h: 'Pipeline', list: ['Load phase context (CONTEXT.md, REQUIREMENTS.md, codebase docs)', 'Optionally run research agent for unknown technologies', 'Planner agent creates PLAN.md with tasks + frontmatter', 'Plan-checker validates across 8 dimensions', 'Max 3 revision loops between planner and checker', 'Output: verified PLAN.md ready for /forge:execute-phase'] },
+      { h: 'Pipeline', list: ['Load phase context (CONTEXT.md, REQUIREMENTS.md, codebase docs)', 'Optionally run research agent for unknown technologies', 'Planner agent creates PLAN.md with tasks + frontmatter', 'Plan-checker validates across 8 dimensions', 'Max 3 revision loops between planner and checker', 'Output: verified PLAN.md ready for /forge-execute-phase'] },
     ]
   },
   'context-load': {
     title: 'Context Loading',
     sub: 'Prepare planning context',
     sections: [
-      { h: 'Sources', list: ['CONTEXT.md from /forge:discuss-phase', 'REQUIREMENTS.md / PROJECT.md scope', '.planning/codebase/ documents (brownfield)', 'Session ledger — decisions, preferences, warnings', 'Code graph — affected modules, capabilities', 'Knowledge base — persistent learnings from prior milestones'] },
+      { h: 'Sources', list: ['CONTEXT.md from /forge-discuss-phase', 'REQUIREMENTS.md / PROJECT.md scope', '.planning/codebase/ documents (brownfield)', 'Session ledger — decisions, preferences, warnings', 'Code graph — affected modules, capabilities', 'Knowledge base — persistent learnings from prior milestones'] },
     ]
   },
   'research-decision': {
@@ -1541,7 +1541,7 @@ const details = {
     ]
   },
   'exec-init': {
-    title: '/forge:execute-phase',
+    title: '/forge-execute-phase',
     sub: 'Execution Pipeline Entry Point',
     sections: [
       { h: 'What it does', list: ['Load all PLAN.md files for the phase', 'Auto-detect execution mode (Docker / worktree / sequential)', 'Check system resources (CPU, RAM, disk)', 'Initialize session ledger state tracking'] },
@@ -1805,7 +1805,7 @@ const details = {
     sub: 'Both paths produce the same artifacts',
     sections: [
       { h: 'Common Artifacts', list: ['ROADMAP.md — phased execution plan', '.forge/config.json — unified configuration', '.forge/graph.db — code graph (empty or populated)', '.forge/session/ — session management', 'PROJECT.md — requirements + vision', 'Git hooks — post-commit graph updates'] },
-      { h: 'Key Insight', t: '/forge:init always runs regardless of greenfield/brownfield. On greenfield it creates empty graph infrastructure. On brownfield it indexes everything. Both paths feed into the same milestone lifecycle.' },
+      { h: 'Key Insight', t: '/forge-init always runs regardless of greenfield/brownfield. On greenfield it creates empty graph infrastructure. On brownfield it indexes everything. Both paths feed into the same milestone lifecycle.' },
     ]
   },
 };

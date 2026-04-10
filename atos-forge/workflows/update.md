@@ -118,19 +118,19 @@ Exit.
 ────────────────────────────────────────────────────────────
 
 ⚠️  **Note:** The installer performs a clean install of Forge folders:
-- `commands/forge/` will be wiped and replaced
+- `skills/forge-*/` will be wiped and replaced
 - `atos-forge/` will be wiped and replaced
 - `agents/forge-*` files will be replaced
 
 (Paths are relative to your install location: `~/.claude/` for global, `./.claude/` for local)
 
 Your custom files in other locations are preserved:
-- Custom commands not in `commands/forge/` ✓
+- Custom skills not in `skills/forge-*/` ✓
 - Custom agents not prefixed with `forge-` ✓
 - Custom hooks ✓
 - Your CLAUDE.md files ✓
 
-If you've modified any Forge files directly, they'll be automatically backed up to `forge-local-patches/` and can be reapplied with `/forge:reapply-patches` after the update.
+If you've modified any Forge files directly, they'll be automatically backed up to `forge-local-patches/` and can be reapplied with `/forge-reapply-patches` after the update.
 ```
 
 Use AskUserQuestion:
@@ -195,7 +195,7 @@ Check for forge-local-patches/backup-meta.json in the config directory.
 
 ```
 Local patches were backed up before the update.
-Run /forge:reapply-patches to merge your modifications into the new version.
+Run /forge-reapply-patches to merge your modifications into the new version.
 ```
 
 **If no patches:** Continue normally.

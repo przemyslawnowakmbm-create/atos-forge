@@ -95,7 +95,7 @@ process.stdin.on('end', () => {
         ? `CONTEXT CRITICAL: Usage at ${usedPct}%. Remaining: ${remaining}%. ` +
           'Context is nearly exhausted. Do NOT start new complex work or write handoff files — ' +
           'Forge state is already tracked in STATE.md and the session ledger. Inform the user so they can run ' +
-          '/forge:pause-work at the next natural stopping point.'
+          '/forge-pause-work at the next natural stopping point.'
         : `CONTEXT CRITICAL: Usage at ${usedPct}%. Remaining: ${remaining}%. ` +
           'Context is nearly exhausted. Inform the user that context is low and ask how they ' +
           'want to proceed. Do NOT autonomously save state or write handoff files unless the user asks.';

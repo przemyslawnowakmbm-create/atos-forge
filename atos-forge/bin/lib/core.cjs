@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { resolveProvider } = require('../../../forge-agents/provider');
 
 // ─── Model Profile Table ─────────────────────────────────────────────────────
 
@@ -16,6 +17,20 @@ const MODEL_PROFILES = {
   'forge-verifier':             { quality: 'sonnet', balanced: 'sonnet', budget: 'haiku' },
   'forge-plan-checker':         { quality: 'sonnet', balanced: 'sonnet', budget: 'haiku' },
   'forge-integration-checker':  { quality: 'sonnet', balanced: 'sonnet', budget: 'haiku' },
+};
+
+const CODEX_MODEL_PROFILES = {
+  'forge-planner':              { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-roadmapper':           { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-executor':             { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-phase-researcher':     { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-project-researcher':   { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-research-synthesizer': { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-debugger':             { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-codebase-mapper':      { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-verifier':             { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-plan-checker':         { quality: 'o3', balanced: 'o3', budget: 'o3' },
+  'forge-integration-checker':  { quality: 'o3', balanced: 'o3', budget: 'o3' },
 };
 
 // ─── Shared Utilities (Group A) ──────────────────────────────────────────────
@@ -34,6 +49,20 @@ function safeReadFile(filePath) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Strip Claude Code's `[rerun: bN]` footer from a string.
+ *
+ * When a Bash tool output exceeds Claude Code's inline limit, it is persisted
+ * to a `tool-results/*.txt` file with a trailing `[rerun: bN]` line.  If that
+ * file is later read back and parsed as JSON, the footer causes parse errors.
+ * Call this before JSON.parse / json.load on any string that may originate
+ * from a persisted Bash tool result.
+ */
+function stripClaudeFooter(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/\n?\[rerun: b\d+\]\s*$/, '');
 }
 
 function loadConfig(cwd) {
@@ -142,15 +171,7 @@ function output(result, raw, rawValue) {
     process.stdout.write(String(rawValue));
   } else {
     const json = JSON.stringify(result, null, 2);
-    // Large payloads exceed Claude Code's Bash tool buffer (~50KB).
-    // Write to tmpfile and output the path prefixed with @file: so callers can detect it.
-    if (json.length > 50000) {
-      const tmpPath = path.join(require('os').tmpdir(), `forge-${Date.now()}.json`);
-      fs.writeFileSync(tmpPath, json, 'utf-8');
-      process.stdout.write('@file:' + tmpPath);
-    } else {
-      process.stdout.write(json);
-    }
+    process.stdout.write(json);
   }
   process.exit(0);
 }
@@ -164,6 +185,8 @@ function error(message) {
 
 function resolveModelInternal(cwd, agentType) {
   const config = loadConfig(cwd);
+  const provider = resolveProvider(cwd, { provider: config.agent_provider }).name;
+  const profileTable = provider === 'codex' ? CODEX_MODEL_PROFILES : MODEL_PROFILES;
 
   // Check per-agent override first
   const override = config.model_overrides?.[agentType];
@@ -173,9 +196,9 @@ function resolveModelInternal(cwd, agentType) {
 
   // Fall back to profile lookup
   const profile = config.model_profile || 'balanced';
-  const agentModels = MODEL_PROFILES[agentType];
-  if (!agentModels) return 'sonnet';
-  const resolved = agentModels[profile] || agentModels['balanced'] || 'sonnet';
+  const agentModels = profileTable[agentType];
+  if (!agentModels) return provider === 'codex' ? 'o3' : 'sonnet';
+  const resolved = agentModels[profile] || agentModels['balanced'] || (provider === 'codex' ? 'o3' : 'sonnet');
   return resolved === 'opus' ? 'inherit' : resolved;
 }
 
@@ -491,6 +514,7 @@ module.exports = {
   // Group A - Shared Utilities
   parseIncludeFlag,
   safeReadFile,
+  stripClaudeFooter,
   loadConfig,
   isGitIgnored,
   execGit,
@@ -520,4 +544,5 @@ module.exports = {
   getRoadmapPhaseInternal,
   // Also export MODEL_PROFILES (needed by resolveModelInternal consumers)
   MODEL_PROFILES,
+  CODEX_MODEL_PROFILES,
 };

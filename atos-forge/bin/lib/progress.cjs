@@ -49,7 +49,7 @@ function cmdProgressRender(cwd, format, raw) {
 
   if (format === 'table') {
     // Render markdown table
-    const barWidth = 10;
+    const barWidth = 20;
     const filled = Math.round((percent / 100) * barWidth);
     const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(barWidth - filled);
     let out = `# ${milestone.version} ${milestone.name}\n\n`;
@@ -61,7 +61,7 @@ function cmdProgressRender(cwd, format, raw) {
     }
     output({ rendered: out }, raw, out);
   } else if (format === 'bar') {
-    const barWidth = 20;
+    const barWidth = 40;
     const filled = Math.round((percent / 100) * barWidth);
     const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(barWidth - filled);
     const text = `[${bar}] ${totalSummaries}/${totalPlans} plans (${percent}%)`;

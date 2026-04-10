@@ -4,10 +4,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const { resolveProvider } = require('../../../forge-agents/provider');
 
 const { safeReadFile, loadConfig, output, error, generateSlugInternal, pathExistsInternal,
         findPhaseInternal, resolveModelInternal, execGit, isGitIgnored, normalizePhaseName,
-        getForgeRoot, MODEL_PROFILES } = require('./core.cjs');
+        getForgeRoot, MODEL_PROFILES, CODEX_MODEL_PROFILES } = require('./core.cjs');
 const { extractFrontmatter, parseMustHavesBlock } = require('./frontmatter.cjs');
 
 // ─── Misc Commands ────────────────────────────────────────────────────────────
@@ -320,17 +321,20 @@ function cmdResolveModel(cwd, agentType, raw) {
 
   const config = loadConfig(cwd);
   const profile = config.model_profile || 'balanced';
+  const provider = resolveProvider(cwd, { provider: config.agent_provider }).name;
+  const modelProfiles = provider === 'codex' ? CODEX_MODEL_PROFILES : MODEL_PROFILES;
 
-  const agentModels = MODEL_PROFILES[agentType];
+  const agentModels = modelProfiles[agentType];
   if (!agentModels) {
-    const result = { model: 'sonnet', profile, unknown_agent: true };
-    output(result, raw, 'sonnet');
+    const fallback = provider === 'codex' ? 'o3' : 'sonnet';
+    const result = { model: fallback, profile, provider, unknown_agent: true };
+    output(result, raw, fallback);
     return;
   }
 
-  const resolved = agentModels[profile] || agentModels['balanced'] || 'sonnet';
+  const resolved = agentModels[profile] || agentModels['balanced'] || (provider === 'codex' ? 'o3' : 'sonnet');
   const model = resolved === 'opus' ? 'inherit' : resolved;
-  const result = { model, profile };
+  const result = { model, profile, provider };
   output(result, raw, model);
 }
 
@@ -568,6 +572,59 @@ function cmdTemplateSelect(cwd, planPath, raw) {
   }
 }
 
+function cmdRequirementsEnhance(cwd, modeArg, raw) {
+  const reqPath = path.join(cwd, '.planning', 'REQUIREMENTS.md');
+  const projPath = path.join(cwd, '.planning', 'PROJECT.md');
+
+  if (!fs.existsSync(reqPath)) {
+    error('REQUIREMENTS.md not found. Run /forge-new-project or /forge-new-milestone first.');
+  }
+  if (!fs.existsSync(projPath)) {
+    error('PROJECT.md not found. Run /forge-new-project first.');
+  }
+
+  const reqContent = fs.readFileSync(reqPath, 'utf-8');
+
+  // Parse requirement stats
+  const activeMatch = reqContent.match(/- \[ \] \*\*/g);
+  const completedMatch = reqContent.match(/- \[x\] \*\*/gi);
+  const futureSection = reqContent.match(/## Future Requirements([\s\S]*?)(?=##|$)/);
+  const futureMatch = futureSection ? (futureSection[1].match(/- \[ \]/g) || []) : [];
+
+  // Extract categories (## headings that aren't meta sections)
+  const metaSections = ['future requirements', 'out of scope', 'traceability'];
+  const categories = [];
+  const headingRe = /^## (.+)$/gm;
+  let m;
+  while ((m = headingRe.exec(reqContent)) !== null) {
+    const name = m[1].trim().toLowerCase();
+    if (!metaSections.includes(name)) {
+      categories.push(m[1].trim());
+    }
+  }
+
+  const validModes = ['full', 'quality', 'gaps', 'add'];
+  const mode = modeArg && validModes.includes(modeArg) ? modeArg : 'full';
+
+  const result = {
+    requirements_file: reqPath,
+    project_file: projPath,
+    mode,
+    stats: {
+      active: activeMatch ? activeMatch.length : 0,
+      completed: completedMatch ? completedMatch.length : 0,
+      future: futureMatch.length,
+      categories,
+    },
+    roadmap_exists: fs.existsSync(path.join(cwd, '.planning', 'ROADMAP.md')),
+    research_exists: fs.existsSync(path.join(cwd, '.planning', 'research', 'SUMMARY.md')),
+    codebase_exists: fs.existsSync(path.join(cwd, '.planning', 'codebase', 'ARCHITECTURE.md')),
+  };
+
+  const summary = `${result.stats.active} active, ${result.stats.completed} completed, ${result.stats.future} future across ${categories.length} categories — mode: ${mode}`;
+  output(result, raw, summary);
+}
+
 module.exports = {
   cmdGenerateSlug,
   cmdCurrentTimestamp,
@@ -577,6 +634,7 @@ module.exports = {
   cmdWebsearch,
   cmdSummaryExtract,
   cmdRequirementsMarkComplete,
+  cmdRequirementsEnhance,
   cmdResolveModel,
   cmdFindPhase,
   cmdCommit,

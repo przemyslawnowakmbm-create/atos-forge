@@ -2,21 +2,34 @@
   "name": "atos-forge",
   "version": "1.20.4",
   "description": "Forge — An enterprise-grade, AI-powered spec-driven development system with dynamic agent creation, ephemeral container execution, and code graph intelligence.",
-  "private": true,
   "bin": {
     "atos-forge": "bin/install.js"
   },
   "files": [
+    ".codex",
     "bin",
-    "commands",
+    "skill-sources",
     "atos-forge",
     "agents",
     "hooks/dist",
-    "scripts"
+    "scripts",
+    "forge-graph",
+    "forge-config",
+    "forge-session",
+    "forge-verify",
+    "forge-assess",
+    "forge-agents",
+    "forge-containers",
+    "forge-system",
+    "forge-analyze",
+    "CLAUDE.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "claude",
     "claude-code",
+    "codex",
+    "openai",
     "ai",
     "meta-prompting",
     "context-engineering",

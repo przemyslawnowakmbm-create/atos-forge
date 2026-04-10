@@ -1,7 +1,7 @@
 <purpose>
 Research how to implement a phase. Spawns forge-phase-researcher with phase context.
 
-Standalone research command. For most workflows, use `/forge:plan-phase` which integrates research automatically.
+Standalone research command. For most workflows, use `/forge-plan-phase` which integrates research automatically.
 </purpose>
 
 <process>

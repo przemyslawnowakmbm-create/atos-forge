@@ -9,6 +9,8 @@ Orchestrator coordinates, not executes. Knowledge propagates between waves: Wave
 <required_reading>
 Read STATE.md before any operation to load project context.
 If `.forge/session/ledger.md` exists, read it to restore session context (decisions, warnings, preferences).
+
+@~/.claude/atos-forge/references/json-safety.md
 </required_reading>
 
 <process>
@@ -103,7 +105,7 @@ Display:
   Docker: {DOCKER_VERSION or "not available"}
   System: {MEMORY} RAM, {CORES} cores
   Mode: {EXECUTION_MODE} (max {MAX_CONCURRENT} concurrent agents)
-  Graph: {available or "not found — run /forge:init"}
+  Graph: {available or "not found — run /forge-init"}
 ```
 
 **If worktree mode:**
@@ -710,7 +712,7 @@ VERIFICATION_STATUS=$(grep "^status:" "$PHASE_DIR"/*-VERIFICATION.md | cut -d: -
 |--------|--------|
 | `passed` | → commit_and_report |
 | `human_needed` | Present items for human testing, get approval |
-| `gaps_found` | Present gap summary, offer `/forge:plan-phase {phase} --gaps` |
+| `gaps_found` | Present gap summary, offer `/forge-plan-phase {phase} --gaps` |
 
 **Ledger:**
 ```bash
@@ -913,7 +915,7 @@ node "$TOOLS" ledger update-state '{"active_phase":"'"${NEXT_PHASE}"'","status":
 
 Execute transition workflow inline, passing `--auto` flag.
 
-**Otherwise:** Workflow ends. User runs `/forge:progress` or transition manually.
+**Otherwise:** Workflow ends. User runs `/forge-progress` or transition manually.
 </step>
 
 </process>
@@ -1012,7 +1014,7 @@ node "$TOOLS" ledger log-decision "Checkpoint: ${TYPE} in ${TASK_ID}" --rational
 </failure_handling>
 
 <resumption>
-Re-run `/forge:execute-phase {phase}` → load_plans finds completed agents (by SUMMARY.md or result.json) → skips them → resumes from first incomplete wave.
+Re-run `/forge-execute-phase {phase}` → load_plans finds completed agents (by SUMMARY.md or result.json) → skips them → resumes from first incomplete wave.
 
 The ledger preserves: current wave, completed agents, warnings, decisions. Re-run picks up where it left off.
 </resumption>

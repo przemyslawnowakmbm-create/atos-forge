@@ -677,7 +677,7 @@ if (require.main === module) {
   } else if (action === 'test') {
     // Quick self-test
     const testCwd = cwd;
-    updateState(testCwd, { active_phase: 3, active_command: 'forge:execute-phase 3', phase_name: 'Add multi-tenancy', current_wave: '1 of 3' });
+    updateState(testCwd, { active_phase: 3, active_command: 'forge-execute-phase 3', phase_name: 'Add multi-tenancy', current_wave: '1 of 3' });
     logDecision(testCwd, { decision: 'Use optional tenantId field', rationale: '47 consumers would break', rejected_alternatives: ['Required field with migration'] });
     logWarning(testCwd, { source: 'agent-001', warning: 'Webhook handler has no tenant context', severity: 'high', resolution: 'Extract from Stripe metadata' });
     logDiscovery(testCwd, { source: 'agent-002', discovery: 'getCurrentTenant() returns null for cron jobs' });

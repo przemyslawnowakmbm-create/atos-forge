@@ -196,7 +196,7 @@ function cmdSystemValidate(cwd, args, raw) {
     if (raw) {
       output({ valid: false, error: 'No interfaces.yaml found' }, raw);
     } else {
-      console.log('No .forge/interfaces.yaml found. Run forge:init first.');
+      console.log('No .forge/interfaces.yaml found. Run forge-init first.');
     }
     return;
   }

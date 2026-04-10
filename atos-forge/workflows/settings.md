@@ -179,13 +179,13 @@ Display:
 | Git Branching        | {None/Per Phase/Per Milestone} |
 | Saved as Defaults    | {Yes/No} |
 
-These settings apply to future /forge:plan-phase and /forge:execute-phase runs.
+These settings apply to future /forge-plan-phase and /forge-execute-phase runs.
 
 Quick commands:
-- /forge:set-profile <profile> — switch model profile
-- /forge:plan-phase --research — force research
-- /forge:plan-phase --skip-research — skip research
-- /forge:plan-phase --skip-verify — skip plan check
+- /forge-set-profile <profile> — switch model profile
+- /forge-plan-phase --research — force research
+- /forge-plan-phase --skip-research — skip research
+- /forge-plan-phase --skip-verify — skip plan check
 ```
 </step>
 

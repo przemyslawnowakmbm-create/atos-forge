@@ -48,15 +48,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.20.0] - 2026-02-15
 
 ### Added
-- `/forge:health` command — validates `.planning/` directory integrity with `--repair` flag for auto-fixing config.json and STATE.md
-- `--full` flag for `/forge:quick` — enables plan-checking (max 2 iterations) and post-execution verification on quick tasks
-- `--auto` flag wired from `/forge:new-project` through the full phase chain (discuss → plan → execute)
+- `/forge-health` command — validates `.planning/` directory integrity with `--repair` flag for auto-fixing config.json and STATE.md
+- `--full` flag for `/forge-quick` — enables plan-checking (max 2 iterations) and post-execution verification on quick tasks
+- `--auto` flag wired from `/forge-new-project` through the full phase chain (discuss → plan → execute)
 - Auto-advance chains phase execution across full milestones when `workflow.auto_advance` is enabled
 
 ### Fixed
-- Plans created without user context — `/forge:plan-phase` warns when no CONTEXT.md exists, `/forge:discuss-phase` warns when plans already exist (#253)
+- Plans created without user context — `/forge-plan-phase` warns when no CONTEXT.md exists, `/forge-discuss-phase` warns when plans already exist (#253)
 - OpenCode installer converts `general-purpose` subagent type to OpenCode's `general`
-- `/forge:complete-milestone` respects `commit_docs` setting when merging branches
+- `/forge-complete-milestone` respects `commit_docs` setting when merging branches
 - Phase directories tracked in git via `.gitkeep` files
 
 ## [1.19.2] - 2026-02-15
@@ -113,12 +113,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.18.0] - 2026-02-08
 
 ### Added
-- `--auto` flag for `/forge:new-project` — runs research → requirements → roadmap automatically after config questions. Expects idea document via @ reference (e.g., `/forge:new-project --auto @prd.md`)
+- `--auto` flag for `/forge-new-project` — runs research → requirements → roadmap automatically after config questions. Expects idea document via @ reference (e.g., `/forge-new-project --auto @prd.md`)
 
 ### Fixed
 - Windows: SessionStart hook now spawns detached process correctly
 - Windows: Replaced HEREDOC with literal newlines for git commit compatibility
-- Research decision from `/forge:new-milestone` now persists to config.json
+- Research decision from `/forge-new-milestone` now persists to config.json
 
 ## [1.17.0] - 2026-02-08
 
@@ -128,11 +128,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **forge-tools template fill**: `template fill summary/plan/verification` — pre-filled document skeletons
 - **forge-tools state progression**: `state advance-plan`, `state update-progress`, `state record-metric`, `state add-decision`, `state add-blocker`, `state resolve-blocker`, `state record-session` — automates STATE.md updates
 - **Local patch preservation**: Installer now detects locally modified Forge files, backs them up to `forge-local-patches/`, and creates a manifest for restoration
-- `/forge:reapply-patches` command to merge local modifications back after Forge updates
+- `/forge-reapply-patches` command to merge local modifications back after Forge updates
 
 ### Changed
 - Agents (executor, planner, plan-checker, verifier) now use forge-tools for state updates and verification instead of manual markdown parsing
-- `/forge:update` workflow now notifies about backed-up local patches and suggests `/forge:reapply-patches`
+- `/forge-update` workflow now notifies about backed-up local patches and suggests `/forge-reapply-patches`
 
 ### Fixed
 - Added workaround for Claude Code `classifyHandoffIfNeeded` bug that causes false agent failures — execute-phase and quick workflows now spot-check actual output before reporting failure
@@ -222,11 +222,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Install respects `attribution.commit` setting for OpenCode compatibility (#286)
 
 ### Fixed
-- **CRITICAL:** Prevent API keys from being committed via `/forge:map-codebase` (#429)
+- **CRITICAL:** Prevent API keys from being committed via `/forge-map-codebase` (#429)
 - Enforce context fidelity in planning pipeline - agents now honor CONTEXT.md decisions (#326, #216, #206)
 - Executor verifies task completion to prevent hallucinated success (#315)
-- Auto-create `config.json` when missing during `/forge:settings` (#264)
-- `/forge:update` respects local vs global install location
+- Auto-create `config.json` when missing during `/forge-settings` (#264)
+- `/forge-update` respects local vs global install location
 - Researcher writes RESEARCH.md regardless of `commit_docs` setting
 - Statusline crash handling, color validation, git staging rules
 - Statusline.js reference updated during install (#330)
@@ -245,7 +245,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Context compliance verification dimension in plan checker — flags if plans contradict user decisions
 
 ### Fixed
-- CONTEXT.md from `/forge:discuss-phase` now properly flows to all downstream agents (researcher, planner, checker, revision loop)
+- CONTEXT.md from `/forge-discuss-phase` now properly flows to all downstream agents (researcher, planner, checker, revision loop)
 
 ## [1.10.1] - 2025-01-30
 
@@ -264,7 +264,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.9.12] - 2025-01-23
 
 ### Removed
-- `/forge:whats-new` command — use `/forge:update` instead (shows changelog with cancel option)
+- `/forge-whats-new` command — use `/forge-update` instead (shows changelog with cancel option)
 
 ### Fixed
 - Restored auto-release GitHub Actions workflow
@@ -317,7 +317,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Subagents can now access MCP tools (Context7, etc.) - workaround for Claude Code bug #13898
 - Installer: Escape/Ctrl+C now cancels instead of installing globally
 - Installer: Fixed hook paths on Windows
-- Removed stray backticks in `/forge:new-project` output
+- Removed stray backticks in `/forge-new-project` output
 
 ### Changed
 - Condensed verbose documentation in templates and workflows (-170 lines)
@@ -336,8 +336,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 - **Codebase Intelligence System** — Removed due to overengineering concerns
-  - Deleted `/forge:analyze-codebase` command
-  - Deleted `/forge:query-intel` command
+  - Deleted `/forge-analyze-codebase` command
+  - Deleted `/forge-query-intel` command
   - Removed SQLite graph database and sql.js dependency (21MB)
   - Removed intel hooks (forge-intel-index.js, forge-intel-session.js, forge-intel-prune.js)
   - Removed entity file generation and templates
@@ -348,8 +348,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.9.0] - 2025-01-20
 
 ### Added
-- **Model Profiles** — `/forge:set-profile` for quality/balanced/budget agent configurations
-- **Workflow Settings** — `/forge:settings` command for toggling workflow behaviors interactively
+- **Model Profiles** — `/forge-set-profile` for quality/balanced/budget agent configurations
+- **Workflow Settings** — `/forge-settings` command for toggling workflow behaviors interactively
 
 ### Fixed
 - Orchestrators now inline file contents in Task prompts (fixes context issues with @ references)
@@ -360,7 +360,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Uncommitted planning mode: Keep `.planning/` local-only (not committed to git) via `planning.commit_docs: false` in config.json. Useful for OSS contributions, client work, or privacy preferences.
-- `/forge:new-project` now asks about git tracking during initial setup, letting you opt out of committing planning docs from the start
+- `/forge-new-project` now asks about git tracking during initial setup, letting you opt out of committing planning docs from the start
 
 ## [1.7.1] - 2026-01-19
 
@@ -370,7 +370,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.7.0] - 2026-01-19
 
 ### Added
-- **Quick Mode** (`/forge:quick`) — Execute small, ad-hoc tasks with Forge guarantees but skip optional agents (researcher, checker, verifier). Quick tasks live in `.planning/quick/` with their own tracking in STATE.md.
+- **Quick Mode** (`/forge-quick`) — Execute small, ad-hoc tasks with Forge guarantees but skip optional agents (researcher, checker, verifier). Quick tasks live in `.planning/quick/` with their own tracking in STATE.md.
 
 ### Changed
 - Improved progress bar calculation to clamp values within 0-100 range
@@ -398,7 +398,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.6.3] - 2025-01-17
 
 ### Added
-- `--gaps-only` flag for `/forge:execute-phase` — executes only gap closure plans after verify-work finds issues, eliminating redundant state discovery
+- `--gaps-only` flag for `/forge-execute-phase` — executes only gap closure plans after verify-work finds issues, eliminating redundant state discovery
 
 ## [1.6.2] - 2025-01-17
 
@@ -413,28 +413,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Installer performs clean install of Forge folders, removing orphaned files from previous versions
-- `/forge:update` shows changelog and asks for confirmation before updating, with clear warning about what gets replaced
+- `/forge-update` shows changelog and asks for confirmation before updating, with clear warning about what gets replaced
 
 ## [1.6.0] - 2026-01-17
 
 ### Changed
-- **BREAKING:** Unified `/forge:new-milestone` flow — now mirrors `/forge:new-project` with questioning → research → requirements → roadmap in a single command
+- **BREAKING:** Unified `/forge-new-milestone` flow — now mirrors `/forge-new-project` with questioning → research → requirements → roadmap in a single command
 - Roadmapper agent now references templates instead of inline structures for easier maintenance
 
 ### Removed
-- **BREAKING:** `/forge:discuss-milestone` — consolidated into `/forge:new-milestone`
-- **BREAKING:** `/forge:create-roadmap` — integrated into project/milestone flows
-- **BREAKING:** `/forge:define-requirements` — integrated into project/milestone flows
-- **BREAKING:** `/forge:research-project` — integrated into project/milestone flows
+- **BREAKING:** `/forge-discuss-milestone` — consolidated into `/forge-new-milestone`
+- **BREAKING:** `/forge-create-roadmap` — integrated into project/milestone flows
+- **BREAKING:** `/forge-define-requirements` — integrated into project/milestone flows
+- **BREAKING:** `/forge-research-project` — integrated into project/milestone flows
 
 ### Added
-- `/forge:verify-work` now includes next-step routing after verification completes
+- `/forge-verify-work` now includes next-step routing after verification completes
 
 ## [1.5.30] - 2026-01-17
 
 ### Fixed
 - Output templates in `plan-phase`, `execute-phase`, and `audit-milestone` now render markdown correctly instead of showing literal backticks
-- Next-step suggestions now consistently recommend `/forge:discuss-phase` before `/forge:plan-phase` across all routing paths
+- Next-step suggestions now consistently recommend `/forge-discuss-phase` before `/forge-plan-phase` across all routing paths
 
 ## [1.5.29] - 2025-01-16
 
@@ -451,7 +451,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Consolidated milestone workflow into single command
 - Merged domain expertise skills into agent configurations
-- **BREAKING:** Removed `/forge:execute-plan` command (use `/forge:execute-phase` instead)
+- **BREAKING:** Removed `/forge-execute-plan` command (use `/forge-execute-phase` instead)
 
 ### Fixed
 - Phase directory matching now handles both zero-padded (05-*) and unpadded (5-*) folder names
@@ -489,12 +489,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Consistent zero-padding for phase directories (01-name, not 1-name)
 - Plan file naming: `{phase}-{plan}-PLAN.md` pattern restored across all agents
 - Double-path bug in researcher git add command
-- Removed `/forge:research-phase` from next-step suggestions (use `/forge:plan-phase` instead)
+- Removed `/forge-research-phase` from next-step suggestions (use `/forge-plan-phase` instead)
 
 ## [1.5.22] - 2025-01-16
 
 ### Added
-- Statusline update indicator — shows `⬆ /forge:update` when a new version is available
+- Statusline update indicator — shows `⬆ /forge-update` when a new version is available
 
 ### Fixed
 - Planner now updates ROADMAP.md placeholders after planning completes
@@ -506,9 +506,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Research synthesizer agent that consolidates parallel research into SUMMARY.md
 
 ### Changed
-- **Unified `/forge:new-project` flow** — Single command now handles questions → research → requirements → roadmap (~10 min)
+- **Unified `/forge-new-project` flow** — Single command now handles questions → research → requirements → roadmap (~10 min)
 - Simplified README to reflect streamlined workflow: new-project → plan-phase → execute-phase
-- Added optional `/forge:discuss-phase` documentation for UI/UX/behavior decisions before planning
+- Added optional `/forge-discuss-phase` documentation for UI/UX/behavior decisions before planning
 
 ### Fixed
 - verify-work now shows clear checkpoint box with action prompt ("Type 'pass' or describe what's wrong")
@@ -531,11 +531,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.5.19] - 2026-01-16
 
 ### Changed
-- `/forge:discuss-phase` redesigned with intelligent gray area analysis — analyzes phase to identify discussable areas (UI, UX, Behavior, etc.), presents multi-select for user control, deep-dives each area with focused questioning
+- `/forge-discuss-phase` redesigned with intelligent gray area analysis — analyzes phase to identify discussable areas (UI, UX, Behavior, etc.), presents multi-select for user control, deep-dives each area with focused questioning
 - Explicit scope guardrail prevents scope creep during discussion — captures deferred ideas without acting on them
 - CONTEXT.md template restructured for decisions (domain boundary, decisions by category, Claude's discretion, deferred ideas)
 - Downstream awareness: discuss-phase now explicitly documents that CONTEXT.md feeds researcher and planner agents
-- `/forge:plan-phase` now integrates research — spawns `forge-phase-researcher` before planning unless research exists or `--skip-research` flag used
+- `/forge-plan-phase` now integrates research — spawns `forge-phase-researcher` before planning unless research exists or `--skip-research` flag used
 
 ## [1.5.18] - 2026-01-16
 
@@ -552,7 +552,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Statusline integration** — Context usage, model, and current task display
 
 ### Changed
-- `/forge:plan-phase` refactored to thin orchestrator pattern (310 lines)
+- `/forge-plan-phase` refactored to thin orchestrator pattern (310 lines)
   - Spawns `forge-planner` for planning, `forge-plan-checker` for verification
   - User sees status between agent spawns (not a black box)
 - Planning references deprecated with redirects to `forge-planner` agent sections
@@ -568,7 +568,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.5.17] - 2026-01-15
 
 ### Added
-- New `/forge:update` command — check for updates, install, and display changelog of what changed (better UX than raw `node bin/install.js`)
+- New `/forge-update` command — check for updates, install, and display changelog of what changed (better UX than raw `node bin/install.js`)
 
 ## [1.5.16] - 2026-01-15
 
@@ -579,10 +579,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Research subagent prompt template for context-only spawning
 
 ### Changed
-- `/forge:research-phase` refactored to thin orchestrator — now injects rich context (key insight framing, downstream consumer info, quality gates) to forge-researcher agent
-- `/forge:research-project` refactored to spawn 4 parallel forge-researcher agents with milestone-aware context (greenfield vs v1.1+) and roadmap implications guidance
-- `/forge:debug` refactored to thin orchestrator (149 lines) — spawns forge-debugger agent with full debugging expertise
-- `/forge:new-milestone` now explicitly references MILESTONE-CONTEXT.md
+- `/forge-research-phase` refactored to thin orchestrator — now injects rich context (key insight framing, downstream consumer info, quality gates) to forge-researcher agent
+- `/forge-research-project` refactored to spawn 4 parallel forge-researcher agents with milestone-aware context (greenfield vs v1.1+) and roadmap implications guidance
+- `/forge-debug` refactored to thin orchestrator (149 lines) — spawns forge-debugger agent with full debugging expertise
+- `/forge-new-milestone` now explicitly references MILESTONE-CONTEXT.md
 
 ### Deprecated
 - `workflows/research-phase.md` — consolidated into forge-researcher agent
@@ -598,18 +598,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Agents now install correctly** — The `agents/` folder (forge-executor, forge-verifier, forge-integration-checker, forge-milestone-auditor) was missing from npm package, now included
 
 ### Changed
-- Consolidated `/forge:plan-fix` into `/forge:plan-phase --gaps` for simpler workflow
+- Consolidated `/forge-plan-fix` into `/forge-plan-phase --gaps` for simpler workflow
 - UAT file writes now batched instead of per-response for better performance
 
 ## [1.5.14] - 2025-01-15
 
 ### Fixed
-- Plan-phase now always routes to `/forge:execute-phase` after planning, even for single-plan phases
+- Plan-phase now always routes to `/forge-execute-phase` after planning, even for single-plan phases
 
 ## [1.5.13] - 2026-01-15
 
 ### Fixed
-- `/forge:new-milestone` now presents research and requirements paths as equal options, matching `/forge:new-project` format
+- `/forge-new-milestone` now presents research and requirements paths as equal options, matching `/forge-new-project` format
 
 ## [1.5.12] - 2025-01-15
 
@@ -624,7 +624,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - `MILESTONE-AUDIT.md` now versioned as `v{version}-MILESTONE-AUDIT.md` and archived on completion
-- `progress` now correctly routes to `/forge:discuss-milestone` when between milestones (Route F)
+- `progress` now correctly routes to `/forge-discuss-milestone` when between milestones (Route F)
 
 ## [1.5.11] - 2025-01-15
 
@@ -642,12 +642,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.5.9] - 2025-01-15
 
 ### Added
-- Milestone audit system (`/forge:audit-milestone`) for verifying milestone completion with parallel verification agents
+- Milestone audit system (`/forge-audit-milestone`) for verifying milestone completion with parallel verification agents
 
 ### Changed
 - Checkpoint display format improved with box headers and unmissable "→ YOUR ACTION:" prompts
 - Subagent colors updated (executor: yellow, integration-checker: blue)
-- Execute-phase now recommends `/forge:audit-milestone` when milestone completes
+- Execute-phase now recommends `/forge-audit-milestone` when milestone completes
 
 ### Fixed
 - Research-phase no longer gatekeeps by domain type
@@ -710,7 +710,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **define-requirements**: Works without prior research. Gathers requirements through conversation when FEATURES.md doesn't exist.
 
 ### Removed
-- Dead `/forge:status` command (referenced abandoned background agent model)
+- Dead `/forge-status` command (referenced abandoned background agent model)
 - Unused `agent-history.md` template
 - `_archive/` directory with old execute-phase version
 
@@ -738,8 +738,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.5.0] - 2026-01-14
 
 ### Added
-- New `/forge:research-project` command for pre-roadmap ecosystem research — spawns parallel agents to investigate stack, features, architecture, and pitfalls before you commit to a roadmap
-- New `/forge:define-requirements` command for scoping v1 requirements from research findings — transforms "what exists in this domain" into "what we're building"
+- New `/forge-research-project` command for pre-roadmap ecosystem research — spawns parallel agents to investigate stack, features, architecture, and pitfalls before you commit to a roadmap
+- New `/forge-define-requirements` command for scoping v1 requirements from research findings — transforms "what exists in this domain" into "what we're building"
 - Requirements traceability: phases now map to specific requirement IDs with 100% coverage validation
 
 ### Changed
@@ -775,7 +775,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.4.25] - 2026-01-14
 
 ### Added
-- New `/forge:whats-new` command shows changes since your installed version
+- New `/forge-whats-new` command shows changes since your installed version
 - VERSION file written during installation for version tracking
 - CHANGELOG.md now included in package installation
 
@@ -908,7 +908,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.4.3] - 2026-01-13
 
 ### Added
-- `/forge:debug` command for systematic debugging with persistent state
+- `/forge-debug` command for systematic debugging with persistent state
 
 ## [1.4.2] - 2026-01-13
 
@@ -918,9 +918,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.4.1] - 2026-01-13
 
 ### Added
-- Parallel phase execution via `/forge:execute-phase`
-- Parallel-aware planning in `/forge:plan-phase`
-- `/forge:status` command for parallel agent monitoring
+- Parallel phase execution via `/forge-execute-phase`
+- Parallel-aware planning in `/forge-plan-phase`
+- `/forge-status` command for parallel agent monitoring
 - Parallelization configuration in config.json
 - Wave-based parallel execution with dependency graphs
 
@@ -943,7 +943,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.3.34] - 2026-01-11
 
 ### Added
-- `/forge:add-todo` and `/forge:check-todos` for mid-session idea capture
+- `/forge-add-todo` and `/forge-check-todos` for mid-session idea capture
 
 ## [1.3.33] - 2026-01-11
 
@@ -956,7 +956,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.3.32] - 2026-01-10
 
 ### Added
-- `/forge:resume-task` for resuming interrupted subagent executions
+- `/forge-resume-task` for resuming interrupted subagent executions
 
 ## [1.3.31] - 2026-01-08
 
@@ -972,15 +972,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.3.29] - 2026-01-08
 
 ### Added
-- `/forge:verify-work` for conversational UAT validation
-- `/forge:plan-fix` for fixing UAT issues
+- `/forge-verify-work` for conversational UAT validation
+- `/forge-plan-fix` for fixing UAT issues
 - UAT issues template
 
 ## [1.3.28] - 2026-01-07
 
 ### Added
 - `--config-dir` CLI argument for multi-account setups
-- `/forge:remove-phase` command
+- `/forge-remove-phase` command
 
 ### Fixed
 - Validation for --config-dir edge cases
@@ -1128,12 +1128,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.3.1] - 2025-12-17
 
 ### Added
-- `/forge:map-codebase` documentation in help and README
+- `/forge-map-codebase` documentation in help and README
 
 ## [1.3.0] - 2025-12-17
 
 ### Added
-- `/forge:map-codebase` command for brownfield project analysis
+- `/forge-map-codebase` command for brownfield project analysis
 - Codebase map templates (stack, architecture, structure, conventions, testing, integrations, concerns)
 - Parallel Explore agent orchestration for codebase analysis
 - Brownfield integration into Forge workflows
@@ -1229,9 +1229,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Pre-roadmap research workflow
-- `/forge:research-phase` for niche domain ecosystem discovery
-- `/forge:research-project` command with workflow and templates
-- `/forge:create-roadmap` command with research-aware workflow
+- `/forge-research-phase` for niche domain ecosystem discovery
+- `/forge-research-project` command with workflow and templates
+- `/forge-create-roadmap` command with research-aware workflow
 - Research subagent prompt templates
 
 ### Changed
@@ -1241,7 +1241,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.0.11] - 2025-12-15
 
 ### Added
-- `/forge:research-phase` for niche domain ecosystem discovery
+- `/forge-research-phase` for niche domain ecosystem discovery
 
 ## [1.0.10] - 2025-12-15
 
@@ -1301,7 +1301,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - Initial release of Forge meta-prompting system
-- Core slash commands: `/forge:new-project`, `/forge:discuss-phase`, `/forge:plan-phase`, `/forge:execute-phase`
+- Core slash commands: `/forge-new-project`, `/forge-discuss-phase`, `/forge-plan-phase`, `/forge-execute-phase`
 - PROJECT.md and STATE.md templates
 - Phase-based development workflow
 - YOLO mode for autonomous execution

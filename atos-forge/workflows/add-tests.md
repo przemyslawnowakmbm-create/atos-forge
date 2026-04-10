@@ -20,7 +20,7 @@ Parse `$ARGUMENTS` for:
 If no phase argument provided:
 ```
 ERROR: Phase number required
-Usage: /forge:add-tests <phase> [additional instructions]
+Usage: /forge-add-tests <phase> [additional instructions]
 ```
 Exit.
 </step>
@@ -37,7 +37,7 @@ Load phase operation context:
 If no SUMMARY.md exists:
 ```
 ERROR: No SUMMARY.md found for phase ${PHASE_ARG}
-This command works on completed phases. Run /forge:execute-phase first.
+This command works on completed phases. Run /forge-execute-phase first.
 ```
 Exit.
 

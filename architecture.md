@@ -7,12 +7,12 @@
 
 ## 1. Przegląd systemu
 
-Forge to AI-powered spec-driven development system działający wewnątrz Claude Code. Buduje graf kodu (SQLite), zarządza pamięcią sesji, orkiestruje agentów w izolowanych kontenerach/worktree, weryfikuje wyniki 9-warstwowym pipeline, i może działać autonomicznie (auto mode).
+Forge to AI-powered spec-driven development system działający wewnątrz Claude Code, Codex, OpenCode i Gemini. Buduje graf kodu (SQLite), zarządza pamięcią sesji, orkiestruje agentów w izolowanych kontenerach/worktree, weryfikuje wyniki 9-warstwowym pipeline, i może działać autonomicznie (auto mode).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Claude Code CLI                          │
-│  /forge:* slash commands → workflows → agents                │
+│                 Runtime Skill Entry Points                   │
+│  /forge-* (Claude) | $forge-* (Codex) → workflows → agents  │
 ├─────────────┬──────────────┬────────────────┬───────────────┤
 │ forge-graph │ forge-session│ forge-agents   │ forge-verify  │
 │ (SQLite DB, │ (ledger,     │ (factory,      │ (9 layers,    │
@@ -93,13 +93,14 @@ dead_code                                  — symbols with 0 callers (symbol_id
 
 | Plik | Opis |
 |------|------|
-| `factory.js` | 7-step pipeline: analyze → archetype → prompt (grounding, conventions, locked decisions, previous findings) → context (3-level compression) → verify → container → session |
+| `factory.js` | 7-step pipeline: analyze → archetype → prompt (grounding, directives, conventions, locked decisions, previous findings) → context (3-level compression) → verify → container → session |
 | `cache.js` | Agent cache: persist built configs to `.forge/agents/`, SHA-256 keyed, staleness detection, registry |
 | `parallel-planner.js` | DAG scheduling, bin-packing into waves |
 | `agent-output-schema.js` | Structured JSON output: findings, decisions, confidence |
 
 **Factory intelligence (all implemented):**
 - Decision Registry integration (decisions.db → agent prompt)
+- Mechanical directives injection (`agent-directives.md` → system prompt)
 - Fact-Grounding (graph exports/signatures → "Grounded Facts" section)
 - Context Compression (3-level: FULL/INTERFACE/SUMMARY)
 - Convention injection (naming, imports, test fw → prompt)
@@ -170,7 +171,7 @@ dead_code                                  — symbols with 0 callers (symbol_id
 - Crash-safe (writeLock per unit, clearLock after)
 - Cost tracking (metrics.js per unit)
 - Stuck detection (same unit 2x → retry once → stop)
-- Command: `/forge:auto`
+- Command: `/forge-auto`
 
 ### 2.8 forge-system/ — Multi-Repo System Graph
 
@@ -191,7 +192,7 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 - `bin/lib/` — 22 modułów CJS
 - `workflows/` — 34 workflow definitions
 - `templates/` — plan/summary/config templates
-- `references/` — 5 reference docs
+- `references/` — 11 reference docs (incl. `agent-directives.md` — shared directive text for installed skills and spawned agents; mirrored in `CLAUDE.md` when working inside the FDP repo)
 
 ### 2.12 hooks/
 
@@ -199,9 +200,9 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 - `forge-context-monitor.js` — PostToolUse: WARNING at 35%, CRITICAL at 25%
 - `forge-check-update.js` — background update check
 
-### 2.13 commands/forge/
+### 2.13 skills/
 
-33 slash commands including: new-project, discuss-phase, plan-phase, execute-phase, verify-work, validate-phase, add-tests, auto, reassess-roadmap, quick, progress, debug, health, settings...
+41 Forge skills, including project workflows (`forge-new-project`, `forge-plan-phase`, `forge-execute-phase`), graph utilities (`forge-graph-status`, `forge-graph-overview`, `forge-graph-show`, `forge-graph-hotspots`, `forge-graph-cycles`, `forge-graph-capabilities`, `forge-graph-visualize`), and health/config helpers (`forge-doctor`, `forge-health`, `forge-settings`).
 
 ### 2.14 agents/
 
@@ -280,8 +281,8 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 ## 7. Roadmap rozwoju
 
 ### Zrobione
-- [x] 1-FDP: EUROCONTROL cleanup, URLs→TBD, context-monitor hook, /forge:add-tests
-- [x] 2-FDP: Monolith split (6554→709L, 21 modules), tests (101), /forge:validate-phase, --repair
+- [x] 1-FDP: EUROCONTROL cleanup, URLs→TBD, context-monitor hook, /forge-add-tests
+- [x] 2-FDP: Monolith split (6554→709L, 21 modules), tests (101), /forge-validate-phase, --repair
 - [x] 3-FDP: Rebrand "Atos"→"Forge" (~70 files), Exo font→system fonts, dead code cleanup (16 files)
 - [x] Intelligence Upgrade: 11 optimization points (decisions.db, grounding, plan-lock, test-first, compression, incremental verify, memory chain, smart split, cache, conventions, agent cache)
 - [x] Architecture Roadmap: GSD-2 features (crash recovery, auto mode, timeouts, metrics, reassessment, browser L9) + graph extensions (call_graph, class_hierarchy, dead_code, watcher, dashboard tabs)
@@ -311,7 +312,7 @@ analyzer.js: keyword extraction → interface search → impact analysis → sco
 | 4. Build hooks | Copy hooks to dist/ for installation |
 | 5. Run installer | `node bin/install.js --claude --global` (copies everything to ~/.claude/) |
 | 6. Run tests | 101 tests as post-install verification |
-| 7. Summary | Next steps: /forge:init → /forge:doctor → /forge:new-project |
+| 7. Summary | Next steps: /forge-init → /forge-doctor → /forge-new-project |
 
 **Usage:**
 ```bash
@@ -323,17 +324,23 @@ curl -sSL <url>/setup.sh | bash # clone + install (when repo is public)
 
 **Idempotent:** safe to re-run. Updates instead of re-cloning. Preserves local patches.
 
-### bin/install.js — Component installer
+### bin/install.js — Multi-runtime component installer
 
-Copies Forge components into Claude Code configuration directory. Called by setup.sh or directly.
+Copies Forge components into the selected runtime configuration directory. Called by setup.sh or directly.
 
-**What it copies to `~/.claude/`:**
-- `commands/forge/` — 33 slash commands with path templating
-- `agents/` — 11 agent definitions with runtime adaptation
+**What it installs:**
+- Claude Code / Gemini: `skill-sources/` — 41 forge skills (`skill-sources/forge-*/SKILL.md`) with path templating
+- Codex: `~/.codex/skills/` from `.codex/skills/` plus runtime-adapted `~/.codex/agents/` and hooks
+- OpenCode: flattened `command/forge-*.md` commands generated from the same skill sources
 - `atos-forge/` — CLI, workflows, templates, references
-- `forge-graph/`, `forge-session/`, `forge-verify/`, `forge-assess/`, `forge-agents/`, `forge-containers/`, `forge-auto/` — engine modules
+- `forge-graph/`, `forge-config/`, `forge-session/`, `forge-verify/`, `forge-assess/`, `forge-agents/`, `forge-containers/`, `forge-system/`, `forge-analyze/` — engine modules
 - `hooks/` — statusline, context-monitor, check-update (with PostToolUse/SessionStart config)
-- `settings.json` — updated with hook registrations
+- Runtime settings / hooks config — updated with hook registrations where supported
+
+**Directive propagation paths:**
+- Installed main-session skills: Claude / Gemini / OpenCode skills and Codex skills load `atos-forge/references/agent-directives.md` via `execution_context`
+- FDP repo development: `CLAUDE.md` mirrors the directive block for Claude Code auto-load
+- Spawned agents: `forge-agents/factory.js` injects the same directive text into every composed system prompt
 
 ### INSTALLATION.md — User documentation
 
@@ -344,13 +351,13 @@ Step-by-step guide covering: quick install, what each step does, installation mo
 ## 9. Inwentarz plików
 
 ```
-FDP Root (59 JS/CJS modules | 33 commands | 34 workflows | 11 agents | 3 hooks | 112 tests)
+FDP Root (59 JS/CJS modules | 41 skills | 34 workflows | 11 agents | 3 hooks | 112 tests)
 ├── atos-forge/                    CLI entry point
 │   ├── bin/forge-tools.cjs        709L thin dispatcher
 │   ├── bin/lib/                   21 CJS modules
 │   ├── workflows/                 34 workflow definitions
 │   ├── templates/                 ~10 templates
-│   └── references/                5 reference docs
+│   └── references/                11 reference docs (incl. agent-directives.md)
 ├── forge-graph/                   Code Graph Engine
 │   ├── builder.js                 Build + call extraction + dead code detection
 │   ├── query.js                   GraphQuery: impact, callers, callees, hierarchy, dead-code
@@ -395,7 +402,8 @@ FDP Root (59 JS/CJS modules | 33 commands | 34 workflows | 11 agents | 3 hooks |
 │   └── config.js (13 sections), doctor.js (18 checks), settings.js
 ├── forge-analyze/                 Impact Analyzer
 │   └── analyzer.js
-├── commands/forge/                33 slash commands
+├── skills/                       41 forge skills (forge-*/SKILL.md)
+├── .codex/                       Codex-specific skills, agents, and hooks
 ├── agents/                        11 specialized agents
 ├── hooks/                         3 hooks (statusline, context-monitor, check-update)
 ├── tests/                         5 test files (112 total tests)

@@ -12,15 +12,7 @@ Read all files referenced by the invoking prompt's execution_context before star
 **Load progress context (with file contents to avoid redundant reads):**
 
 ```bash
-INIT_RAW=$(node ~/.claude/atos-forge/bin/forge-tools.cjs init progress --include state,roadmap,project,config)
-# Large payloads are written to a tmpfile — output starts with @file:/path
-if [[ "$INIT_RAW" == @file:* ]]; then
-  INIT_FILE="${INIT_RAW#@file:}"
-  INIT=$(cat "$INIT_FILE")
-  rm -f "$INIT_FILE"
-else
-  INIT="$INIT_RAW"
-fi
+INIT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs init progress --include state,roadmap,project,config)
 ```
 
 Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`.
@@ -32,18 +24,18 @@ If `project_exists` is false (no `.planning/` directory):
 ```
 No planning structure found.
 
-Run /forge:new-project to start a new project.
+Run /forge-new-project to start a new project.
 ```
 
 Exit.
 
-If missing STATE.md: suggest `/forge:new-project`.
+If missing STATE.md: suggest `/forge-new-project`.
 
 **If ROADMAP.md missing but PROJECT.md exists:**
 
 This means a milestone was completed and archived. Go to **Route F** (between milestones).
 
-If missing both ROADMAP.md and PROJECT.md: suggest `/forge:new-project`.
+If missing both ROADMAP.md and PROJECT.md: suggest `/forge-new-project`.
 </step>
 
 <step name="load">
@@ -129,10 +121,10 @@ CONTEXT: [✓ if has_context | - if not]
 - [any blockers or concerns from STATE.md]
 
 ## Pending Todos
-- [count] pending — /forge:check-todos to review
+- [count] pending — /forge-check-todos to review
 
 ## Active Debug Sessions
-- [count] active — /forge:debug to continue
+- [count] active — /forge-debug to continue
 (Only show this section if count > 0)
 
 ## What's Next
@@ -191,7 +183,7 @@ Read its `<objective>` section.
 
 **{phase}-{plan}: [Plan Name]** — [objective summary from PLAN.md]
 
-`/forge:execute-phase {phase}`
+`/forge-execute-phase {phase}`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -214,7 +206,7 @@ Check if `{phase_num}-CONTEXT.md` exists in phase directory.
 **Phase {N}: {Name}** — {Goal from ROADMAP.md}
 <sub>✓ Context gathered, ready to plan</sub>
 
-`/forge:plan-phase {phase-number}`
+`/forge-plan-phase {phase-number}`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -230,15 +222,15 @@ Check if `{phase_num}-CONTEXT.md` exists in phase directory.
 
 **Phase {N}: {Name}** — {Goal from ROADMAP.md}
 
-`/forge:discuss-phase {phase}` — gather context and clarify approach
+`/forge-discuss-phase {phase}` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/forge:plan-phase {phase}` — skip discussion, plan directly
-- `/forge:list-phase-assumptions {phase}` — see Claude's assumptions
+- `/forge-plan-phase {phase}` — skip discussion, plan directly
+- `/forge-list-phase-assumptions {phase}` — see Claude's assumptions
 
 ---
 ```
@@ -256,15 +248,15 @@ UAT.md exists with gaps (diagnosed issues). User needs to plan fixes.
 
 **{phase_num}-UAT.md** has {N} gaps requiring fixes.
 
-`/forge:plan-phase {phase} --gaps`
+`/forge-plan-phase {phase} --gaps`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/forge:execute-phase {phase}` — execute phase plans
-- `/forge:verify-work {phase}` — run more UAT testing
+- `/forge-execute-phase {phase}` — execute phase plans
+- `/forge-verify-work {phase}` — run more UAT testing
 
 ---
 ```
@@ -303,15 +295,15 @@ Read ROADMAP.md to get the next phase's name and goal.
 
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-`/forge:discuss-phase {Z+1}` — gather context and clarify approach
+`/forge-discuss-phase {Z+1}` — gather context and clarify approach
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/forge:plan-phase {Z+1}` — skip discussion, plan directly
-- `/forge:verify-work {Z}` — user acceptance test before continuing
+- `/forge-plan-phase {Z+1}` — skip discussion, plan directly
+- `/forge-verify-work {Z}` — user acceptance test before continuing
 
 ---
 ```
@@ -331,14 +323,14 @@ All {N} phases finished!
 
 **Complete Milestone** — archive and prepare for next
 
-`/forge:complete-milestone`
+`/forge-complete-milestone`
 
 <sub>`/clear` first → fresh context window</sub>
 
 ---
 
 **Also available:**
-- `/forge:verify-work` — user acceptance test before completing milestone
+- `/forge-verify-work` — user acceptance test before completing milestone
 
 ---
 ```
@@ -362,7 +354,7 @@ Ready to plan the next milestone.
 
 **Start Next Milestone** — questioning → research → requirements → roadmap
 
-`/forge:new-milestone`
+`/forge-new-milestone`
 
 <sub>`/clear` first → fresh context window</sub>
 
@@ -374,10 +366,10 @@ Ready to plan the next milestone.
 <step name="edge_cases">
 **Handle edge cases:**
 
-- Phase complete but next phase not planned → offer `/forge:plan-phase [next]`
+- Phase complete but next phase not planned → offer `/forge-plan-phase [next]`
 - All work complete → offer milestone completion
 - Blockers present → highlight before offering to continue
-- Handoff file exists → mention it, offer `/forge:resume-work`
+- Handoff file exists → mention it, offer `/forge-resume-work`
   </step>
 
 </process>
@@ -387,7 +379,7 @@ Ready to plan the next milestone.
 - [ ] Rich context provided (recent work, decisions, issues)
 - [ ] Current position clear with visual progress
 - [ ] What's next clearly explained
-- [ ] Smart routing: /forge:execute-phase if plans exist, /forge:plan-phase if not
+- [ ] Smart routing: /forge-execute-phase if plans exist, /forge-plan-phase if not
 - [ ] User confirms before any action
 - [ ] Seamless handoff to appropriate forge command
       </success_criteria>

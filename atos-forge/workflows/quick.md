@@ -48,7 +48,7 @@ INIT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs init quick "$DESCRIPTION")
 
 Parse JSON for: `planner_model`, `executor_model`, `checker_model`, `verifier_model`, `commit_docs`, `next_num`, `slug`, `date`, `timestamp`, `quick_dir`, `task_dir`, `roadmap_exists`, `planning_exists`.
 
-**If `roadmap_exists` is false:** Error — Quick mode requires an active project with ROADMAP.md. Run `/forge:new-project` first.
+**If `roadmap_exists` is false:** Error — Quick mode requires an active project with ROADMAP.md. Run `/forge-new-project` first.
 
 Quick tasks can run mid-phase - validation only checks ROADMAP.md exists, not phase status.
 
@@ -79,6 +79,21 @@ Directory: ${QUICK_DIR}
 
 Store `$QUICK_DIR` for use in orchestration.
 
+**Step 4b: Load CONTEXT.md (if current phase has one)**
+
+```bash
+# Try to find CONTEXT.md for the current active phase
+CURRENT_PHASE=$(node ~/.claude/atos-forge/bin/forge-tools.cjs state-snapshot | jq -r '.current_phase // empty')
+if [ -n "$CURRENT_PHASE" ]; then
+  CONTEXT_FILE=$(ls .planning/phases/*/"${CURRENT_PHASE}"-CONTEXT.md 2>/dev/null | head -1)
+  if [ -n "$CONTEXT_FILE" ]; then
+    CONTEXT_CONTENT=$(cat "$CONTEXT_FILE")
+  fi
+fi
+```
+
+If found, pass to planner so quick tasks don't violate user decisions.
+
 ---
 
 **Step 5: Spawn planner (quick mode)**
@@ -98,6 +113,9 @@ Task(
 
 **Project State:**
 @.planning/STATE.md
+
+**Phase Context (if applicable):**
+${CONTEXT_CONTENT ? 'IMPORTANT: Honor ALL user decisions from discuss-phase.\n- Phase Boundary = SCOPE\n- Upstream Decisions = LOCKED\n- Decisions = LOCKED\n- Specific Ideas = GUIDANCE\n- Deferred Ideas = Out of scope\n\n' + CONTEXT_CONTENT : '(No phase context)'}
 
 </planning_context>
 
@@ -407,7 +425,7 @@ Commit: ${commit_hash}
 
 ---
 
-Ready for next task: /forge:quick
+Ready for next task: /forge-quick
 ```
 
 **If NOT `$FULL_MODE`:**
@@ -423,7 +441,7 @@ Commit: ${commit_hash}
 
 ---
 
-Ready for next task: /forge:quick
+Ready for next task: /forge-quick
 ```
 
 </process>

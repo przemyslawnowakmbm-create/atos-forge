@@ -115,8 +115,8 @@ Always at end of major completions.
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- `/forge:alternative-1` — description
-- `/forge:alternative-2` — description
+- `/forge-alternative-1` — description
+- `/forge-alternative-2` — description
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -156,5 +156,76 @@ Always at end of major completions.
 - Skipping `Forge ►` prefix in banners
 - Random emoji (`🚀`, `✨`, `💫`)
 - Missing Next Up block after completions
+
+---
+
+## Information Hierarchy
+
+Structure output so users can scan quickly without reading every line.
+
+**Bold** for key data the user needs to act on:
+- Plan names, file paths, status verdicts, commands to run
+
+Plain text for supporting context:
+- Descriptions, explanations, rationale
+
+`Code` for anything copy-pasteable:
+- Commands, file paths, config values
+
+<sub>Small text</sub> for secondary guidance:
+- `/clear` reminders, alternative commands, tips
+
+**Hierarchy order in any output block:**
+1. Status/verdict first (passed, failed, 3/5 complete)
+2. Key details second (what changed, what's next)
+3. Supporting context last (why, alternatives)
+
+---
+
+## Spacing Rhythm
+
+Consistent vertical spacing prevents visual clutter.
+
+```
+[Banner]
+                          ← 1 empty line after banner
+Content paragraph.
+                          ← 1 empty line between sections
+| Table | Data |
+| ----- | ---- |
+                          ← 1 empty line after table
+Next section.
+                          ← 1 empty line before box
+╔════════════════════════╗
+║  CHECKPOINT            ║
+╚════════════════════════╝
+                          ← 1 empty line after box
+```
+
+**Rules:**
+- 1 empty line between all sections — never 0, never 2+
+- No trailing whitespace inside boxes
+- Tables: align columns, pad cells with 1 space minimum
+- Lists: no blank lines between items in the same list
+
+---
+
+## Terminal Color Coding
+
+When using colored output (chalk, ANSI), follow consistent meaning:
+
+| Color | Meaning | Use For |
+|-------|---------|---------|
+| Green | Success / safe | ✓ marks, "passed", "complete", file created |
+| Yellow | Warning / attention | ⚠ marks, "skipped", degraded state, suggestions |
+| Red | Error / failure | ✗ marks, "failed", "blocked", error messages |
+| Cyan | Info / reference | File paths, commands, URLs, identifiers |
+| Dim/gray | Secondary | Timestamps, metadata, hints, sub-text |
+| White (default) | Primary content | Body text, descriptions, labels |
+
+**Rules:**
+- Never use color as the ONLY indicator — always pair with a symbol (✓/✗/⚠/◆/○)
+- Keep colored spans short (a word or symbol, not full sentences)
+- Dim text for anything the user can safely ignore on first scan
 
 </ui_patterns>

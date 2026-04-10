@@ -50,6 +50,7 @@ From each VERIFICATION.md, extract:
 - **Non-critical gaps:** tech debt, deferred items, warnings
 - **Anti-patterns found:** TODOs, stubs, placeholders
 - **Requirements coverage:** which requirements satisfied/blocked
+- **Test coverage:** `test_coverage` frontmatter (testable_files, files_with_tests, tests_passed/failed/skipped, missing_tests)
 
 If a phase is missing VERIFICATION.md, flag it as "unverified phase" — this is a blocker.
 
@@ -84,9 +85,9 @@ Combine:
 - Phase-level gaps and tech debt (from step 2)
 - Integration checker's report (wiring gaps, broken flows)
 
-## 5. Check Requirements Coverage (3-Source Cross-Reference)
+## 5. Check Requirements Coverage (4-Source Cross-Reference)
 
-MUST cross-reference three independent sources for each requirement:
+MUST cross-reference four independent sources for each requirement:
 
 ### 5a. Parse REQUIREMENTS.md Traceability Table
 
@@ -108,20 +109,56 @@ for summary in .planning/phases/*-*/*-SUMMARY.md; do
 done
 ```
 
-### 5d. Status Determination Matrix
+### 5d. Extract UAT Results Cross-Check
 
-For each REQ-ID, determine status using all three sources:
+For each phase directory, check for UAT files:
+```bash
+find .planning/phases -name "*-UAT.md" -type f 2>/dev/null
+```
 
-| VERIFICATION.md Status | SUMMARY Frontmatter | REQUIREMENTS.md | → Final Status |
-|------------------------|---------------------|-----------------|----------------|
-| passed                 | listed              | `[x]`           | **satisfied**  |
-| passed                 | listed              | `[ ]`           | **satisfied** (update checkbox) |
-| passed                 | missing             | any             | **partial** (verify manually) |
-| gaps_found             | any                 | any             | **unsatisfied** |
-| missing                | listed              | any             | **partial** (verification gap) |
-| missing                | missing             | any             | **unsatisfied** |
+For each UAT.md found:
+1. Read frontmatter: `status`, `phase`, `started`, `updated`
+2. Parse `## Summary` section: `total`, `passed`, `issues`, `skipped`
+3. Parse `## Gaps` section: count entries with `status: failed` vs `status: resolved`
+4. If VERIFICATION.md for the same phase has `uat_cross_reference` in frontmatter, use those aggregated numbers instead of re-parsing
 
-### 5e. FAIL Gate and Orphan Detection
+**Build UAT coverage map:**
+```
+uat_coverage:
+  phase_XX:
+    status: complete | resolved | diagnosed
+    total: N
+    passed: N
+    issues: N
+    skipped: N
+    unresolved_issues: N  # gaps with status: failed (not resolved)
+```
+
+**Flag phases missing UAT:**
+Phases that have VERIFICATION.md with `human_needed` or `human_verification` items but NO UAT.md should be flagged — these have unconfirmed human verification items.
+
+### 5e. Status Determination Matrix
+
+For each REQ-ID, determine status using all four sources:
+
+| VERIFICATION.md Status | SUMMARY Frontmatter | REQUIREMENTS.md | UAT Status | → Final Status |
+|------------------------|---------------------|-----------------|------------|----------------|
+| passed                 | listed              | `[x]`           | passed     | **satisfied** (full confidence) |
+| passed                 | listed              | `[x]`           | missing    | **satisfied** (no UAT confirmation) |
+| passed                 | listed              | `[ ]`           | any        | **satisfied** (update checkbox) |
+| passed                 | missing             | any             | passed     | **satisfied** (UAT confirms) |
+| passed                 | missing             | any             | missing    | **partial** (verify manually) |
+| human_needed           | listed              | any             | passed     | **satisfied** (UAT confirms human items) |
+| human_needed           | listed              | any             | missing    | **partial** (needs UAT) |
+| human_needed           | any                 | any             | issues     | **unsatisfied** (UAT found problems) |
+| gaps_found             | any                 | any             | any        | **unsatisfied** |
+| missing                | listed              | any             | passed     | **partial** (verification gap, but UAT confirms) |
+| missing                | listed              | any             | missing    | **partial** (verification gap) |
+| missing                | missing             | any             | any        | **unsatisfied** |
+
+**Key addition:** `human_needed` + UAT `passed` = **satisfied**. This is the critical path that was previously broken — user-confirmed test results now resolve `human_needed` status.
+
+### 5f. FAIL Gate and Orphan Detection
 
 **REQUIRED:** Any `unsatisfied` requirement MUST force `gaps_found` status on the milestone audit.
 
@@ -160,6 +197,32 @@ tech_debt:  # Non-critical, deferred
   - phase: 03-dashboard
     items:
       - "Deferred: mobile responsive layout"
+uat_coverage:  # User acceptance testing aggregation
+  phases_with_uat: N/M  # phases that have UAT.md files
+  total_tests: N
+  passed: N
+  issues: N
+  skipped: N
+  unresolved_issues: N  # UAT gaps with status: failed (not yet fixed)
+  phases_missing_uat:  # Phases with human_needed items but no UAT
+    - phase: "{phase_name}"
+      human_items: N
+      reason: "No UAT session conducted"
+test_coverage:  # Aggregated test coverage across all phases
+  total_testable_files: N  # Sum of testable files across all phases
+  total_files_with_tests: N  # Sum of files that have test coverage
+  coverage_percentage: "N%"  # files_with_tests / testable_files
+  total_tests_passed: N
+  total_tests_failed: N
+  total_tests_skipped: N
+  phases_with_zero_tests:  # Phases with testable code but no tests
+    - phase: "{phase_name}"
+      testable_files: N
+      missing_tests: ["{file_paths}"]
+  phases_with_failing_tests:  # Phases where tests exist but fail
+    - phase: "{phase_name}"
+      failing: N
+      details: "{test names or summary}"
 ---
 ```
 
@@ -196,7 +259,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Complete milestone** — archive and tag
 
-/forge:complete-milestone {version}
+/forge-complete-milestone {version}
 
 <sub>/clear first → fresh context window</sub>
 
@@ -233,7 +296,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Plan gap closure** — create phases to complete milestone
 
-/forge:plan-milestone-gaps
+/forge-plan-milestone-gaps
 
 <sub>/clear first → fresh context window</sub>
 
@@ -241,7 +304,7 @@ All requirements covered. Cross-phase integration verified. E2E flows complete.
 
 **Also available:**
 - cat .planning/v{version}-MILESTONE-AUDIT.md — see full report
-- /forge:complete-milestone {version} — proceed anyway (accept tech debt)
+- /forge-complete-milestone {version} — proceed anyway (accept tech debt)
 
 ───────────────────────────────────────────────────────────────
 
@@ -271,11 +334,11 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 
 **A. Complete milestone** — accept debt, track in backlog
 
-/forge:complete-milestone {version}
+/forge-complete-milestone {version}
 
 **B. Plan cleanup phase** — address debt before completing
 
-/forge:plan-milestone-gaps
+/forge-plan-milestone-gaps
 
 <sub>/clear first → fresh context window</sub>
 
@@ -285,13 +348,20 @@ All requirements met. No critical blockers. Accumulated tech debt needs review.
 <success_criteria>
 - [ ] Milestone scope identified
 - [ ] All phase VERIFICATION.md files read
+- [ ] All phase UAT.md files read (where they exist)
 - [ ] SUMMARY.md `requirements-completed` frontmatter extracted for each phase
 - [ ] REQUIREMENTS.md traceability table parsed for all milestone REQ-IDs
-- [ ] 3-source cross-reference completed (VERIFICATION + SUMMARY + traceability)
+- [ ] 4-source cross-reference completed (VERIFICATION + SUMMARY + traceability + UAT)
+- [ ] UAT coverage map built (phases_with_uat, aggregated test counts)
+- [ ] Phases with human_needed but no UAT flagged in phases_missing_uat
+- [ ] human_needed requirements resolved to satisfied when UAT confirms
 - [ ] Orphaned requirements detected (in traceability but absent from all VERIFICATIONs)
+- [ ] Test coverage aggregated from VERIFICATION.md test_coverage frontmatter across all phases
+- [ ] Phases with zero tests on testable code flagged in phases_with_zero_tests
+- [ ] Phases with failing tests flagged in phases_with_failing_tests
 - [ ] Tech debt and deferred gaps aggregated
 - [ ] Integration checker spawned with milestone requirement IDs
-- [ ] v{version}-MILESTONE-AUDIT.md created with structured requirement gap objects
+- [ ] v{version}-MILESTONE-AUDIT.md created with structured requirement gap objects and uat_coverage
 - [ ] FAIL gate enforced — any unsatisfied requirement forces gaps_found status
 - [ ] Results presented with actionable next steps
 </success_criteria>

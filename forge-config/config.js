@@ -74,10 +74,18 @@ const DEFAULTS = {
     factory_enabled: true,
     default_archetype: 'general',
     capability_templates_dir: '',
+    provider: 'auto',
     model_profiles: {
       quality: 'opus',
       balanced: 'sonnet',
       budget: 'haiku',
+    },
+    provider_model_profiles: {
+      codex: {
+        quality: 'o3',
+        balanced: 'o3',
+        budget: 'o3',
+      },
     },
     active_profile: 'balanced',
   },
@@ -364,6 +372,7 @@ function validate(config) {
   const enumChecks = [
     ['execution.mode', config.execution?.mode, ['interactive', 'autonomous', 'supervised']],
     ['execution.container_backend', config.execution?.container_backend, ['docker', 'worktree']],
+    ['agents.provider', config.agents?.provider, ['auto', 'claude', 'codex']],
     ['agents.active_profile', config.agents?.active_profile, ['quality', 'balanced', 'budget']],
     ['agents.default_archetype', config.agents?.default_archetype, ['specialist', 'integrator', 'careful', 'general']],
     ['git.branching_strategy', config.git?.branching_strategy, ['none', 'phase', 'milestone', 'feature']],
@@ -537,6 +546,7 @@ function getLegacyToolsConfig(cwd) {
 
   return {
     model_profile: config.agents?.active_profile || 'balanced',
+    agent_provider: config.agents?.provider || 'auto',
     commit_docs: config.workflow?.commit_docs ?? config.planning?.commit_docs ?? true,
     search_gitignored: config.workflow?.search_gitignored ?? config.planning?.search_gitignored ?? false,
     branching_strategy: config.git?.branching_strategy || 'none',

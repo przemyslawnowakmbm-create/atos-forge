@@ -12,6 +12,21 @@ phase: XX-name
 verified: YYYY-MM-DDTHH:MM:SSZ
 status: passed | gaps_found | human_needed
 score: N/M must-haves verified
+uat_cross_reference: # Only if UAT.md exists for this phase
+  uat_status: "complete | resolved | diagnosed | missing"
+  total_tests: N
+  passed: N
+  issues: N
+  skipped: N
+  human_items_resolved_by_uat: N
+  uat_issues_unresolved: N
+test_coverage: # Test existence and pass/fail status
+  testable_files: N
+  files_with_tests: N
+  tests_passed: N
+  tests_failed: N
+  tests_skipped: N
+  missing_tests: []
 ---
 
 # Phase {X}: {Name} Verification Report
@@ -62,6 +77,17 @@ score: N/M must-haves verified
 
 **Coverage:** {N}/{M} requirements satisfied
 
+## Test Coverage
+
+| Source File | Test File | Status | Notes |
+|-------------|-----------|--------|-------|
+| `{source}` | `{test}` | ✓ EXISTS + PASSES | {N} tests, 0 failures |
+| `{source}` | — | ✗ MISSING | Testable: {classification reason} |
+| `{source}` | — | ○ EXEMPT | {reason — config/types/migration} |
+
+**Test coverage:** {N}/{M} testable files have tests
+**Test results:** {passed} passed, {failed} failed, {skipped} skipped
+
 ## Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
@@ -72,12 +98,29 @@ score: N/M must-haves verified
 
 **Anti-patterns:** {N} found ({blockers} blockers, {warnings} warnings)
 
+## UAT Cross-Reference
+
+{If UAT.md exists for this phase:}
+
+**UAT Session:** {uat_status} ({passed}/{total} passed, {issues} issues, {skipped} skipped)
+
+| # | UAT Test | Type | UAT Result | Mapped Truth | Resolution |
+|---|----------|------|------------|--------------|------------|
+| 1 | {test_name} | {ui/database/auth/api} | pass | Truth #{N} | Human-confirmed |
+| 2 | {test_name} | {type} | issue | Truth #{N} | UAT issue: {reported} |
+| 3 | {test_name} | {type} | pass | — | No matching truth (informational) |
+
+**Human items resolved by UAT:** {N} items originally flagged as `human_needed` were confirmed by UAT test passes.
+
+{If no UAT.md exists:}
+No UAT session conducted for this phase.
+
 ## Human Verification Required
 
-{If no human verification needed:}
-None — all verifiable items checked programmatically.
+{If no human verification needed (or all resolved by UAT):}
+None — all verifiable items checked programmatically or confirmed by UAT.
 
-{If human verification needed:}
+{If human verification needed (items NOT resolved by UAT):}
 
 ### 1. {Test Name}
 **Test:** {What to do}
