@@ -170,6 +170,8 @@ const milestoneMod = require('./lib/milestone.cjs');
 const { cmdMilestoneComplete } = milestoneMod;
 const verifyMod = require('./lib/verify.cjs');
 const { cmdVerifyPlanStructure, cmdVerifyPhaseCompleteness, cmdVerifyReferences, cmdVerifyCommits, cmdVerifyArtifacts, cmdVerifyKeyLinks, cmdVerifyWork } = verifyMod;
+const uatAutoEvalMod = require('./lib/uat-auto-eval.cjs');
+const { cmdUatAutoEval } = uatAutoEvalMod;
 const validateMod = require('./lib/validate.cjs');
 const { cmdValidateConsistency, cmdValidateHealth } = validateMod;
 const templateMod = require('./lib/template.cjs');
@@ -374,8 +376,10 @@ async function main() {
         cmdVerifyKeyLinks(cwd, args[2], raw);
       } else if (subcommand === 'work') {
         await cmdVerifyWork(cwd, args.slice(2), raw);
+      } else if (subcommand === 'uat-eval') {
+        cmdUatAutoEval(cwd, args.slice(2), raw);
       } else {
-        error('Unknown verify subcommand. Available: plan-structure, phase-completeness, references, commits, artifacts, key-links, work');
+        error('Unknown verify subcommand. Available: plan-structure, phase-completeness, references, commits, artifacts, key-links, work, uat-eval');
       }
       break;
     }

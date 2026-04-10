@@ -306,37 +306,32 @@ Wait for user response (plain text, no AskUserQuestion).
 
 **If test has type: database|api|auth|worker|infra:**
 
-Claude executes the command directly via Bash tool, then **auto-evaluates** the result:
+**Backend tests are auto-evaluated by a script. Do NOT run the raw command yourself. Do NOT show raw test output. Do NOT ask user to type "pass". Run the evaluator script and check exit code.**
 
-1. Execute: `{command}` via Bash tool
-2. Capture output (stdout + stderr) and exit code (`$?`)
-3. **Auto-evaluate** the result (see `auto_evaluate_backend` step below)
-4. Display result based on auto-evaluation outcome
+Run this ONE command via Bash tool (substitute {command} and {expected} from the UAT test):
 
-**If auto-evaluation → PASS:**
+```bash
+node "$HOME/.claude/atos-forge/bin/uat-run-and-eval.cjs" --command "{command}" --expected "{expected}"
+```
 
-Do NOT wait for user response. Record as `auto_pass` and collect into a batch.
-After all consecutive auto-passing backend tests are collected (or a manual-review
-test is encountered, or backend tests end), display the batch:
+**If exit code is 0** (output starts with `FORGE_UAT_PASS`):
+The test passed. Do NOT show anything to user. Do NOT wait for user. Record as `auto_pass` in UAT file with `auto_check` set to the reason from the output. Collect into a batch. After all consecutive auto-passing backend tests finish (or a non-pass test appears, or tests end), display the batch summary:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  BACKEND CHECKS — {N} tests auto-passed
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
- ✓ Test 1: {name} (EXIT:0{, key output detail if short})
- ✓ Test 2: {name} (EXIT:0{, key output detail if short})
- ✓ Test 3: {name} (EXIT:0{, key output detail if short})
+ ✓ Test 1: {name} ({reason from FORGE_UAT_PASS line})
+ ✓ Test 2: {name} ({reason from FORGE_UAT_PASS line})
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-Update each test's result to `auto_pass` with `auto_check` field.
-Advance to the next test (or flush batch if a manual-review test follows).
+Continue to next test automatically. No user interaction.
 
-**If auto-evaluation → FAIL or INCONCLUSIVE:**
-
-Flush any pending auto-pass batch first, then display the failing test for manual review:
+**If exit code is non-zero** (output starts with `FORGE_UAT_FAIL` or `FORGE_UAT_INCONCLUSIVE`):
+Extract the reason from the first line and raw output from between `---RAW_OUTPUT---` and `---END_OUTPUT---` markers. Flush any pending auto-pass batch, then show for manual review:
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
@@ -349,10 +344,10 @@ Flush any pending auto-pass batch first, then display the failing test for manua
 {command}
 
 **Output:**
-{actual output from command}
+{raw output from between the markers}
 
 **Expected:** {expected}
-**Auto-check:** FAILED — {reason, e.g. "exit code 1, expected 0" or "expected pattern 'tenant_id' not found in output"}
+**Auto-check:** {FAIL or INCONCLUSIVE} — {reason from first line}
 
 ──────────────────────────────────────────────────────────────
 → Type "pass" to override, or describe the issue
@@ -360,80 +355,13 @@ Flush any pending auto-pass batch first, then display the failing test for manua
 ```
 
 Wait for user response (plain text, no AskUserQuestion).
-
-**If command times out (>60s) or produces no output when output was expected:**
-Treat as auto-evaluation → FAIL with reason "command timed out" or "no output produced".
-Show to user for manual review.
-</step>
-
-<step name="auto_evaluate_backend" depends="present_test">
-**Auto-evaluate backend test result against expected criteria:**
-
-After executing the command, apply these rules IN ORDER to determine pass/fail:
-
-### Rule 1: Exit Code Check
-Parse the `expected` field for exit code expectations:
-- Contains "EXIT:0", "exit code 0", "succeeds", "without errors", "zero errors",
-  "no errors", "compiles", "builds", "passes" → **expect exit code 0**
-- Contains "EXIT:{N}" or "exit code {N}" for specific N → **expect that exit code**
-- Contains "should fail", "expect 403", "expect 404", "should return {4xx/5xx}" → **expect non-zero or specific HTTP code**
-- No exit code signal in expected → **skip exit code check** (do not fail on this alone)
-
-**If exit code expectation exists and actual exit code does NOT match → auto-evaluation: FAIL**
-Reason: "exit code {actual}, expected {expected_code}"
-
-### Rule 2: Positive Pattern Match
-Parse the `expected` field for required output patterns:
-- "Should show {X}" → grep for X in output (case-insensitive)
-- "Should contain {X}" → grep for X in output
-- "JSON with {field}" or "containing {field}" → check output contains the field name
-- "Should list {X}" → check output contains X
-- "{N} modules" or "{N} files" → check a number appears near the keyword
-
-For EACH required pattern:
-- If pattern found in output → pattern passes
-- If pattern NOT found → **auto-evaluation: FAIL**
-  Reason: "expected pattern '{pattern}' not found in output"
-
-### Rule 3: Negative Pattern Check
-Scan command output for unexpected failure indicators (ONLY when expected suggests success):
-- `error:`, `Error:`, `ERROR` (but NOT in "0 errors" or "zero errors" or "without errors")
-- `FAILED`, `FAILURE`, `panic`, `Traceback`, `fatal`
-- `segfault`, `SIGSEGV`, `core dumped`
-- `command not found`, `No such file or directory` (infrastructure missing)
-
-If negative pattern found AND expected does not anticipate errors → **auto-evaluation: FAIL**
-Reason: "unexpected error indicator '{matched_pattern}' in output"
-
-### Rule 4: Output Presence Check
-If expected mentions specific output content but command produced empty stdout:
-- **auto-evaluation: FAIL**
-  Reason: "no output produced, expected '{summary of expected}'"
-
-### Final Determination
-- **All applicable rules pass → auto-evaluation: PASS**
-  `auto_check`: "exit code {N}, output matches expected"
-- **Any rule fails → auto-evaluation: FAIL**
-  `auto_check`: "{first failure reason}"
-- **No rules could be applied** (expected is too vague to parse) → **auto-evaluation: INCONCLUSIVE**
-  Fall back to manual review with reason: "could not parse expected criteria for auto-check"
-
-### Ambiguity Handling
-If `expected` text is:
-- A single vague sentence like "Should work correctly" → INCONCLUSIVE
-- References visual/manual inspection → INCONCLUSIVE
-- Contains "verify", "check that", "ensure" with specific criteria → apply rules above
-- Contains only a description with no testable assertion → INCONCLUSIVE
-
-**Conservative principle:** When in doubt, mark INCONCLUSIVE and show to user.
-Auto-pass only when the evidence is unambiguous.
 </step>
 
 <step name="process_response">
 **Process user response (or auto-evaluation result) and update file:**
 
-**If test was auto-evaluated as PASS (from auto_evaluate_backend):**
-- No user response needed
+**If test was auto-evaluated as PASS (exit code 0 from uat-run-and-eval.cjs):**
+- No user response needed — do NOT wait for user
 
 Update Tests section:
 ```
@@ -443,10 +371,10 @@ command: |
   {command}
 expected: {expected}
 result: auto_pass
-auto_check: "{auto_check reason, e.g. exit code 0, output matches expected}"
+auto_check: "{reason from FORGE_UAT_PASS output}"
 ```
 
-Count as passed in Summary. Log to ledger as decision (not warning).
+Count as passed in Summary.
 
 **If response indicates pass (manual confirmation):**
 - Empty response, "yes", "y", "ok", "pass", "next", "approved", "✓"
