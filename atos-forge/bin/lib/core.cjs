@@ -167,13 +167,10 @@ function normalizePhaseName(phase) {
 }
 
 function output(result, raw, rawValue) {
-  if (raw && rawValue !== undefined) {
-    process.stdout.write(String(rawValue));
-  } else {
-    const json = JSON.stringify(result, null, 2);
-    process.stdout.write(json);
-  }
-  process.exit(0);
+  const data = (raw && rawValue !== undefined)
+    ? String(rawValue)
+    : JSON.stringify(result, null, 2);
+  process.stdout.write(data, () => process.exit(0));
 }
 
 function error(message) {
