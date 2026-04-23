@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // ============================================================
 // Dynamic Agent Factory
@@ -18,7 +19,7 @@ const path = require('path');
 // ============================================================
 
 // Lazy-loaded dependencies (only resolved when called)
-let _graphQuery, _ledger, _assessor, _capDetector, _containerSpec, _containerConfig, _systemQuery, _knowledge, _agentCache;
+let _graphQuery, _ledger, _assessor, _capDetector, _containerSpec, _containerConfig, _systemQuery, _knowledge, _agentCache, _agentRegistry, _forgeConfig;
 
 function graphQuery() {
   if (!_graphQuery) _graphQuery = require('../forge-graph/query');
@@ -55,6 +56,14 @@ function knowledge() {
 function agentCache() {
   if (!_agentCache) _agentCache = require('./cache');
   return _agentCache;
+}
+function agentRegistry() {
+  if (!_agentRegistry) _agentRegistry = require('./agent-registry');
+  return _agentRegistry;
+}
+function forgeConfig() {
+  if (!_forgeConfig) _forgeConfig = require('../forge-config/config');
+  return _forgeConfig;
 }
 
 // ============================================================
@@ -110,6 +119,9 @@ const MODULE_THRESHOLD_INTEGRATOR = 3;
 
 // Capability confidence threshold to include agent_context
 const CAPABILITY_CONFIDENCE_MIN = 0.3;
+
+// Maximum ledger entries per category to include in session context (prevents token bloat)
+const MAX_ENTRIES_PER_CATEGORY = 30;
 
 // Verification built-in checks keyed by detected capability
 const CAPABILITY_VERIFICATION_MAP = {
@@ -278,6 +290,7 @@ function analyzeTask(plan, cwd) {
     ledgerState,
     ledgerContent,
     hasGraph,
+    cwd,
   };
 }
 
@@ -411,6 +424,9 @@ function buildGroundingSection(cwd, planFiles) {
   } catch { return ''; }
 }
 
+// Scaffold cache for composeSystemPrompt — avoids recomputing stable sections per call
+let _promptScaffoldCache = { key: null, scaffold: null };
+
 /**
  * Compose a full system prompt for the agent.
  *
@@ -420,6 +436,18 @@ function buildGroundingSection(cwd, planFiles) {
  * @returns {string}
  */
 function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
+  // Fix 33: compute scaffold cache key from stable (non-plan-specific) inputs
+  // TODO: use _promptScaffoldCache to skip rebuild when key matches (once plan-specific
+  // sections are factored out; currently acts as infrastructure for future optimization)
+  const scaffoldKey = crypto.createHash('sha256')
+    .update(archetypeResult.archetype || '')
+    .update(JSON.stringify(sessionContext || {}))
+    .update(JSON.stringify(analysis.capabilities || {}))
+    .digest('hex');
+  if (_promptScaffoldCache.key !== scaffoldKey) {
+    _promptScaffoldCache = { key: scaffoldKey, scaffold: null }; // invalidate on change
+  }
+
   const parts = [BASE_EXECUTOR_PROMPT];
 
   // Archetype behavior
@@ -448,6 +476,51 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
       }
     }
   }
+
+  // Specialist expertise from agent registry
+  // Injects declarative knowledge (checklists, patterns, rules) from matched
+  // ~/.claude/agents/ specialist definitions — replacing the short 1-2 sentence
+  // agent_context snippets with rich domain expertise where available.
+  try {
+    const registryConfig = analysis.cwd
+      ? forgeConfig().getAgentRegistry(analysis.cwd)
+      : null;
+    if (registryConfig && registryConfig.enabled && registryConfig.inject_matching) {
+      const registry = agentRegistry();
+      const catalog = registry.loadCatalog(analysis.cwd);
+      if (catalog) {
+        const matched = registry.matchAgents(
+          catalog,
+          analysis.capabilities,
+          registryConfig.max_injected_agents || 2
+        );
+        if (matched.length > 0) {
+          // Store matched IDs on analysis for buildAgentConfig to include in agentConfig
+          // This enables the orchestrator to call recordUsage() after task completion.
+          analysis._matched_registry_agents = matched.map(m => m.id);
+
+          parts.push('\n## Specialist Expertise (from agent registry)');
+          parts.push('Apply the following domain expertise to this task:\n');
+          for (const m of matched) {
+            parts.push(`### ${m.id} — ${m.description}`);
+            if (m.expertise) parts.push(m.expertise);
+            parts.push('');
+          }
+
+          // If delegation is enabled (Claude provider), tell the agent it can
+          // invoke these specialists as subagents for focused sub-tasks
+          if (registryConfig.delegate_to_agents) {
+            parts.push('\n## Available Specialist Agents');
+            parts.push('You may delegate focused sub-tasks to these specialists via Agent(subagent_type=<name>):');
+            for (const m of matched) {
+              parts.push(`- **${m.id}**: ${m.description}`);
+            }
+            parts.push('');
+          }
+        }
+      }
+    }
+  } catch { /* registry not available — proceed without specialist context */ }
 
   // Graph context summary
   if (analysis.graphContext) {
@@ -569,6 +642,52 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
     parts.push('\n## LOCKED DECISIONS (from approved plan — deviation is FAILURE)');
     locked.forEach((d, i) => parts.push(`${i + 1}. ${d}`));
     parts.push('Deviating from locked decisions is equivalent to a verification failure.\n');
+  }
+
+  // ---- Plan Contract ----
+  const fm = analysis.plan?.frontmatter || {};
+  const mh = fm.must_haves || {};
+  const reqs = Array.isArray(fm.requirements) ? fm.requirements : [];
+  if (reqs.length || mh.truths?.length || mh.key_links?.length || mh.artifacts?.length) {
+    parts.push('\n## Plan Contract (the goal - every truth must be true on completion)');
+    if (analysis.plan?.objective) {
+      parts.push(`\n**Objective:** ${analysis.plan.objective}`);
+    }
+    if (reqs.length) {
+      parts.push(`\n**Requirements:** ${reqs.join(', ')}`);
+    }
+    if (mh.truths?.length) {
+      parts.push('\n**Observable truths (each must be verifiable):**');
+      mh.truths.forEach((t, i) => parts.push(`${i + 1}. ${t}`));
+    }
+    if (mh.artifacts?.length) {
+      parts.push('\n**Required artifacts:**');
+      for (const a of mh.artifacts) {
+        const extras = [];
+        if (a.min_lines) extras.push(`>=${a.min_lines} lines`);
+        if (a.contains) extras.push(`contains \"${a.contains}\"`);
+        if (a.exports) extras.push(`exports ${(Array.isArray(a.exports) ? a.exports : [a.exports]).join(', ')}`);
+        parts.push(`- \`${a.path}\` - ${a.provides || ''}${extras.length ? ' (' + extras.join('; ') + ')' : ''}`);
+      }
+    }
+    if (mh.key_links?.length) {
+      parts.push('\n**Required wiring (checked by verifier - broken wiring = task failure):**');
+      for (const l of mh.key_links) {
+        parts.push(`- \`${l.from}\` -> \`${l.to}\` via ${l.via}${l.pattern ? ` (pattern: \`${l.pattern}\`)` : ''}`);
+      }
+    }
+    parts.push('\nDo NOT mark any task complete unless the wiring above is in place.');
+  }
+  // Parent contract for sub-plans
+  if (analysis.plan?.parent_contract) {
+    const pc = analysis.plan.parent_contract;
+    parts.push('\n## Parent Plan Contract (this sub-plan contributes to the parent goal)');
+    if (pc.objective) parts.push(`**Parent objective:** ${pc.objective}`);
+    if (pc.requirements?.length) parts.push(`**Requirements:** ${pc.requirements.join(', ')}`);
+    if (pc.truths?.length) {
+      parts.push('**Parent truths:**');
+      pc.truths.forEach((t, i) => parts.push(`${i + 1}. ${t}`));
+    }
   }
 
   // Grounded facts from code graph (anti-hallucination)
@@ -968,9 +1087,10 @@ function defineContainerParams(taskId, cwd, analysis, agentConfig) {
  * Parses the ledger markdown to pull decisions, warnings, preferences, rejected approaches.
  *
  * @param {object} analysis
+ * @param {object} [opts] - Build options (e.g., previousFindings from prior waves).
  * @returns {object} sessionContext
  */
-function extractSessionContext(analysis) {
+function extractSessionContext(analysis, opts = {}) {
   const ctx = {
     decisions: [],
     warnings: [],
@@ -987,9 +1107,9 @@ function extractSessionContext(analysis) {
     const cwd = analysis.plan?.path ? path.dirname(path.dirname(analysis.plan.path)) : process.cwd();
     const structured = dec.forAgent(cwd, phase, analysis.affectedModules || [], analysis.plan?.all_files || []);
     if (structured && structured.length > 0) {
-      ctx.decisions = structured.filter(d => d.type === 'decision').map(d => d.text);
-      ctx.user_preferences = structured.filter(d => d.type === 'preference').map(d => d.text);
-      ctx.rejected_approaches = structured.filter(d => d.type === 'rejection').map(d => d.text);
+      ctx.decisions = structured.filter(d => d.type === 'decision').map(d => d.text).slice(-MAX_ENTRIES_PER_CATEGORY);
+      ctx.user_preferences = structured.filter(d => d.type === 'preference').map(d => d.text).slice(-MAX_ENTRIES_PER_CATEGORY);
+      ctx.rejected_approaches = structured.filter(d => d.type === 'rejection').map(d => d.text).slice(-MAX_ENTRIES_PER_CATEGORY);
     }
   } catch { /* decisions module not available — fallback to markdown parsing below */ }
 
@@ -1005,22 +1125,22 @@ function extractSessionContext(analysis) {
 
   // Decisions
   if (sections.decisions) {
-    ctx.decisions = extractBulletItems(sections.decisions);
+    ctx.decisions = extractBulletItems(sections.decisions).slice(-MAX_ENTRIES_PER_CATEGORY);
   }
 
   // Warnings & Discoveries
   if (sections.warnings) {
-    ctx.warnings = extractBulletItems(sections.warnings);
+    ctx.warnings = extractBulletItems(sections.warnings).slice(-MAX_ENTRIES_PER_CATEGORY);
   }
 
   // User Preferences
   if (sections.preferences) {
-    ctx.user_preferences = extractBulletItems(sections.preferences);
+    ctx.user_preferences = extractBulletItems(sections.preferences).slice(-MAX_ENTRIES_PER_CATEGORY);
   }
 
   // Rejected Approaches
   if (sections.rejected) {
-    ctx.rejected_approaches = extractBulletItems(sections.rejected);
+    ctx.rejected_approaches = extractBulletItems(sections.rejected).slice(-MAX_ENTRIES_PER_CATEGORY);
   }
 
   // Filter to relevant items (mention affected modules or files)
@@ -1071,8 +1191,11 @@ function extractSessionContext(analysis) {
   } catch { /* impact analysis not available */ }
 
   // Inject previous agent findings (from earlier wave results)
+  // Primary: propagated via analysis object; secondary: passed directly via opts
   if (analysis.previousFindings && analysis.previousFindings.length > 0) {
     ctx.previous_findings = analysis.previousFindings;
+  } else if (opts && opts.previousFindings && opts.previousFindings.length > 0) {
+    ctx.previous_findings = opts.previousFindings;
   }
 
   return ctx;
@@ -1156,7 +1279,7 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
   if (!opts.skipCache) {
     try {
       const cache = agentCache();
-      const cached = cache.loadCached(planPath, cwd, taskId);
+      const cached = cache.loadCached(planPath, cwd, taskId, opts);
       if (cached.hit) {
         cache.touchCached(cwd, taskId);
         cached.result._fromCache = true;
@@ -1176,11 +1299,17 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
   // Step 1: Analyze
   const analysis = analyzeTask(plan, cwd);
 
+  // Propagate previous-wave findings into analysis so extractSessionContext and
+  // the system prompt renderer can inject them for the current agent.
+  if (opts && opts.previousFindings && opts.previousFindings.length > 0) {
+    analysis.previousFindings = opts.previousFindings;
+  }
+
   // Step 2: Archetype
   const archetypeResult = determineArchetype(analysis);
 
   // Step 7 (needed for prompt): Session context
-  const sessionContext = extractSessionContext(analysis);
+  const sessionContext = extractSessionContext(analysis, opts);
 
   // Step 3: System prompt
   const systemPrompt = composeSystemPrompt(analysis, archetypeResult, sessionContext);
@@ -1250,6 +1379,11 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
       files_modified: plan.files_modified,
       frontmatter: plan.frontmatter,
     },
+
+    // Agent registry — matched specialist agent IDs used in this prompt.
+    // The orchestrator calls agentRegistry.recordUsage() with these IDs
+    // after task completion to build effectiveness tracking.
+    matched_registry_agents: analysis._matched_registry_agents || [],
   };
 
   // Step 6: Container params
@@ -1275,7 +1409,7 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
 
   // Save to agent cache
   try {
-    agentCache().saveToCache(planPath, cwd, taskId, result);
+    agentCache().saveToCache(planPath, cwd, taskId, result, opts);
   } catch { /* cache write failure is non-fatal */ }
 
   return result;

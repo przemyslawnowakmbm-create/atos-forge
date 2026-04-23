@@ -281,30 +281,7 @@ issue:
 - Task implements something from Deferred Ideas
 - Plan ignores user's stated preference
 
-**Example — contradiction:**
-```yaml
-issue:
-  dimension: context_compliance
-  severity: blocker
-  description: "Plan contradicts locked decision: user specified 'card layout' but Task 2 implements 'table layout'"
-  plan: "01"
-  task: 2
-  user_decision: "Layout: Cards (from Decisions section)"
-  plan_action: "Create DataTable component with rows..."
-  fix_hint: "Change Task 2 to implement card-based layout per user decision"
-```
-
-**Example — scope creep:**
-```yaml
-issue:
-  dimension: context_compliance
-  severity: blocker
-  description: "Plan includes deferred idea: 'search functionality' was explicitly deferred"
-  plan: "02"
-  task: 1
-  deferred_idea: "Search/filtering (Deferred Ideas section)"
-  fix_hint: "Remove search task - belongs in future phase per user decision"
-```
+> Reference: See @verifier-cookbook.md for worked examples (contradiction and scope creep issue formats).
 
 ## Dimension 8: Test Coverage
 
@@ -329,22 +306,7 @@ issue:
 
 **Severity:** `blocker` for plans with testable business logic / API endpoints. `warning` for plans with simple CRUD / UI-only components.
 
-**Example issue:**
-```yaml
-issue:
-  dimension: test_coverage
-  severity: blocker
-  description: "Plan 01 creates API endpoint src/api/billing/route.ts but has no test task"
-  plan: "01"
-  testable_files: ["src/api/billing/route.ts", "src/lib/billing.ts"]
-  fix_hint: "Add test task creating src/api/billing/route.test.ts and src/lib/billing.test.ts"
-```
-
-**Example — valid exemption:**
-```yaml
-# No issue raised for:
-# has_tests: false  # Only modifies docker-compose.yml and .env
-```
+> Reference: See @verifier-cookbook.md for test coverage issue example and valid exemption format.
 
 ## Dimension 9: Architectural Fitness (if codebase map exists)
 
@@ -370,29 +332,7 @@ issue:
 - File naming doesn't match project conventions (e.g., camelCase vs kebab-case)
 - Error handling inconsistent with documented patterns
 
-**Example issue:**
-```yaml
-issue:
-  dimension: architectural_fitness
-  severity: suggestion
-  description: "Plan creates src/utils/authHelper.ts but CONVENTIONS.md specifies kebab-case for utility files"
-  plan: "01"
-  task: 2
-  convention: "File naming: kebab-case for all files (CONVENTIONS.md)"
-  fix_hint: "Rename to src/utils/auth-helper.ts"
-```
-
-**Example — layer violation:**
-```yaml
-issue:
-  dimension: architectural_fitness
-  severity: suggestion
-  description: "Task 3 creates a React component that imports from src/database/queries.ts — violates layer boundary"
-  plan: "02"
-  task: 3
-  architecture_rule: "UI layer must access data through API layer only (ARCHITECTURE.md)"
-  fix_hint: "Create an API route and have the component fetch from it instead"
-```
+> Reference: See @verifier-cookbook.md for architectural fitness issue examples (naming convention and layer violation formats).
 
 </verification_dimensions>
 
@@ -564,40 +504,7 @@ Severities: `blocker` (must fix), `warning` (should fix), `info` (suggestions).
 
 <examples>
 
-## Scope Exceeded (most common miss)
-
-**Plan 01 analysis:**
-```
-Tasks: 5
-Files modified: 12
-  - prisma/schema.prisma
-  - src/app/api/auth/login/route.ts
-  - src/app/api/auth/logout/route.ts
-  - src/app/api/auth/refresh/route.ts
-  - src/middleware.ts
-  - src/lib/auth.ts
-  - src/lib/jwt.ts
-  - src/components/LoginForm.tsx
-  - src/components/LogoutButton.tsx
-  - src/app/login/page.tsx
-  - src/app/dashboard/page.tsx
-  - src/types/auth.ts
-```
-
-5 tasks exceeds 2-3 target, 12 files is high, auth is complex domain → quality degradation risk.
-
-```yaml
-issue:
-  dimension: scope_sanity
-  severity: blocker
-  description: "Plan 01 has 5 tasks with 12 files - exceeds context budget"
-  plan: "01"
-  metrics:
-    tasks: 5
-    files: 12
-    estimated_context: "~80%"
-  fix_hint: "Split into: 01 (schema + API), 02 (middleware + lib), 03 (UI components)"
-```
+> Reference: See @verifier-cookbook.md for worked examples of every issue dimension (scope exceeded, requirement coverage, task completeness, dependency correctness, key links, context compliance, architectural fitness, test coverage).
 
 </examples>
 

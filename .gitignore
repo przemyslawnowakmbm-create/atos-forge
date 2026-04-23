@@ -22,5 +22,9 @@ RAILROAD_ARCHITECTURE.md
 gsd2-analysis.md
 gsd2-analysis.html
 
+# Personal development notes and local config files
+claude-coding-alias.zsh
+best-local-coding-llm-2026.md
+
 # Generated code graph database
 .forge/

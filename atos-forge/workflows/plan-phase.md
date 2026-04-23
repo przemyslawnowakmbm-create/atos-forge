@@ -129,8 +129,8 @@ Write to: {phase_dir}/{phase_num}-RESEARCH.md
 
 ```
 Task(
-  prompt="First, read ~/.claude/agents/forge-phase-researcher.md for your role and instructions.\n\n" + research_prompt,
-  subagent_type="general-purpose",
+  prompt=research_prompt,
+  subagent_type="forge-phase-researcher",
   model="{researcher_model}",
   description="Research Phase {phase}"
 )
@@ -138,8 +138,24 @@ Task(
 
 ### Handle Researcher Return
 
-- **`## RESEARCH COMPLETE`:** Display confirmation, continue to step 6
+- **`## RESEARCH COMPLETE`:** Display confirmation, continue to research validation below
 - **`## RESEARCH BLOCKED`:** Display blocker, offer: 1) Provide context, 2) Skip research, 3) Abort
+
+### Research Validation
+
+**Research validation:** After researcher completes, spawn forge-research-checker agent (subagent_type="forge-research-checker") to validate RESEARCH.md. If issues found, return to researcher for revision (max 2 iterations). Check valid_until freshness — if expired, require --use-stale flag or re-research.
+
+```
+Task(
+  prompt="Validate the RESEARCH.md at: {phase_dir}/{phase_num}-RESEARCH.md",
+  subagent_type="forge-research-checker",
+  model="{researcher_model}",
+  description="Validate Research Phase {phase}"
+)
+```
+
+- **`## RESEARCH PASSED`:** Display confirmation, continue to step 6
+- **`## RESEARCH ISSUES FOUND`:** Send back to researcher for revision (track iteration, max 2). After 2 failed iterations, display remaining issues and offer: 1) Proceed with warnings, 2) Abort
 
 ## 6. Check Existing Plans
 
@@ -319,8 +335,8 @@ verification_must_check:
 
 ```
 Task(
-  prompt="First, read ~/.claude/agents/forge-planner.md for your role and instructions.\n\n" + filled_prompt,
-  subagent_type="general-purpose",
+  prompt=filled_prompt,
+  subagent_type="forge-planner",
   model="{planner_model}",
   description="Plan Phase {phase}"
 )
@@ -444,14 +460,19 @@ Return what changed.
 
 ```
 Task(
-  prompt="First, read ~/.claude/agents/forge-planner.md for your role and instructions.\n\n" + revision_prompt,
-  subagent_type="general-purpose",
+  prompt=revision_prompt,
+  subagent_type="forge-planner",
   model="{planner_model}",
   description="Revise Phase {phase} plans"
 )
 ```
 
-After planner returns -> spawn checker again (step 10), increment iteration_count.
+After planner returns, any agent factory builds for revised plans MUST use `--skip-cache` (ledger has been updated with checker issues):
+```bash
+REVISED_CONFIG=$(node "$FACTORY" build "${REVISED_PLAN_PATH}" --root "$(pwd)" --skip-cache 2>/dev/null)
+```
+
+Spawn checker again (step 10), increment iteration_count.
 
 **If iteration_count >= 3:**
 

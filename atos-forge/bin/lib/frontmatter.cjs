@@ -1,82 +1,21 @@
 const fs = require('fs');
 const path = require('path');
+const YAML = require('yaml');
 const { safeReadFile, output, error } = require('./core.cjs');
 
 // ─── Frontmatter Utilities ───────────────────────────────────────────────────
 
 function extractFrontmatter(content) {
-  const frontmatter = {};
   const match = content.match(/^---\n([\s\S]+?)\n---/);
-  if (!match) return frontmatter;
-
-  const yaml = match[1];
-  const lines = yaml.split('\n');
-
-  // Stack to track nested objects: [{obj, key, indent}]
-  // obj = object to write to, key = current key collecting array items, indent = indentation level
-  let stack = [{ obj: frontmatter, key: null, indent: -1 }];
-
-  for (const line of lines) {
-    // Skip empty lines
-    if (line.trim() === '') continue;
-
-    // Calculate indentation (number of leading spaces)
-    const indentMatch = line.match(/^(\s*)/);
-    const indent = indentMatch ? indentMatch[1].length : 0;
-
-    // Pop stack back to appropriate level
-    while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
-      stack.pop();
-    }
-
-    const current = stack[stack.length - 1];
-
-    // Check for key: value pattern
-    const keyMatch = line.match(/^(\s*)([a-zA-Z0-9_-]+):\s*(.*)/);
-    if (keyMatch) {
-      const key = keyMatch[2];
-      const value = keyMatch[3].trim();
-
-      if (value === '' || value === '[') {
-        // Key with no value or opening bracket — could be nested object or array
-        // We'll determine based on next lines, for now create placeholder
-        current.obj[key] = value === '[' ? [] : {};
-        current.key = null;
-        // Push new context for potential nested content
-        stack.push({ obj: current.obj[key], key: null, indent });
-      } else if (value.startsWith('[') && value.endsWith(']')) {
-        // Inline array: key: [a, b, c]
-        current.obj[key] = value.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
-        current.key = null;
-      } else {
-        // Simple key: value
-        current.obj[key] = value.replace(/^["']|["']$/g, '');
-        current.key = null;
-      }
-    } else if (line.trim().startsWith('- ')) {
-      // Array item
-      const itemValue = line.trim().slice(2).replace(/^["']|["']$/g, '');
-
-      // If current context is an empty object, convert to array
-      if (typeof current.obj === 'object' && !Array.isArray(current.obj) && Object.keys(current.obj).length === 0) {
-        // Find the key in parent that points to this object and convert it
-        const parent = stack.length > 1 ? stack[stack.length - 2] : null;
-        if (parent) {
-          for (const k of Object.keys(parent.obj)) {
-            if (parent.obj[k] === current.obj) {
-              parent.obj[k] = [itemValue];
-              current.obj = parent.obj[k];
-              break;
-            }
-          }
-        }
-      } else if (Array.isArray(current.obj)) {
-        current.obj.push(itemValue);
-      }
-    }
+  if (!match) return {};
+  let parsed;
+  try {
+    parsed = YAML.parse(match[1]) || {};
+  } catch (e) {
+    // Fall back to empty object on parse error
+    return {};
   }
-
-  return frontmatter;
+  return parsed;
 }
 
 function reconstructFrontmatter(obj) {
@@ -153,69 +92,12 @@ function spliceFrontmatter(content, newObj) {
 }
 
 function parseMustHavesBlock(content, blockName) {
-  // Extract a specific block from must_haves in raw frontmatter YAML
-  // Handles 3-level nesting: must_haves > artifacts/key_links > [{path, provides, ...}]
   const fmMatch = content.match(/^---\n([\s\S]+?)\n---/);
   if (!fmMatch) return [];
-
-  const yaml = fmMatch[1];
-  // Find the block (e.g., "truths:", "artifacts:", "key_links:")
-  const blockPattern = new RegExp(`^\\s{4}${blockName}:\\s*$`, 'm');
-  const blockStart = yaml.search(blockPattern);
-  if (blockStart === -1) return [];
-
-  const afterBlock = yaml.slice(blockStart);
-  const blockLines = afterBlock.split('\n').slice(1); // skip the header line
-
-  const items = [];
-  let current = null;
-
-  for (const line of blockLines) {
-    // Stop at same or lower indent level (non-continuation)
-    if (line.trim() === '') continue;
-    const indent = line.match(/^(\s*)/)[1].length;
-    if (indent <= 4 && line.trim() !== '') break; // back to must_haves level or higher
-
-    if (line.match(/^\s{6}-\s+/)) {
-      // New list item at 6-space indent
-      if (current) items.push(current);
-      current = {};
-      // Check if it's a simple string item
-      const simpleMatch = line.match(/^\s{6}-\s+"?([^"]+)"?\s*$/);
-      if (simpleMatch && !line.includes(':')) {
-        current = simpleMatch[1];
-      } else {
-        // Key-value on same line as dash: "- path: value"
-        const kvMatch = line.match(/^\s{6}-\s+(\w+):\s*"?([^"]*)"?\s*$/);
-        if (kvMatch) {
-          current = {};
-          current[kvMatch[1]] = kvMatch[2];
-        }
-      }
-    } else if (current && typeof current === 'object') {
-      // Continuation key-value at 8+ space indent
-      const kvMatch = line.match(/^\s{8,}(\w+):\s*"?([^"]*)"?\s*$/);
-      if (kvMatch) {
-        const val = kvMatch[2];
-        // Try to parse as number
-        current[kvMatch[1]] = /^\d+$/.test(val) ? parseInt(val, 10) : val;
-      }
-      // Array items under a key
-      const arrMatch = line.match(/^\s{10,}-\s+"?([^"]+)"?\s*$/);
-      if (arrMatch) {
-        // Find the last key added and convert to array
-        const keys = Object.keys(current);
-        const lastKey = keys[keys.length - 1];
-        if (lastKey && !Array.isArray(current[lastKey])) {
-          current[lastKey] = current[lastKey] ? [current[lastKey]] : [];
-        }
-        if (lastKey) current[lastKey].push(arrMatch[1]);
-      }
-    }
-  }
-  if (current) items.push(current);
-
-  return items;
+  let parsed;
+  try { parsed = YAML.parse(fmMatch[1]) || {}; } catch { return []; }
+  const block = parsed?.must_haves?.[blockName];
+  return Array.isArray(block) ? block : [];
 }
 
 // ─── Frontmatter CRUD Commands ───────────────────────────────────────────────

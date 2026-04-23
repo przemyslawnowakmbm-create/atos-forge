@@ -410,13 +410,53 @@ Subcommands:
 - get <key.path> — read a specific config value (dot notation)
 - set <key.path> <value> — update project config, validates after save
 
+## Agent Registry
+Discovers and catalogs specialized agent definitions from `~/.claude/agents/`, `.claude/agents/` (project-local), and any paths in `agent_registry.scan_paths`. Enables the Dynamic Agent Factory to inject domain expertise from specialized agents (typescript-pro, api-designer, test-automator, etc.) into execution agent prompts — replacing 1-sentence capability snippets with detailed checklists, patterns, and rules.
+
+CLI commands:
+  node atos-forge/bin/forge-tools.cjs registry scan [--json]    — Discover agents, rebuild .forge/agents/catalog.json
+  node atos-forge/bin/forge-tools.cjs registry list [--json]    — List all discovered agents
+  node atos-forge/bin/forge-tools.cjs registry show <id>        — Agent details, expertise preview, usage stats
+  node atos-forge/bin/forge-tools.cjs registry match <cap> [...] — Find agents for capabilities
+
+Catalog stored at: `.forge/agents/catalog.json`
+  { version, last_scan, agents: [{id, description, source_type, capability_tags, expertise, usage_count, success_rate}], capability_map }
+
+Source types:
+  claude_agents    — ~/.claude/agents/ (Claude Code global agents)
+  project_local    — .claude/agents/ (project-specific)
+  forge_internal   — forge-* agents; EXCLUDED from capability matching (serve CLI orchestration only)
+  custom           — paths from agent_registry.scan_paths config
+
+Capability matching:
+  Factory calls matchAgents(catalog, capabilities, maxAgents=2) after task analysis.
+  Scores agents by summing confidence of matched capability tags.
+  Injects matched agents' declarative expertise (checklists, patterns) as "Specialist Expertise" section.
+  Skips forge-internal agents and agents without expertise content.
+
+Delegation (opt-in via `agent_registry.delegate_to_agents: true`):
+  When enabled and provider is Claude, adds 'Agent' to allowedTools.
+  Spawned agents see an "Available Specialist Agents" section listing matched specialists.
+  They can delegate sub-tasks via Agent(subagent_type=typescript-pro) etc.
+
+Configuration in .forge/config.json (agent_registry section):
+  enabled (default true), scan_paths (default []), auto_scan (default true),
+  inject_matching (default true), delegate_to_agents (default false),
+  max_injected_agents (default 2), max_body_chars (default 1500),
+  capability_map (default {}, user overrides for capability→agent mapping).
+
+Programmatic: require('forge-agents/agent-registry').{scan, loadCatalog, matchAgents, recordUsage, getCatalogHash}
+Cache: catalog mtime is included as input #6 in forge-agents/cache.js computeInputHash().
+Auto-scan: triggered when agent_registry.auto_scan=true and forge-init runs.
+Usage tracking: recordUsage(cwd, agentIds, 'success'|'failure') updates success_rate in catalog.
+
 ## Forge Doctor
   node atos-forge/bin/forge-tools.cjs doctor [--raw for JSON]
   node forge-config/doctor.js --root . [--json]
 
-17 health checks across 3 categories:
+18 health checks across 3 categories:
 1. Dependencies (7): Node.js, Git, Docker, Codex CLI, tree-sitter, better-sqlite3, chalk
-2. Project Health (9): Configuration, Code Graph (with staleness warning >24h), Dashboard, Session Ledger, Snapshots, Git Hooks (post-commit forge updater), Docker Images (forge agent images), System Graph (existence + staleness + stats), Interfaces (existence + validation)
+2. Project Health (10): Configuration, Code Graph (with staleness warning >24h), Dashboard, Session Ledger, Snapshots, Git Hooks (post-commit forge updater), Docker Images (forge agent images), System Graph (existence + staleness + stats), Interfaces (existence + validation), Agent Registry (catalog freshness + specialist count)
 3. System (1): Resources (cores, RAM, max concurrent agents)
 
 Box-drawing terminal output with status icons. Returns { checks[], summary: { ok, warn, fail, skip } }.

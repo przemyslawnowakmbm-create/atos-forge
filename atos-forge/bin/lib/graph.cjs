@@ -128,6 +128,20 @@ function cmdGraphInit(cwd, args, raw) {
     snapshotSaved = true;
   } catch { /* non-fatal */ }
 
+  // Auto-scan agent registry if enabled
+  let registryScanned = false;
+  let registryAgentCount = 0;
+  try {
+    const { getAgentRegistry } = require(path.join(getForgeRoot(), 'forge-config', 'config'));
+    const regConfig = getAgentRegistry(cwd);
+    if (regConfig.enabled && regConfig.auto_scan) {
+      const registry = require(path.join(getForgeRoot(), 'forge-agents', 'agent-registry'));
+      const catalog = registry.scan(cwd, regConfig);
+      registryScanned = true;
+      registryAgentCount = catalog.agents.filter(a => a.source_type !== 'forge_internal').length;
+    }
+  } catch { /* non-fatal — agent registry is optional */ }
+
   // Generate dashboard if auto-regeneration is enabled (or if no config to check)
   let dashboardGenerated = false;
   try {
@@ -160,6 +174,8 @@ function cmdGraphInit(cwd, args, raw) {
     gitignore_updated: gitignoreUpdated,
     interfaces_detected: interfacesDetected,
     interfaces_path: interfacesPath,
+    registry_scanned: registryScanned,
+    registry_agent_count: registryAgentCount,
     directories_created: ['session', 'snapshots', 'knowledge'],
     db_path: graphDbPath(cwd),
   };

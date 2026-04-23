@@ -228,43 +228,9 @@ For each link:
 - `verified=false` with "not found" in detail → NOT_WIRED
 - `verified=false` with "Pattern not found" → PARTIAL
 
-**Fallback patterns** (if must_haves.key_links not defined in PLAN):
+**Fallback patterns** (if must_haves.key_links not defined in PLAN): check Component→API (fetch call + response handling), API→Database (query + result returned), Form→Handler (onSubmit + API call), State→Render (state displayed in JSX).
 
-### Pattern: Component → API
-
-```bash
-grep -E "fetch\(['\"].*$api_path|axios\.(get|post).*$api_path" "$component" 2>/dev/null
-grep -A 5 "fetch\|axios" "$component" | grep -E "await|\.then|setData|setState" 2>/dev/null
-```
-
-Status: WIRED (call + response handling) | PARTIAL (call, no response use) | NOT_WIRED (no call)
-
-### Pattern: API → Database
-
-```bash
-grep -E "prisma\.$model|db\.$model|$model\.(find|create|update|delete)" "$route" 2>/dev/null
-grep -E "return.*json.*\w+|res\.json\(\w+" "$route" 2>/dev/null
-```
-
-Status: WIRED (query + result returned) | PARTIAL (query, static return) | NOT_WIRED (no query)
-
-### Pattern: Form → Handler
-
-```bash
-grep -E "onSubmit=\{|handleSubmit" "$component" 2>/dev/null
-grep -A 10 "onSubmit.*=" "$component" | grep -E "fetch|axios|mutate|dispatch" 2>/dev/null
-```
-
-Status: WIRED (handler + API call) | STUB (only logs/preventDefault) | NOT_WIRED (no handler)
-
-### Pattern: State → Render
-
-```bash
-grep -E "useState.*$state_var|\[$state_var," "$component" 2>/dev/null
-grep -E "\{.*$state_var.*\}|\{$state_var\." "$component" 2>/dev/null
-```
-
-Status: WIRED (state displayed) | NOT_WIRED (state exists, not rendered)
+> Reference: See @verifier-cookbook.md for exact grep commands for each wiring pattern.
 
 ## Step 6: Check Requirements Coverage
 
@@ -368,42 +334,9 @@ Test coverage gaps are recorded as warnings, NOT blockers. They feed into milest
 
 Reference standards: `@~/.claude/atos-forge/references/ui-ux-quality.md`
 
-For each modified `.tsx`, `.jsx`, `.vue`, `.svelte`, or `.html` file, check:
+Check each modified `.tsx`, `.jsx`, `.vue`, `.svelte`, or `.html` file for: missing alt text (blocker), inputs without labels (blocker), no keyboard access (blocker), raw hex colors (warning), magic spacing (warning), emoji icons (warning), animations without reduced-motion (warning).
 
-**Accessibility (CRITICAL — failures are gaps):**
-```bash
-# Missing alt text on images
-grep -n "<img" "$file" | grep -v "alt=" 2>/dev/null
-# Icon-only buttons without aria-label
-grep -n "<button" "$file" | grep -v "aria-label" | grep -v ">[^<]*[a-zA-Z]" 2>/dev/null
-# Form inputs without labels
-grep -n "<input\|<textarea\|<select" "$file" | grep -v "aria-label\|id=" 2>/dev/null
-# Missing focus indicators (search for interactive elements without focus styles)
-grep -n "onClick\|onPress\|href=" "$file" | grep -v "focus:" 2>/dev/null
-```
-
-**Visual Consistency (warnings):**
-```bash
-# Raw hex/rgb colors in component (should use tokens)
-grep -n "#[0-9a-fA-F]\{3,8\}\|rgb(" "$file" | grep -v "\.css\|\.scss\|tokens\|variables\|theme" 2>/dev/null
-# Magic number spacing (not on 4/8px grid)
-grep -n -E "p-[13579]|m-[13579]|gap-[13579]" "$file" 2>/dev/null
-# Emoji used as icons
-grep -n -P "[\x{1F300}-\x{1F9FF}]" "$file" 2>/dev/null
-```
-
-**Interaction Quality (warnings):**
-```bash
-# Buttons/links without hover/active states
-grep -n "<button\|<a " "$file" | grep -v "hover:" 2>/dev/null
-# Animations without reduced-motion
-grep -n "transition\|animate-\|keyframes" "$file" | grep -v "motion-reduce\|prefers-reduced-motion" 2>/dev/null
-```
-
-**Categorize findings:**
-- 🛑 **Blocker:** Missing alt text, no keyboard access, form inputs without labels
-- ⚠️ **Warning:** Raw hex colors, missing hover states, emoji as icons, magic spacing
-- ℹ️ **Info:** Missing reduced-motion (if no animations exist), missing dark mode support
+> Reference: See @verifier-cookbook.md for exact grep commands for UI/UX anti-pattern checks.
 
 Include findings in VERIFICATION.md under `### UI/UX Quality` section. Blockers count as gaps.
 
@@ -425,17 +358,9 @@ fi
 grep -E "^\- \`" "$PHASE_DIR"/*-SUMMARY.md | sed 's/.*`\([^`]*\)`.*/\1/' | sort -u
 ```
 
-Run anti-pattern detection on each file:
+Run anti-pattern detection on each file: TODO/FIXME/PLACEHOLDER comments, empty returns (`return null`, `return {}`, `return []`), console.log-only implementations.
 
-```bash
-# TODO/FIXME/placeholder comments
-grep -n -E "TODO|FIXME|XXX|HACK|PLACEHOLDER" "$file" 2>/dev/null
-grep -n -E "placeholder|coming soon|will be here" "$file" -i 2>/dev/null
-# Empty implementations
-grep -n -E "return null|return \{\}|return \[\]|=> \{\}" "$file" 2>/dev/null
-# Console.log only implementations
-grep -n -B 2 -A 2 "console\.log" "$file" 2>/dev/null | grep -E "^\s*(const|function|=>)"
-```
+> Reference: See @verifier-cookbook.md for exact grep commands and anti-pattern scan commands.
 
 Categorize: 🛑 Blocker (prevents goal) | ⚠️ Warning (incomplete) | ℹ️ Info (notable)
 
@@ -679,52 +604,7 @@ Automated checks passed. Awaiting human verification.
 
 <stub_detection_patterns>
 
-## React Component Stubs
-
-```javascript
-// RED FLAGS:
-return <div>Component</div>
-return <div>Placeholder</div>
-return <div>{/* TODO */}</div>
-return null
-return <></>
-
-// Empty handlers:
-onClick={() => {}}
-onChange={() => console.log('clicked')}
-onSubmit={(e) => e.preventDefault()}  // Only prevents default
-```
-
-## API Route Stubs
-
-```typescript
-// RED FLAGS:
-export async function POST() {
-  return Response.json({ message: "Not implemented" });
-}
-
-export async function GET() {
-  return Response.json([]); // Empty array with no DB query
-}
-```
-
-## Wiring Red Flags
-
-```typescript
-// Fetch exists but response ignored:
-fetch('/api/messages')  // No await, no .then, no assignment
-
-// Query exists but result not returned:
-await prisma.message.findMany()
-return Response.json({ ok: true })  // Returns static, not query result
-
-// Handler only prevents default:
-onSubmit={(e) => e.preventDefault()}
-
-// State exists but not rendered:
-const [messages, setMessages] = useState([])
-return <div>No messages</div>  // Always shows "no messages"
-```
+> Reference: See @verifier-cookbook.md for stub-detection patterns and wiring red flags (React components, API routes, wiring patterns, artifact status decision matrix).
 
 </stub_detection_patterns>
 

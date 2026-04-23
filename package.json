@@ -41,16 +41,19 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://10.48.159.164/other/fdp.git"
+    "url": "git+https://github.com/forge-team/forge.git"
   },
-  "homepage": "https://10.48.159.164/other/fdp",
+  "homepage": "https://github.com/forge-team/forge",
   "bugs": {
-    "url": "https://10.48.159.164/other/fdp/-/issues"
+    "url": "https://github.com/forge-team/forge/issues"
   },
   "engines": {
     "node": ">=16.7.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "proper-lockfile": "^4.1.2",
+    "yaml": "^2.6.0"
+  },
   "devDependencies": {
     "esbuild": "^0.24.0"
   },

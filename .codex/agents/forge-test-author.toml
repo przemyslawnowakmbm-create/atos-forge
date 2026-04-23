@@ -1,0 +1,6 @@
+name = "forge-test-author"
+description = "Writes failing tests from plan truths before implementation (Wave 0)"
+model = "o3"
+
+# Instructions loaded from adjacent file
+instructions_file = "forge-test-author.instructions.md"

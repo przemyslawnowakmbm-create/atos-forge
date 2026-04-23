@@ -57,6 +57,22 @@ Present banner:
 <step name="analyze_implementation">
 Extract the list of files modified by the phase from SUMMARY.md.
 
+### Truth-Driven Test Generation (Primary)
+
+When the plan contains `must_haves.truths`:
+
+1. **Extract truths:** Read the plan's YAML frontmatter and extract `must_haves.truths`
+2. **Map truths to tests:** For each truth without a corresponding test file:
+   - Create a test that verifies the truth
+   - Name: `{plan-id}.truth-{N}.test.{ext}`
+   - Include comment: `// Verifies truth: "{truth text}"`
+3. **Extract key_links:** For each `must_haves.key_links`, create a wiring test
+4. **Run all generated tests** — they should pass if implementation is complete
+
+This replaces the classifier below for plans with must_haves. Fall back to the classifier only for legacy plans without must_haves.
+
+### Legacy Classifier (Fallback)
+
 For each file, read it and classify into one of three categories:
 
 | Category | Criteria | Test Type |

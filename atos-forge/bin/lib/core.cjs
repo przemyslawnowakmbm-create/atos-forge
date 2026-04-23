@@ -234,6 +234,19 @@ function getArchivedPhaseDirs(cwd) {
   return results;
 }
 
+function isPlanComplete(summaryPath) {
+  if (!fs.existsSync(summaryPath)) return false;
+  const content = fs.readFileSync(summaryPath, 'utf8');
+  if (!content.includes('## Self-Check: PASSED') && !content.includes('Self-Check: PASSED')) {
+    return false;
+  }
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (fmMatch && /tests_failed:\s*[1-9]/.test(fmMatch[1])) {
+    return false;
+  }
+  return true;
+}
+
 function searchPhaseInDir(baseDir, relBase, normalized) {
   try {
     const entries = fs.readdirSync(baseDir, { withFileTypes: true });
@@ -254,7 +267,12 @@ function searchPhaseInDir(baseDir, relBase, normalized) {
     const hasVerification = phaseFiles.some(f => f.endsWith('-VERIFICATION.md') || f === 'VERIFICATION.md');
 
     const completedPlanIds = new Set(
-      summaries.map(s => s.replace('-SUMMARY.md', '').replace('SUMMARY.md', ''))
+      summaries
+        .filter(s => {
+          const summaryPath = path.join(phaseDir, s);
+          return isPlanComplete(summaryPath);
+        })
+        .map(s => s.replace('-SUMMARY.md', '').replace('SUMMARY.md', ''))
     );
     const incompletePlans = plans.filter(p => {
       const planId = p.replace('-PLAN.md', '').replace('PLAN.md', '');
@@ -518,6 +536,7 @@ module.exports = {
   normalizePhaseName,
   output,
   error,
+  isPlanComplete,
   // Group B - Internal Helpers
   resolveModelInternal,
   getArchivedPhaseDirs,

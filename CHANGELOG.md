@@ -1308,5 +1308,5 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Interactive mode with checkpoints
 
 <!-- Release links -->
-[Unreleased]: https://10.48.159.164/other/fdp/-/compare/v1.20.4...main
-[1.20.4]: https://10.48.159.164/other/fdp/-/tags/v1.20.4
+[Unreleased]: https://github.com/forge-team/forge/compare/v1.20.4...main
+[1.20.4]: https://github.com/forge-team/forge/releases/tag/v1.20.4

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { output, error, normalizePhaseName, findPhaseInternal,
-        getArchivedPhaseDirs, generateSlugInternal } = require('./core.cjs');
+        getArchivedPhaseDirs, generateSlugInternal, isPlanComplete } = require('./core.cjs');
 const { extractFrontmatter } = require('./frontmatter.cjs');
 
 // ─── Phase List ───────────────────────────────────────────────────────────────
@@ -192,9 +192,11 @@ function cmdPhasePlanIndex(cwd, phase, raw) {
   const planFiles = phaseFiles.filter(f => f.endsWith('-PLAN.md') || f === 'PLAN.md').sort();
   const summaryFiles = phaseFiles.filter(f => f.endsWith('-SUMMARY.md') || f === 'SUMMARY.md');
 
-  // Build set of plan IDs with summaries
+  // Build set of plan IDs with summaries (content-validated: must have Self-Check: PASSED and no tests_failed > 0)
   const completedPlanIds = new Set(
-    summaryFiles.map(s => s.replace('-SUMMARY.md', '').replace('SUMMARY.md', ''))
+    summaryFiles
+      .filter(s => isPlanComplete(path.join(phaseDir, s)))
+      .map(s => s.replace('-SUMMARY.md', '').replace('SUMMARY.md', ''))
   );
 
   const plans = [];

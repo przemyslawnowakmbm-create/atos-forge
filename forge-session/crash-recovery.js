@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { execSync } = require('child_process');
 
 const LOCK_FILE = 'auto.lock';
@@ -10,6 +11,10 @@ function lockPath(cwd) { return path.join(cwd, '.forge', 'session', LOCK_FILE); 
 function ensureDir(cwd) {
   const dir = path.join(cwd, '.forge', 'session');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function getBootTime() {
+  return Math.floor(Date.now() / 1000) - os.uptime();
 }
 
 function writeLock(cwd, { taskId, waveN, phase, startedAt, agentId }) {
@@ -45,8 +50,13 @@ function readCrashLock(cwd) {
   if (!fs.existsSync(p)) return null;
   try {
     const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-    try { process.kill(data.pid, 0); data.processAlive = true; }
-    catch { data.processAlive = false; }
+    const startEpoch = Math.floor(new Date(data.startedAt).getTime() / 1000);
+    if (startEpoch < getBootTime()) {
+      data.processAlive = false; // Lock is from before last reboot
+    } else {
+      try { process.kill(data.pid, 0); data.processAlive = true; }
+      catch { data.processAlive = false; }
+    }
     return data;
   } catch { return null; }
 }

@@ -28,7 +28,7 @@ const META_FILE = 'meta.json';
  * Compute a cache key hash from the inputs that determine an agent's identity.
  * If any of these change, the cached agent is stale.
  */
-function computeInputHash(planPath, cwd) {
+function computeInputHash(planPath, cwd, opts) {
   const hash = crypto.createHash('sha256');
 
   // 1. Plan file content
@@ -73,6 +73,37 @@ function computeInputHash(planPath, cwd) {
     hash.update('ledger_mtime:' + stat.mtimeMs.toString());
   } catch {
     hash.update('ledger_mtime:none');
+  }
+
+  // 6. Agent registry catalog modification time
+  // When the catalog changes (new scan, usage updates) the matched specialist
+  // context injected by factory.js changes → invalidate the cached agent config.
+  const catalogPath = path.join(cwd, '.forge', 'agents', 'catalog.json');
+  try {
+    const stat = fs.statSync(catalogPath);
+    hash.update('catalog_mtime:' + stat.mtimeMs.toString());
+  } catch {
+    hash.update('catalog_mtime:none');
+  }
+
+  // 7. Planning docs modification times — changes to requirements/roadmap invalidate agents
+  const planningFiles = ['.planning/REQUIREMENTS.md', '.planning/ROADMAP.md', '.planning/PROJECT.md', '.planning/STATE.md'];
+  for (const p of planningFiles) {
+    try {
+      const stat = fs.statSync(path.join(cwd, p));
+      hash.update(`${p}_mtime:${stat.mtimeMs}`);
+    } catch {
+      hash.update(`${p}_mtime:none`);
+    }
+  }
+
+  // 8. Factory version — bump this constant to force a global cache invalidation
+  const FACTORY_VERSION = 'v2.0';
+  hash.update(`factory:${FACTORY_VERSION}`);
+
+  // 9. Previous-wave findings — agents built with different prior findings get distinct keys
+  if (opts?.previousFindings) {
+    hash.update(`prev_findings:${JSON.stringify(opts.previousFindings)}`);
   }
 
   return hash.digest('hex');
@@ -132,8 +163,8 @@ function saveRegistry(cwd, registry) {
  * Try to load a cached agent config.
  * Returns { hit: true, result } or { hit: false }.
  */
-function loadCached(planPath, cwd, taskId) {
-  const inputHash = computeInputHash(planPath, cwd);
+function loadCached(planPath, cwd, taskId, opts) {
+  const inputHash = computeInputHash(planPath, cwd, opts);
   if (!inputHash) return { hit: false };
 
   const agentDir = getAgentDir(cwd, taskId);
@@ -157,8 +188,8 @@ function loadCached(planPath, cwd, taskId) {
 /**
  * Save a factory result to cache.
  */
-function saveToCache(planPath, cwd, taskId, factoryResult) {
-  const inputHash = computeInputHash(planPath, cwd);
+function saveToCache(planPath, cwd, taskId, factoryResult, opts) {
+  const inputHash = computeInputHash(planPath, cwd, opts);
   if (!inputHash) return;
 
   const agentDir = getAgentDir(cwd, taskId);

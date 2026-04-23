@@ -728,7 +728,7 @@ node forge-system/detect.js [--root .]                         — Detect interf
 4. Implement basic `validate.js` — schema validation of interfaces.yaml (structural correctness)
 5. Create `schema.sql` — SQLite schema for system-graph.db (needed by Phase 2)
 
-**Verification:** Run `forge-init` on L1 project → should detect REST API exports (FastAPI routes), Celery task events, Redis pub/sub, PostgreSQL tables. Run on HEXAI → should detect NestJS controllers, Keycloak auth, Neo4j connections.
+**Verification:** Run `forge-init` on service-a project → should detect REST API exports (FastAPI routes), Celery task events, Redis pub/sub, PostgreSQL tables. Run on service-b → should detect NestJS controllers, Keycloak auth, Neo4j connections.
 
 ### Phase 2: System Graph Core — Build + Query + Sync (3 new files)
 
@@ -737,9 +737,9 @@ node forge-system/detect.js [--root .]                         — Detect interf
 1. Implement `builder.js` — scan repos with existing `interfaces.yaml`, build system-graph.db
 2. Implement `query.js` — full CLI + programmatic API: overview, exports, imports, consumers, impact, hotspots, cycles, path, team-impact, context-for-task
 3. Implement `sync.js` — incremental update from one repo (hash-based change detection)
-4. Test with L1 + HEXAI + a mock service: build graph, run queries, verify dependency edges
+4. Test with service-a + service-b + a mock service: build graph, run queries, verify dependency edges
 
-**Verification:** Build system graph from L1 + HEXAI → `query.js impact l1-service-desk` shows cross-service dependencies. `query.js cycles` returns clean or flags known circular deps.
+**Verification:** Build system graph from service-a + service-b → `query.js impact service-a-desk` shows cross-service dependencies. `query.js cycles` returns clean or flags known circular deps.
 
 ### Phase 3: System Init — Batch Orchestrator (1 new file + 1 modified)
 
@@ -756,7 +756,7 @@ This is the key new capability — one command to bootstrap an entire multi-repo
 7. Add `system` section to unified config schema in `forge-config/config.js`
 8. Optionally generate CI workflow file (`.github/workflows/forge-sync.yml`) per repo
 
-**Verification:** Run `forge-system-init --path "/code/*"` across L1 + HEXAI → both repos get full `.forge/` environment + system-graph.db built with cross-repo edges. Re-run with `--dry-run` → no changes written, summary printed.
+**Verification:** Run `forge-system-init --path "/code/*"` across service-a + service-b → both repos get full `.forge/` environment + system-graph.db built with cross-repo edges. Re-run with `--dry-run` → no changes written, summary printed.
 
 ### Phase 4: Agent Integration — Cross-Repo Context (modify 3 existing files)
 
@@ -767,7 +767,7 @@ This is the key new capability — one command to bootstrap an entire multi-repo
 3. Extend parallel planner to build cross-repo DAGs (Wave 1: modify API in repo A → Wave 2: update clients in repos B, C)
 4. Extend container/worktree orchestrator to mount system-graph.db + neighbor specs in agent environments
 
-**Verification:** Agent spawned for L1 API route change receives prompt context listing consuming services and contract constraints.
+**Verification:** Agent spawned for service-a API route change receives prompt context listing consuming services and contract constraints.
 
 ### Phase 5: System Dashboard (1 new file)
 
@@ -781,7 +781,7 @@ This is the key new capability — one command to bootstrap an entire multi-repo
 6. Team View tab — services grouped by team, cross-team dependency edges
 7. Forge theme (reuse existing CSS generator or extract shared theme)
 
-**Verification:** Generate system dashboard for L1 + HEXAI → shows two service nodes with dependency edges. Click a service → shows exports/imports detail panel.
+**Verification:** Generate system dashboard for service-a + service-b → shows two service nodes with dependency edges. Click a service → shows exports/imports detail panel.
 
 ### Phase 6: Verification Extension — Contract Checks (1 new file + 1 modified)
 
@@ -793,7 +793,7 @@ This is the key new capability — one command to bootstrap an entire multi-repo
 4. Cross-repo ripple verification: spawn lightweight verification agents in consumer repos
 5. Wire Layer 7 into `engine.js` verification pipeline (after Layer 6 behavioral)
 
-**Verification:** Modify an API route in L1 → verification flags "this endpoint is exported in interfaces.yaml, 2 consumers depend on it — coordinate before deploying."
+**Verification:** Modify an API route in service-a → verification flags "this endpoint is exported in interfaces.yaml, 2 consumers depend on it — coordinate before deploying."
 
 ### Phase 7: CLI + forge-tools Integration (modify 1 existing file)
 

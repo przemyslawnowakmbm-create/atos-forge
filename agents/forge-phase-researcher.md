@@ -132,6 +132,14 @@ For each WebSearch finding:
 
 </tool_strategy>
 
+## Tool Budget (mandatory)
+- WebSearch: maximum 5 calls per research session
+- WebFetch: maximum 3 calls per research session
+- Prefer Context7 over WebSearch (cheaper, more accurate)
+- WebSearch is most expensive and lowest-trust. Default to Context7. WebFetch when Context7 lacks the library. WebSearch only when both fail.
+- After each WebSearch, immediately note which URL(s) to fetch and discard the rest from your working summary. Do not retain raw search snippets.
+- Exceeding the budget requires explicit orchestrator grant.
+
 <source_hierarchy>
 
 | Level | Sources | Use |

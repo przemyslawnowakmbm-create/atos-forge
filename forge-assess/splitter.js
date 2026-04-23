@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 // ============================================================
 // Dependencies
@@ -712,7 +713,7 @@ function buildSubPlan(group, plan, index, total, dependsOn, cwd, contextBudget) 
     const budget = calculateBudget(group, contextBudget || USABLE_CONTEXT);
     const parentPlan = path.basename(plan.path, '.md');
 
-    return {
+    const result = {
       type: 'auto',
       parent_plan: parentPlan,
       subtask: `${index + 1}/${total}`,
@@ -737,6 +738,27 @@ function buildSubPlan(group, plan, index, total, dependsOn, cwd, contextBudget) 
         parallelizable: !dependsOn || dependsOn.length === 0,
       },
     };
+
+    // Attach parent_contract: objective + truths + filtered key_links and artifacts
+    const fm = plan.frontmatter || {};
+    const mh = fm.must_haves || {};
+    const fileSet = new Set(group.files);
+    const relevantKeyLinks = (mh.key_links || []).filter(kl =>
+      fileSet.has(kl.from) || fileSet.has(kl.to)
+    );
+    const relevantArtifacts = (mh.artifacts || []).filter(a =>
+      fileSet.has(a.path)
+    );
+    result.parent_contract = {
+      objective: plan.objective || '',
+      requirements: fm.requirements || [],
+      truths: mh.truths || [],
+      key_links: relevantKeyLinks,
+      artifacts: relevantArtifacts,
+      parent_must_haves_full: mh,
+    };
+
+    return result;
   } finally {
     safeClose(gq);
   }
@@ -765,6 +787,32 @@ ${sessionLines}
   <action>${subPlan.action}</action>
   <verify>${subPlan.verify}</verify>
   <done>${subPlan.done}</done>
+${(() => {
+    if (!subPlan.parent_contract) return '';
+    const pc = subPlan.parent_contract;
+    let yaml = '  <must_haves>\n';
+    if (pc.truths && pc.truths.length) {
+      yaml += '    truths:\n';
+      pc.truths.forEach(t => {
+        yaml += `      - "${t.replace(/"/g, '\\\"')}"\n`;
+      });
+    }
+    if (pc.key_links && pc.key_links.length) {
+      yaml += '    key_links:\n';
+      pc.key_links.forEach(kl => {
+        yaml += `      - from: "${kl.from}"\n        to: "${kl.to}"\n        via: "${kl.via || ''}"\n`;
+        if (kl.pattern) yaml += `      pattern: "${kl.pattern}"\n`;
+      });
+    }
+    if (pc.artifacts && pc.artifacts.length) {
+      yaml += '    artifacts:\n';
+      pc.artifacts.forEach(a => {
+        yaml += `      - path: "${a.path}"\n        provides: "${a.provides || ''}"\n`;
+      });
+    }
+    yaml += '  </must_haves>';
+    return yaml;
+  })()}
 </task>`;
 }
 
@@ -783,6 +831,7 @@ function formatSubPlanJSON(subPlan) {
     verify: subPlan.verify,
     done: subPlan.done,
     meta: subPlan._meta,
+    parent_contract: subPlan.parent_contract || null,
   };
 }
 
@@ -1075,8 +1124,10 @@ Options:
     }
 
     // Create synthetic source files on disk (~25KB each → ~6250 tokens each → 125k total)
+    const syntheticSrcDir = path.join(os.tmpdir(), 'forge-splitter-test');
+    if (!fs.existsSync(syntheticSrcDir)) fs.mkdirSync(syntheticSrcDir, { recursive: true });
     for (const f of syntheticFiles) {
-      const absPath = path.join(cwd, f);
+      const absPath = path.join(syntheticSrcDir, f);
       fs.mkdirSync(path.dirname(absPath), { recursive: true });
       const kind = path.basename(f).split('.')[0];
       const mod = f.split('/')[1];
@@ -1288,11 +1339,9 @@ Test suite covers multi-tenant scenarios.
       console.log(`Total: ${assessment.metrics.total_estimated} / ${assessment.metrics.context_limit}`);
     }
 
-    // Cleanup
+    // Cleanup — only remove tmpdir test artifacts, never touch user source
     fs.rmSync(testDir, { recursive: true, force: true });
-    // Remove synthetic source files
-    const srcDir = path.join(cwd, 'src');
-    if (fs.existsSync(srcDir)) fs.rmSync(srcDir, { recursive: true, force: true });
+    try { fs.rmSync(path.join(os.tmpdir(), 'forge-splitter-test'), { recursive: true, force: true }); } catch {}
     process.exit(0);
   }
 

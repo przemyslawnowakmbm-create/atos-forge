@@ -1,0 +1,6 @@
+name = "forge-code-reviewer"
+description = "Per-wave code reviewer that checks agent output against plan contract"
+model = "o3"
+
+# Instructions loaded from adjacent file
+instructions_file = "forge-code-reviewer.instructions.md"

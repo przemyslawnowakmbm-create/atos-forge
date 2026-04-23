@@ -264,13 +264,7 @@ function cmdVerifyKeyLinks(cwd, planFilePath, raw) {
           check.verified = true;
           check.detail = 'Pattern found in source';
         } else {
-          const targetContent = safeReadFile(path.join(cwd, link.to || ''));
-          if (targetContent && regex.test(targetContent)) {
-            check.verified = true;
-            check.detail = 'Pattern found in target';
-          } else {
-            check.detail = `Pattern "${link.pattern}" not found in source or target`;
-          }
+          check.detail = `Pattern "${link.pattern}" not found in source`;
         }
       } catch {
         check.detail = `Invalid regex pattern: ${link.pattern}`;

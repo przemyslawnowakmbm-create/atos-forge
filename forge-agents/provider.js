@@ -167,11 +167,20 @@ function buildInvocation(providerName, prompt, opts = {}) {
     };
   }
 
+  // Optionally extend allowedTools with 'Agent' when delegation is enabled.
+  // This lets spawned Claude sessions use Agent(subagent_type=<name>) to
+  // delegate sub-tasks to specialists from ~/.claude/agents/.
+  // Opt-in only: agent_registry.delegate_to_agents must be true in config.
+  const baseTools = opts.allowedTools || 'Bash,Read,Write,Edit,Glob,Grep';
+  const finalTools = opts.delegate_to_agents === true
+    ? `${baseTools},Agent`
+    : baseTools;
+
   const args = [
     '--print',
     '--dangerously-skip-permissions',
     '-p', prompt,
-    '--allowedTools', opts.allowedTools || 'Bash,Read,Write,Edit,Glob,Grep',
+    '--allowedTools', finalTools,
   ];
   if (model && model !== 'inherit') {
     args.splice(3, 0, '--model', model);

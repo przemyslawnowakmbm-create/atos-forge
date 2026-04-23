@@ -1,0 +1,6 @@
+name = "forge-research-checker"
+description = "Validates RESEARCH.md structure, confidence labels, and source citations"
+model = "o3"
+
+# Instructions loaded from adjacent file
+instructions_file = "forge-research-checker.instructions.md"

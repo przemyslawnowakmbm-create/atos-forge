@@ -69,18 +69,106 @@ function collectPatches(outputDir) {
   return result;
 }
 
+// ============================================================
+// Pre-Apply Conflict Detection
+// ============================================================
+
+/**
+ * Extract the set of files modified by a unified diff / git patch.
+ *
+ * Parses `diff --git a/<src> b/<dst>` headers and returns the destination
+ * (b/) path for every changed file. Works with standard `git diff` output
+ * as well as patches produced by `git format-patch`.
+ *
+ * @param {string} diffContent - Raw unified diff / patch text.
+ * @returns {string[]} Unique list of destination file paths.
+ */
+function extractPatchFiles(diffContent) {
+  const files = new Set();
+  const regex = /^diff --git a\/(.*?) b\/(.*?)$/gm;
+  let match;
+  while ((match = regex.exec(diffContent)) !== null) {
+    files.add(match[2]); // use b/ path (destination)
+  }
+  return [...files];
+}
+
+/**
+ * Detect files touched by more than one patch in the same wave.
+ *
+ * Call this before applying a batch of patches collected from parallel
+ * agents. If any file appears in multiple patches the wave has a conflict:
+ * applying the patches sequentially will silently produce merge artifacts
+ * or cause `git apply` to fail on the second patch for that file.
+ *
+ * Each element of `patches` must have at least one of:
+ *   - `content`  — raw diff string (preferred)
+ *   - `diff`     — alias for content
+ *
+ * And at least one of:
+ *   - `taskId`   — agent/task identifier
+ *   - `id`       — alias
+ *   - `name`     — patch file name used as fallback label
+ *
+ * @param {Array<{ content?: string, diff?: string, taskId?: string, id?: string, name?: string }>} patches
+ * @returns {Array<{ file: string, patches: string[] }>} Conflicts — empty array means no conflicts.
+ */
+function detectPatchConflicts(patches) {
+  /** @type {Map<string, string[]>} file → [patchId, ...] */
+  const fileMap = new Map();
+
+  for (const patch of patches) {
+    const diffContent = patch.content || patch.diff || '';
+    const patchId = patch.taskId || patch.id || patch.name || 'unknown';
+    const files = extractPatchFiles(diffContent);
+    for (const file of files) {
+      if (!fileMap.has(file)) fileMap.set(file, []);
+      fileMap.get(file).push(patchId);
+    }
+  }
+
+  const conflicts = [];
+  for (const [file, patchIds] of fileMap) {
+    if (patchIds.length > 1) {
+      conflicts.push({ file, patches: patchIds });
+    }
+  }
+  return conflicts;
+}
+
+// ============================================================
+// Patch Application
+// ============================================================
+
 /**
  * Apply collected patches to the main repo working tree.
  *
+ * Runs a pre-apply conflict guard: if two or more patches in the batch
+ * modify the same file an error is thrown **before** any patch is applied,
+ * keeping the working tree clean.
+ *
  * @param {string} repoRoot - Main repository root.
  * @param {object[]} patches - Array of { name, content } from collectPatches().
- * @param {{ dryRun?: boolean, check?: boolean }} opts
+ * @param {{ dryRun?: boolean, check?: boolean, skipConflictCheck?: boolean }} opts
  * @returns {{ applied: string[], failed: string[], skipped: string[] }}
  */
 function applyPatches(repoRoot, patches, opts = {}) {
   const applied = [];
   const failed = [];
   const skipped = [];
+
+  // Pre-apply conflict guard — bail out before touching any file.
+  if (!opts.skipConflictCheck) {
+    const conflicts = detectPatchConflicts(patches);
+    if (conflicts.length > 0) {
+      const detail = conflicts
+        .map(c => `  ${c.file}: touched by ${c.patches.join(', ')}`)
+        .join('\n');
+      throw new Error(
+        `Patch conflict detected — same files modified by multiple agents:\n${detail}`
+      );
+    }
+  }
 
   for (const patch of patches) {
     // First check if patch applies cleanly
@@ -194,4 +282,6 @@ module.exports = {
   collectPatches,
   applyPatches,
   extractLearnings,
+  detectPatchConflicts,
+  extractPatchFiles,
 };

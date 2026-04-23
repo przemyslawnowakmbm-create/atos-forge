@@ -3,7 +3,7 @@
 ## Quick Install
 
 ```bash
-git clone git@10.48.159.164:other/fdp.git forge
+git clone https://github.com/forge-team/forge.git forge
 cd forge
 ./scripts/setup.sh --global
 ```

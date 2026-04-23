@@ -356,6 +356,56 @@ function checkSystemGraph(cwd) {
   }
 }
 
+function checkAgentRegistry(cwd) {
+  const catalogPath = path.join(cwd, '.forge', 'agents', 'catalog.json');
+  if (!fs.existsSync(catalogPath)) {
+    return {
+      name: 'Agent Registry',
+      status: 'warn',
+      detail: 'no catalog (run: forge-tools registry scan)',
+    };
+  }
+
+  try {
+    const content = fs.readFileSync(catalogPath, 'utf8');
+    const catalog = JSON.parse(content);
+    const agents = catalog.agents || [];
+    const total = agents.length;
+    const general = agents.filter(a => a.source_type !== 'forge_internal').length;
+    const capabilities = Object.keys(catalog.capability_map || {}).length;
+
+    const ageMs = catalog.last_scan
+      ? Date.now() - new Date(catalog.last_scan).getTime()
+      : Infinity;
+    const ageHours = ageMs / (1000 * 60 * 60);
+    const stale = ageHours > 24;
+
+    const freshness = ageHours < 1
+      ? 'just scanned'
+      : ageHours < 24
+        ? `${ageHours.toFixed(0)}h ago`
+        : `${(ageHours / 24).toFixed(0)}d ago (stale)`;
+
+    if (general === 0) {
+      return {
+        name: 'Agent Registry',
+        status: 'warn',
+        detail: `${total} agents found, none are general specialists`,
+        extra: 'check ~/.claude/agents/ has non-forge agent .md files',
+      };
+    }
+
+    return {
+      name: 'Agent Registry',
+      status: stale ? 'warn' : 'ok',
+      detail: `${general} specialists, ${capabilities} caps (${freshness})`,
+      extra: stale ? 'run: forge-tools registry scan' : undefined,
+    };
+  } catch (e) {
+    return { name: 'Agent Registry', status: 'warn', detail: `error reading catalog: ${e.message.slice(0, 50)}` };
+  }
+}
+
 function checkInterfaces(cwd) {
   const interfacesPath = path.join(cwd, '.forge', 'interfaces.yaml');
   if (!fs.existsSync(interfacesPath)) {
@@ -418,6 +468,7 @@ function doctor(cwd, opts = {}) {
   checks.push(checkDockerImages());
   checks.push(checkSystemGraph(root));
   checks.push(checkInterfaces(root));
+  checks.push(checkAgentRegistry(root));
 
   // Crash lock check
   try {

@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const YAML = require('yaml');
 
 // ============================================================
 // Constants
@@ -93,38 +94,26 @@ function parsePlan(planPath) {
   // Parse YAML frontmatter
   const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
   if (fmMatch) {
-    const fm = fmMatch[1];
-    const waveMatch = fm.match(/^wave:\s*(\d+)/m);
-    const depsMatch = fm.match(/^depends_on:\s*\[(.*?)\]/m);
-    const autoMatch = fm.match(/^autonomous:\s*(true|false)/m);
-
-    plan.frontmatter.wave = waveMatch ? parseInt(waveMatch[1]) : 1;
-    plan.frontmatter.depends_on = depsMatch ? depsMatch[1].split(',').map(s => s.trim()).filter(Boolean) : [];
-    plan.frontmatter.autonomous = autoMatch ? autoMatch[1] === 'true' : true;
-
-    // Multi-repo plan fields
-    const serviceMatch = fm.match(/^service:\s*(.+)/m);
-    const repoMatch = fm.match(/^repo:\s*(.+)/m);
-    const roleMatch = fm.match(/^role:\s*(.+)/m);
-    if (serviceMatch) plan.frontmatter.service = serviceMatch[1].trim().replace(/^["']|["']$/g, '');
-    if (repoMatch) plan.frontmatter.repo = repoMatch[1].trim().replace(/^["']|["']$/g, '');
-    if (roleMatch) plan.frontmatter.role = roleMatch[1].trim();
-
-    // Extract files_modified (can be multiline YAML list)
-    const filesSection = fm.match(/^files_modified:\s*\n((?:\s+-\s+.+\n?)*)/m);
-    if (filesSection) {
-      plan.files_modified = filesSection[1].match(/^\s+-\s+(.+)/gm)
-        ?.map(l => l.replace(/^\s+-\s+/, '').trim()) || [];
-    } else {
-      const filesInline = fm.match(/^files_modified:\s*\[(.*?)\]/m);
-      if (filesInline) {
-        plan.files_modified = filesInline[1].split(',').map(s => s.trim().replace(/['"]/g, '')).filter(Boolean);
-      }
+    let parsed = {};
+    try {
+      parsed = YAML.parse(fmMatch[1]) || {};
+    } catch (e) {
+      console.error(`[parsePlan] YAML error in ${planPath}: ${e.message}`);
+      parsed = {};
     }
+    plan.frontmatter = {
+      wave: parsed.wave ?? 1,
+      depends_on: Array.isArray(parsed.depends_on) ? parsed.depends_on : [],
+      autonomous: parsed.autonomous !== false,
+      ...parsed,
+    };
+    plan.files_modified = Array.isArray(parsed.files_modified)
+      ? parsed.files_modified
+      : (typeof parsed.files_modified === 'string' ? [parsed.files_modified] : []);
   }
 
-  // Parse task blocks
-  const taskRegex = /<task>([\s\S]*?)<\/task>/g;
+  // Parse task blocks — supports both <task> and <task type="auto"> (and any other attributes)
+  const taskRegex = /<task\b[^>]*>([\s\S]*?)<\/task>/g;
   let taskMatch;
   while ((taskMatch = taskRegex.exec(raw)) !== null) {
     const block = taskMatch[1];
@@ -137,11 +126,16 @@ function parsePlan(planPath) {
       ? filesMatch[1].trim().split('\n').map(l => l.trim()).filter(Boolean)
       : [];
 
+    const typeMatch = taskMatch[0].match(/<task\b[^>]*\btype="([^"]+)"/);
+    const nameMatch = block.match(/<name>([\s\S]*?)<\/name>/);
+
     plan.tasks.push({
       files,
       action: actionMatch ? actionMatch[1].trim() : '',
       verify: verifyMatch ? verifyMatch[1].trim() : '',
       done: doneMatch ? doneMatch[1].trim() : '',
+      type: typeMatch ? typeMatch[1] : 'auto',
+      name: nameMatch ? nameMatch[1].trim() : '',
     });
   }
 
@@ -152,9 +146,10 @@ function parsePlan(planPath) {
   }
   plan.all_files = [...allFiles];
 
-  // Parse objective
-  const objMatch = raw.match(/##\s*Objective\s*\n([\s\S]*?)(?=\n##|\n<|\Z)/);
-  plan.objective = objMatch ? objMatch[1].trim() : '';
+  // Parse objective — supports both <objective> XML tag and ## Objective markdown heading
+  const objTagMatch = raw.match(/<objective>([\s\S]*?)<\/objective>/);
+  const objMdMatch = raw.match(/##\s*Objective\s*\n([\s\S]*?)(?=\n##|\n<|$)/);
+  plan.objective = (objTagMatch?.[1] || objMdMatch?.[1] || '').trim();
 
   return plan;
 }

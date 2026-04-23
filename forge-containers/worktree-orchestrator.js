@@ -370,10 +370,19 @@ function invokeProvider(prompt, worktreePath, opts = {}) {
     let finished = false;
 
     const lastMessagePath = path.join(outputDir, 'last-message.txt');
+    // Read agent_registry.delegate_to_agents from config to optionally add Agent tool
+    let delegateToAgents = false;
+    try {
+      const { getAgentRegistry } = require(path.join(path.dirname(__dirname), 'forge-config', 'config'));
+      const regConfig = getAgentRegistry(cwd);
+      delegateToAgents = regConfig.enabled && regConfig.delegate_to_agents === true;
+    } catch { /* non-fatal */ }
+
     const invocation = buildInvocation(provider.name, prompt, {
       outputFile: provider.name === 'codex' ? lastMessagePath : null,
       entrypoint: 'forge-worktree-agent',
       model: opts.model,
+      delegate_to_agents: delegateToAgents,
     });
 
     const proc = spawn(provider.path, invocation.args, {
@@ -659,6 +668,19 @@ async function launch(agentConfig, params) {
       result.status = 'partial';
     } else {
       result.status = 'failed';
+    }
+
+    // Record agent registry usage for matched specialist agents.
+    // Fire-and-forget — must not block or fail execution.
+    const matchedAgents = agentConfig.matched_registry_agents;
+    if (Array.isArray(matchedAgents) && matchedAgents.length > 0) {
+      try {
+        const outcome = result.status === 'success' ? 'success'
+          : result.status === 'failed' ? 'failure'
+          : 'unknown';
+        const registry = require(path.join(path.dirname(__dirname), 'forge-agents', 'agent-registry'));
+        registry.recordUsage(cwd, matchedAgents, outcome);
+      } catch { /* registry unavailable — non-fatal */ }
     }
 
   } catch (err) {

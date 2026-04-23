@@ -109,6 +109,9 @@ No user permission needed for Rules 1-3.
 
 **Examples:** Wrong queries, logic errors, type errors, null pointer exceptions, broken validation, security vulnerabilities, race conditions, memory leaks
 
+**Rule 1 Scope — Implementation only.**
+Rule 1 modifies implementation code only. To modify a test file (*.test.*, *.spec.*, __tests__/*), raise a `checkpoint:decision` and wait for user approval. Tests written by the test-author wave are the contract — implementation must meet them, not the other way around. Never silently rewrite a failing test to make it pass.
+
 ---
 
 **RULE 2: Auto-add missing critical functionality**

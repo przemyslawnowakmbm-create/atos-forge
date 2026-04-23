@@ -125,18 +125,24 @@ Requirements whose absence would cause user-facing failures or blockers.
 
 - **{CATEGORY}-{NN}**: {Specific, testable requirement}
   Rationale: {Why this is critical — what breaks without it}
+  source_dimension: {Which research dimension this came from (e.g., "domain-standards", "competitive-analysis", "user-research", "technical-feasibility")}
+  source_confidence: {Confidence level of the underlying research: HIGH | MEDIUM | LOW}
 
 ### Important Gaps
 Requirements whose absence degrades user experience.
 
 - **{CATEGORY}-{NN}**: {Specific, testable requirement}
   Rationale: {Why this matters — what users would complain about}
+  source_dimension: {Which research dimension this came from}
+  source_confidence: {HIGH | MEDIUM | LOW}
 
 ### Nice-to-Have
 Requirements that improve the product but can be deferred.
 
 - **{CATEGORY}-{NN}**: {Specific, testable requirement}
   Rationale: {Why this would be nice — what it enables}
+  source_dimension: {Which research dimension this came from}
+  source_confidence: {HIGH | MEDIUM | LOW}
 
 ### Quality Issues Found
 Existing requirements that need rewriting (if spotted during research).
@@ -146,5 +152,17 @@ Existing requirements that need rewriting (if spotted during research).
 ```
 
 **REQ-ID numbering:** Use placeholder category names and sequential numbers. The orchestrator will assign final IDs to avoid conflicts.
+
+**Provenance metadata:** Every suggested requirement must include `source_dimension` and `source_confidence` fields:
+- `source_dimension`: Which research dimension this requirement originated from. Use one of:
+  - `"domain-standards"` — from industry standards, best practices, or compliance research
+  - `"competitive-analysis"` — from surveying competing products or user expectations
+  - `"user-research"` — from user journey analysis, UX patterns, or onboarding flows
+  - `"technical-feasibility"` — from integration surface, data lifecycle, or edge case analysis
+  - `"security-compliance"` — from OWASP, GDPR, accessibility, or auth research
+- `source_confidence`: Confidence level of the underlying research:
+  - `HIGH` — backed by authoritative sources (official standards, documented industry patterns, multiple corroborating sources)
+  - `MEDIUM` — backed by credible secondary sources (blog posts, community consensus, analogous domains)
+  - `LOW` — inferred from first principles or single source; requires user validation before inclusion
 
 </output_format>

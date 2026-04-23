@@ -185,7 +185,7 @@ function discoverFromPath(dirPath) {
     if (isRepoDir(repoDir)) {
       repos.push({ name: entry.name, path: repoDir });
     } else {
-      // Not a repo — check one level deeper (handles org-style grouping dirs like "L1 Support/l1-service-desk-automation")
+      // Not a repo — check one level deeper (handles org-style grouping dirs like "org-name/repo-name")
       try {
         const subEntries = fs.readdirSync(repoDir, { withFileTypes: true });
         for (const sub of subEntries) {

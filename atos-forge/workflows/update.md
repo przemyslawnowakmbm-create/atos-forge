@@ -181,7 +181,7 @@ Format completion message (changelog was already shown in confirmation step):
 
 ⚠️  Restart Claude Code to pick up the new commands.
 
-[View full changelog](https://10.48.159.164/other/fdp/-/blob/main/CHANGELOG.md)
+[View full changelog](https://github.com/forge-team/forge/blob/main/CHANGELOG.md)
 ```
 </step>
 

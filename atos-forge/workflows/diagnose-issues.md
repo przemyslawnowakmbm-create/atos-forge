@@ -72,6 +72,41 @@ This runs in parallel - all gaps investigated simultaneously.
 ```
 </step>
 
+<template name="debug-subagent-prompt">
+You are debugging a verification failure.
+
+## Goal
+{goal}
+
+## Truth that failed
+{truth}
+
+## Expected behavior
+{expected}
+
+## Actual behavior
+{actual}
+
+## Errors observed
+{errors}
+
+## Reproduction steps
+{reproduction}
+
+## Timeline of changes
+{timeline}
+
+## Session slug
+{slug}
+
+Instructions:
+1. Read the failing files and understand the current state
+2. Identify the root cause of the gap between expected and actual
+3. Propose and implement a minimal fix
+4. Verify the fix resolves the truth
+5. Report findings in structured agent-output format
+</template>
+
 <step name="spawn_agents">
 **Spawn debug agents in parallel:**
 
@@ -80,7 +115,7 @@ For each gap, fill the debug-subagent-prompt template and spawn:
 ```
 Task(
   prompt=filled_debug_subagent_prompt,
-  subagent_type="general-purpose",
+  subagent_type="forge-debugger",
   description="Debug: {truth_short}"
 )
 ```

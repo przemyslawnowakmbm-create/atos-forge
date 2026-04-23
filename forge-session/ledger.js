@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const lockfile = require('proper-lockfile');
 
 // ============================================================
 // Configuration (unified config with hardcoded fallbacks)
@@ -145,9 +146,58 @@ function readRaw(cwd) {
   return fs.readFileSync(p, 'utf-8');
 }
 
-function writeRaw(cwd, content) {
+/**
+ * Internal bare write — no locking. Must only be called when the caller
+ * already holds the lockfile lock for the ledger path, or locking is not
+ * required (e.g. single-threaded bootstrap paths).
+ * @param {string} cwd
+ * @param {string} content
+ */
+function _writeFile(cwd, content) {
   ensureDir(ledgerDir(cwd));
   fs.writeFileSync(ledgerPath(cwd), content, 'utf-8');
+}
+
+/**
+ * Acquire a lockSync with manual sync retry (lockSync does not support the
+ * `retries` option — we implement the backoff ourselves using a spin loop).
+ * Retries up to 5 times with ~50 ms busy-wait between attempts.
+ * @param {string} p - Absolute path to the file to lock
+ * @returns {Function} release — call to release the lock
+ */
+function _lockWithRetry(p) {
+  const maxRetries = 5;
+  const minTimeout = 50; // ms
+  let attempt = 0;
+  while (true) {
+    try {
+      return lockfile.lockSync(p);
+    } catch (err) {
+      if (err.code !== 'ELOCKED' || attempt >= maxRetries) throw err;
+      // Busy-wait for ~minTimeout ms (sync-safe, no async primitives)
+      const until = Date.now() + minTimeout + Math.floor(Math.random() * minTimeout);
+      while (Date.now() < until) { /* spin */ }
+      attempt++;
+    }
+  }
+}
+
+/**
+ * Write the ledger atomically under a lockfile lock.
+ * Concurrent processes retry up to 5 times with ~50 ms back-off.
+ * @param {string} cwd
+ * @param {string} content
+ */
+function writeRaw(cwd, content) {
+  ensureDir(ledgerDir(cwd));
+  const p = ledgerPath(cwd);
+  if (!fs.existsSync(p)) fs.writeFileSync(p, '', 'utf-8');
+  const release = _lockWithRetry(p);
+  try {
+    fs.writeFileSync(p, content, 'utf-8');
+  } finally {
+    release();
+  }
 }
 
 function ensureLedger(cwd) {
@@ -166,6 +216,14 @@ function ensureLedger(cwd) {
   return { header, sections };
 }
 
+/**
+ * Serialize and persist header + sections.
+ * Uses _writeFile (no lock) — callers that need concurrency safety must hold
+ * the lock themselves before calling save().
+ * @param {string} cwd
+ * @param {object} header
+ * @param {object} sections
+ */
 function save(cwd, header, sections) {
   header['Last updated'] = isoNow();
   const md = buildLedger(header, sections);
@@ -175,17 +233,33 @@ function save(cwd, header, sections) {
   const cfg = loadSessionConfig(cwd);
   if (cfg.auto_compact !== false && estimateTokens(md) > limits.hard) {
     const compacted = compactSections(header, sections);
-    writeRaw(cwd, buildLedger(header, compacted));
+    _writeFile(cwd, buildLedger(header, compacted));
   } else {
-    writeRaw(cwd, md);
+    _writeFile(cwd, md);
   }
 }
 
+/**
+ * Append a line to a named section of the ledger.
+ * The full read-modify-write cycle is protected by a lockfile lock so that
+ * concurrent agent processes do not clobber each other's writes.
+ * @param {string} cwd
+ * @param {string} sectionName
+ * @param {string} line
+ */
 function appendToSection(cwd, sectionName, line) {
-  const { header, sections } = ensureLedger(cwd);
-  const existing = sections[sectionName] || '';
-  sections[sectionName] = existing ? existing + '\n' + line : line;
-  save(cwd, header, sections);
+  ensureDir(ledgerDir(cwd));
+  const p = ledgerPath(cwd);
+  if (!fs.existsSync(p)) fs.writeFileSync(p, '', 'utf-8');
+  const release = _lockWithRetry(p);
+  try {
+    const { header, sections } = ensureLedger(cwd);
+    const existing = sections[sectionName] || '';
+    sections[sectionName] = existing ? existing + '\n' + line : line;
+    save(cwd, header, sections);
+  } finally {
+    release();
+  }
 }
 
 // ============================================================

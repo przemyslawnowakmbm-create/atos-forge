@@ -276,6 +276,8 @@ Requirements whose absence would cause user-facing failures or blockers.
 - **{CATEGORY}-{NN}**: {Specific, testable requirement}
   Rationale: {Why this is critical — what breaks without it}
   Confidence: {HIGH/MEDIUM/LOW}
+  source_dimension: {Which research dimension this came from (e.g., "domain-standards", "competitive-analysis", "user-research", "technical-feasibility", "security-compliance")}
+  source_confidence: {Confidence level of the underlying research: HIGH | MEDIUM | LOW}
 
 ### Important Gaps
 Requirements whose absence degrades user experience.
@@ -283,6 +285,8 @@ Requirements whose absence degrades user experience.
 - **{CATEGORY}-{NN}**: {Specific, testable requirement}
   Rationale: {Why this matters — what users would complain about}
   Confidence: {HIGH/MEDIUM/LOW}
+  source_dimension: {Which research dimension this came from (e.g., "domain-standards", "competitive-analysis", "user-research", "technical-feasibility", "security-compliance")}
+  source_confidence: {Confidence level of the underlying research: HIGH | MEDIUM | LOW}
 
 ### Nice-to-Have
 Requirements that improve the product but can be deferred.
@@ -290,6 +294,8 @@ Requirements that improve the product but can be deferred.
 - **{CATEGORY}-{NN}**: {Specific, testable requirement}
   Rationale: {Why this would be nice — what it enables}
   Confidence: {HIGH/MEDIUM/LOW}
+  source_dimension: {Which research dimension this came from (e.g., "domain-standards", "competitive-analysis", "user-research", "technical-feasibility", "security-compliance")}
+  source_confidence: {Confidence level of the underlying research: HIGH | MEDIUM | LOW}
 
 ### Quality Issues Found
 Existing requirements that need rewriting (if spotted during research).
@@ -302,6 +308,18 @@ Existing requirements that need rewriting (if spotted during research).
 ```
 
 **REQ-ID numbering:** Use placeholder category names and sequential numbers. The orchestrator will assign final IDs to avoid conflicts with existing requirements.
+
+**Provenance metadata:** Every suggested requirement must include `source_dimension` and `source_confidence` fields:
+- `source_dimension`: Which research dimension this requirement originated from. Use one of:
+  - `domain-standards` — industry standards, regulations, best practices
+  - `competitive-analysis` — competitor features, market expectations
+  - `user-research` — user needs, pain points, workflows
+  - `technical-feasibility` — technical constraints, architecture requirements
+  - `security-compliance` — security requirements, compliance mandates
+- `source_confidence`: Confidence level of the underlying research:
+  - `HIGH` — backed by primary sources (official docs, specs, direct evidence)
+  - `MEDIUM` — backed by secondary sources (articles, tutorials, general knowledge)
+  - `LOW` — speculative or based on limited evidence
 
 </output_format>
 

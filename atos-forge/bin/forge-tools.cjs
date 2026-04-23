@@ -219,7 +219,7 @@ async function main() {
   const cwd = process.cwd();
 
   if (!command) {
-    error('Usage: forge-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, init, graph, ledger, system, settings, doctor');
+    error('Usage: forge-tools <command> [args] [--raw]\nCommands: state, resolve-model, find-phase, commit, verify-summary, verify, frontmatter, template, generate-slug, current-timestamp, list-todos, verify-path-exists, config-ensure-section, init, graph, ledger, system, settings, doctor, registry');
   }
 
   switch (command) {
@@ -712,6 +712,12 @@ async function main() {
     case 'agents': {
       const { handleAgents } = require('./lib/agents.cjs');
       await handleAgents(cwd, args.slice(1), raw);
+      break;
+    }
+
+    case 'registry': {
+      const { handleRegistry } = require('./lib/registry.cjs');
+      await handleRegistry(cwd, args.slice(1), raw);
       break;
     }
 

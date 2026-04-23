@@ -14,6 +14,8 @@ const AGENT_OUTPUT_SCHEMA = {
   confidence: 'number',
 };
 
+const REQUIRED_FIELDS = ['findings', 'decisions_made', 'files_created', 'files_modified', 'confidence'];
+
 function parseAgentOutput(stdout) {
   if (!stdout || typeof stdout !== 'string') return null;
   // Strip Claude Code's [rerun: bN] footer from persisted Bash tool outputs
@@ -28,21 +30,38 @@ function parseAgentOutput(stdout) {
   }
 }
 
+/**
+ * Validate agent output against the required schema.
+ *
+ * @param {unknown} output - The parsed agent output object to validate.
+ * @returns {{ valid: boolean, issues: string[], normalized: object|null }}
+ */
 function validateOutput(output) {
-  if (!output || typeof output !== 'object') return { valid: false, reason: 'null or non-object output' };
-  // Normalize fields
-  if (!Array.isArray(output.findings)) output.findings = [];
-  if (!Array.isArray(output.decisions_made)) output.decisions_made = [];
-  if (!Array.isArray(output.files_created)) output.files_created = [];
-  if (!Array.isArray(output.files_modified)) output.files_modified = [];
-  if (!Array.isArray(output.files_not_touched)) output.files_not_touched = [];
-  if (typeof output.confidence !== 'number' || output.confidence < 0 || output.confidence > 1) {
-    output.confidence = 0.5;
+  const issues = [];
+
+  if (!output || typeof output !== 'object') {
+    issues.push('Agent output is not a valid object');
+    return { valid: false, issues, normalized: null };
   }
-  // Validate findings structure
-  output.findings = output.findings.filter(f => f && typeof f.description === 'string');
-  output.decisions_made = output.decisions_made.filter(d => d && typeof d.text === 'string');
-  return { valid: true, output };
+
+  if (!Array.isArray(output.findings)) issues.push('findings must be an array');
+  if (!Array.isArray(output.decisions_made)) issues.push('decisions_made must be an array');
+  if (!Array.isArray(output.files_created)) issues.push('files_created must be an array');
+  if (!Array.isArray(output.files_modified)) issues.push('files_modified must be an array');
+  if (typeof output.confidence !== 'number' || output.confidence < 0 || output.confidence > 1) {
+    issues.push('confidence must be a number between 0 and 1');
+  }
+
+  // Validate finding structure
+  if (Array.isArray(output.findings)) {
+    for (const f of output.findings) {
+      if (!f.type || !f.description) {
+        issues.push(`Finding missing type or description: ${JSON.stringify(f).substring(0, 100)}`);
+      }
+    }
+  }
+
+  return { valid: issues.length === 0, issues, normalized: output };
 }
 
-module.exports = { AGENT_OUTPUT_SCHEMA, parseAgentOutput, validateOutput };
+module.exports = { AGENT_OUTPUT_SCHEMA, REQUIRED_FIELDS, parseAgentOutput, validateOutput };

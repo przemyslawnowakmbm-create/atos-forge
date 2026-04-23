@@ -49,7 +49,18 @@ process.stdin.on('end', () => {
     const now = Math.floor(Date.now() / 1000);
 
     if (metrics.timestamp && (now - metrics.timestamp) > STALE_SECONDS) {
-      process.exit(0);
+      const inputLen = (input || '').length;
+      if (inputLen > 0) {
+        const estimatedTokens = Math.ceil(inputLen / 4);
+        const estimatedCapacity = 200000;
+        const usage = estimatedTokens / estimatedCapacity;
+        if (usage > 0.75) {
+          console.error(`[forge-context-monitor] CRITICAL: Estimated ${Math.round(usage * 100)}% context used (transcript fallback)`);
+        } else if (usage > 0.65) {
+          console.error(`[forge-context-monitor] WARNING: Estimated ${Math.round(usage * 100)}% context used (transcript fallback)`);
+        }
+      }
+      // Do NOT exit — continue monitoring via transcript estimation
     }
 
     const remaining = metrics.remaining_percentage;

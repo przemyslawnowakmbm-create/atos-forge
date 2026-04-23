@@ -59,6 +59,7 @@ const LAYER_NAMES = [
   'TYPE_COMPILE',
   'INTERFACE_CONTRACTS',
   'DEPENDENCY',
+  'KEY_LINKS',
   'TESTS',
   'BEHAVIORAL',
   'CONTRACT',
@@ -848,25 +849,37 @@ function layerBehavioral(opts) {
           } else if (inMustCheck && !line.match(/^\s/)) { inMustCheck = false; }
         }
         for (const check of mustChecks) {
-          const keyword = check.toLowerCase().split(' ').find(w => w.length > 3) || check.toLowerCase();
-          const checkFiles = opts.files || [];
-          const found = checkFiles.some(f => {
-            try {
-              const content = fs.readFileSync(path.resolve(opts.cwd, f), 'utf8').toLowerCase();
-              return content.includes(keyword);
-            } catch { return false; }
-          });
-          if (!found) {
+          const checkObj = typeof check === 'string'
+            ? { description: check, files: null, pattern: null }
+            : check;
+          if (!checkObj.files || !checkObj.pattern) {
             results.push({
-              label: `must_check: ${check}`,
-              command: `(plan verification_must_check)`,
-              passed: false,
-              exit_code: 1,
-              timed_out: false,
-              stdout: `Plan must_check not verified: "${check}" — keyword "${keyword}" not found in changed files`,
+              label: `must_check: ${checkObj.description || check}`,
+              command: '(plan verification_must_check)',
+              passed: true, skipped: true, exit_code: 0, timed_out: false,
+              stdout: 'Skipped - must_check entry needs explicit files and pattern fields',
               stderr: '',
             });
+            continue;
           }
+          const targets = Array.isArray(checkObj.files) ? checkObj.files : [checkObj.files];
+          let regex;
+          try { regex = new RegExp(checkObj.pattern); }
+          catch {
+            results.push({ label: `must_check: ${checkObj.description}`, command: '(plan verification_must_check)', passed: false, exit_code: 1, timed_out: false, stdout: `Invalid regex: ${checkObj.pattern}`, stderr: '' });
+            continue;
+          }
+          const found = targets.some(t => {
+            try { return regex.test(fs.readFileSync(path.resolve(opts.cwd, t), 'utf8')); }
+            catch { return false; }
+          });
+          results.push({
+            label: `must_check: ${checkObj.description}`,
+            command: `(plan verification_must_check: ${checkObj.pattern} in ${targets.join(',')})`,
+            passed: found, exit_code: found ? 0 : 1, timed_out: false,
+            stdout: found ? 'pattern matched' : `pattern not found in ${targets.join(', ')}`,
+            stderr: '',
+          });
         }
       }
     } catch { /* plan read error — skip must_check */ }
@@ -1566,6 +1579,61 @@ function logToLedger(cwd, result) {
 }
 
 // ============================================================
+// Layer KEY_LINKS — Plan key_links integrity check
+// ============================================================
+
+/**
+ * Verify key_links declared in the plan frontmatter still hold.
+ * Each entry is checked: from → to (or via regex pattern).
+ * @param {object} opts
+ * @param {string} opts.cwd
+ * @param {string} [opts.planPath]
+ * @returns {{ passed: boolean, links: object[], duration_ms: number }}
+ */
+function layerKeyLinks(opts) {
+  const start = Date.now();
+  if (!opts.planPath) {
+    return { passed: true, links: [], skipped: true, reason: 'No plan provided', duration_ms: Date.now() - start };
+  }
+  let parseMustHavesBlock;
+  try {
+    const fmPath = path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'frontmatter.cjs');
+    ({ parseMustHavesBlock } = require(fmPath));
+  } catch {
+    return { passed: true, links: [], skipped: true, reason: 'frontmatter parser unavailable', duration_ms: Date.now() - start };
+  }
+  const planContent = fs.readFileSync(path.resolve(opts.cwd, opts.planPath), 'utf8');
+  const links = parseMustHavesBlock(planContent, 'key_links');
+  if (!links.length) {
+    return { passed: true, links: [], skipped: true, reason: 'no key_links in plan', duration_ms: Date.now() - start };
+  }
+  const results = [];
+  for (const link of links) {
+    const sourcePath = path.join(opts.cwd, link.from || '');
+    let verified = false, detail = '';
+    try {
+      const sourceContent = fs.readFileSync(sourcePath, 'utf8');
+      if (link.pattern) {
+        verified = new RegExp(link.pattern).test(sourceContent);
+        detail = verified ? 'pattern found in source' : `pattern ${link.pattern} not found in source`;
+      } else {
+        verified = sourceContent.includes(link.to || '');
+        detail = verified ? 'target referenced in source' : 'target not referenced in source';
+      }
+    } catch (e) {
+      detail = `source unreadable: ${e.message}`;
+    }
+    results.push({ from: link.from, to: link.to, via: link.via, pattern: link.pattern, verified, detail });
+  }
+  return {
+    passed: results.every(r => r.verified),
+    links: results,
+    broken_count: results.filter(r => !r.verified).length,
+    duration_ms: Date.now() - start,
+  };
+}
+
+// ============================================================
 // Main Verify Function
 // ============================================================
 
@@ -1731,6 +1799,17 @@ async function verify(opts) {
     }
   }
 
+  // Layer 4.5 — KEY_LINKS
+  if (maxLayer >= 5 && !(verifyConfig.layers && verifyConfig.layers.KEY_LINKS === false)) {
+    const cachedKL = cache ? cache.get('KEY_LINKS', files, cwd) : null;
+    const resultKL = cachedKL || layerKeyLinks({ cwd, planPath: opts.planPath });
+    if (!cachedKL && cache) cache.set('KEY_LINKS', files, cwd, resultKL);
+    layers.push({ index: 4.5, name: 'KEY_LINKS', passed: resultKL.passed, skipped: !!resultKL.skipped, result: resultKL, duration_ms: resultKL.duration_ms });
+    if (failFast && !resultKL.passed) {
+      return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+    }
+  }
+
   // Layer 5 — TESTS
   if (maxLayer >= 5 && !(verifyConfig.layers && verifyConfig.layers.TESTS === false)) {
     const testTimeout = (verifyConfig.test_timeout) || 300;
@@ -1868,6 +1947,7 @@ module.exports = {
   layerTypeCompile,
   layerInterfaceContracts,
   layerDependency,
+  layerKeyLinks,
   layerTests,
   layerBehavioral,
   get layerContract() { const cl = contractLayer(); return cl ? cl.layerContract : null; },

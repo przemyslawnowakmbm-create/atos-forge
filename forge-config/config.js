@@ -100,6 +100,7 @@ const DEFAULTS = {
       contract: true,
       architectural: false,
       browser: false,
+      key_links: true,
     },
     auto_fix: true,
     max_fix_loops: 3,
@@ -153,6 +154,16 @@ const DEFAULTS = {
     graph_path: null,
     registry_path: null,
     ignore_repos: [],
+  },
+  agent_registry: {
+    enabled: true,
+    scan_paths: [],            // Additional paths beyond built-ins (~/.claude/agents/, .claude/agents/)
+    auto_scan: true,           // Auto-scan when forge-init runs
+    inject_matching: true,     // Inject matched agent expertise into factory-built prompts
+    delegate_to_agents: false, // Add 'Agent' tool to allowedTools (Claude provider only; opt-in)
+    max_injected_agents: 2,    // Max specialist agents to inject per task
+    max_body_chars: 1500,      // Max chars of expertise excerpt per injected agent
+    capability_map: {},        // Override / extend auto-computed capability → agent mapping
   },
   // Legacy compat sections (for .planning/config.json backward compatibility)
   workflow: {
@@ -474,6 +485,7 @@ function getVerification(cwd) {
       CONTRACT: get('contract', 'CONTRACT'),
       ARCHITECTURAL: layers.architectural === true,
       BROWSER: layers.browser === true,
+      KEY_LINKS: get('key_links', 'KEY_LINKS'),
     },
     auto_fix: config.verification.auto_fix,
     max_fix_loops: config.verification.max_fix_loops,
@@ -531,6 +543,14 @@ function getImpactAnalysis(cwd) {
 }
 
 /**
+ * Get agent registry config.
+ */
+function getAgentRegistry(cwd) {
+  const { config } = loadConfig(cwd);
+  return { ...(DEFAULTS.agent_registry || {}), ...(config.agent_registry || {}) };
+}
+
+/**
  * Get legacy flat config shape for forge-tools.cjs loadConfig compat.
  */
 function getLegacyToolsConfig(cwd) {
@@ -578,6 +598,7 @@ module.exports = {
   getSystem,
   getKnowledge,
   getImpactAnalysis,
+  getAgentRegistry,
   getLegacyToolsConfig,
   loadGlobalConfig,
   loadProjectConfig,

@@ -340,6 +340,63 @@ fi
 ```
 </step>
 
+<step name="wave_0_test_author">
+**Wave 0: Test-First (Optional — when plan has must_haves.truths)**
+
+Before implementation waves, spawn a test-author agent to write failing tests from the plan's truths.
+
+**Trigger:** Any plan in the execution list has `must_haves.truths` in its frontmatter with at least one entry.
+
+```bash
+# Check each plan for must_haves.truths
+HAS_TRUTHS=false
+for PLAN_PATH in "${PLAN_PATHS[@]}"; do
+  TRUTHS=$(node -e "
+    const fs = require('fs');
+    const content = fs.readFileSync('$PLAN_PATH', 'utf8');
+    const match = content.match(/must_haves[\s\S]*?truths:/);
+    process.exit(match ? 0 : 1);
+  " 2>/dev/null && echo "true" || echo "false")
+  if [ "$TRUTHS" = "true" ]; then
+    HAS_TRUTHS=true
+    break
+  fi
+done
+```
+
+**If `HAS_TRUTHS` is true:** Spawn the test-author agent before any implementation wave:
+
+```
+Task(
+  subagent_type="forge-test-author",
+  model="sonnet",
+  prompt="
+    Write failing contract tests for the following plan(s).
+    Extract all must_haves.truths and must_haves.key_links.
+    Each truth → one test. Each key_link → one wiring test.
+    Tests MUST fail against the current codebase (TDD red phase).
+
+    Plans: {PLAN_PATHS with truths}
+    Project root: {cwd}
+  "
+)
+```
+
+**Gate:** After Wave 0 completes:
+- Confirm test file(s) exist (named `{plan-id}.contract.test.{ext}`)
+- Run the test suite to confirm tests FAIL
+- If tests unexpectedly PASS without implementation, the truths are trivial — flag for review and log a warning to the ledger
+
+```bash
+TOOLS="$HOME/.claude/atos-forge/atos-forge/bin/forge-tools.cjs"
+node "$TOOLS" ledger log-decision "Wave 0 complete: {N} contract tests written, all failing as expected" 2>/dev/null
+```
+
+**Final verification gate:** After all implementation waves complete, re-run Wave 0 tests. They must now PASS. A passing Wave 0 test suite confirms the implementation satisfies its truths.
+
+**Skip Wave 0 if:** No plan has `must_haves.truths`, or `--skip-wave-0` flag is passed.
+</step>
+
 <step name="execute_waves">
 **Step 5: EXECUTE WAVES.**
 
@@ -499,6 +556,8 @@ if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f "eslint.config.js" ]
 fi
 ```
 
+> **Post-wave verification:** Use `verifyAfterWave({ cwd, files: changedFiles, planPath })` from `forge-verify/loop.js` instead of inline tsc/eslint. This runs layers 1-5 (structural, type, interface, dependency, KEY_LINKS) with max 2 fix loops. Broken key_links after wave N prevent wave N+1 from starting.
+
 **5d. If verification failed: revert bad patch, create fix-agent, re-run:**
 
 ```bash
@@ -510,7 +569,8 @@ if [ $TSC_EXIT -ne 0 ]; then
   # Create a fix-agent using the factory with the error context
   # The fix-agent gets the TypeScript errors in its task prompt
   # plus the original agent's objective and files
-  FIX_CONFIG=$(node "$FACTORY" build "${FAILED_PLAN_PATH}" --root "$(pwd)" --task-id "${TASK_ID}-fix" 2>/dev/null)
+  # --skip-cache ensures fresh ledger context (errors just logged) is reflected in the fix-agent
+  FIX_CONFIG=$(node "$FACTORY" build "${FAILED_PLAN_PATH}" --root "$(pwd)" --task-id "${TASK_ID}-fix" --skip-cache 2>/dev/null)
   # Re-run through orchestrator (single agent, container or worktree)
 fi
 ```

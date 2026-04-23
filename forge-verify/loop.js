@@ -1169,17 +1169,20 @@ function log(msg) {
 // ============================================================
 
 /**
- * Run verification after a single wave (lighter check — layers 1-4 only).
+ * Per-wave fast verification — restricted to layers 1-5 only.
+ * Runs structural, type, interface, dependency, and KEY_LINKS checks.
  * Used by execute-phase after each wave completes.
+ * Broken key_links after wave N prevent wave N+1 from starting.
  *
  * @param {object} opts - Same as verifyLoop opts
- * @returns {object} Loop result
+ * @returns {Promise<object>} verification result
  */
 async function verifyAfterWave(opts) {
   return verifyLoop({
     ...opts,
-    maxLoops: opts.maxLoops ?? 2,  // Fewer loops for wave-level checks
-    incremental: true,             // Only verify changed files + consumers
+    maxLoops: opts.maxLoops ?? 2,
+    incremental: true,
+    maxLayer: 5,
     mode: 'wave',
   });
 }

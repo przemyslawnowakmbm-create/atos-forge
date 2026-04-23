@@ -9,6 +9,54 @@ const { safeReadFile, loadConfig, output, error, normalizePhaseName, execGit,
         parseIncludeFlag, isGitIgnored, getForgeSessionDir } = require('./core.cjs');
 const { extractFrontmatter, reconstructFrontmatter, spliceFrontmatter, parseMustHavesBlock } = require('./frontmatter.cjs');
 
+/**
+ * Load codebase documentation files from .planning/codebase/ for a given working directory.
+ * Returns an object keyed by lowercased doc name (without .md extension).
+ * Only includes files that exist and are readable.
+ *
+ * @param {string} cwd - Project root directory
+ * @returns {Record<string, string>} Map of doc name to file content
+ */
+function codebaseDocsForPhaseType(cwd) {
+  const docsDir = path.join(cwd, '.planning', 'codebase');
+  const docFiles = ['ARCHITECTURE.md', 'CONVENTIONS.md', 'STRUCTURE.md', 'TESTING.md', 'CONCERNS.md', 'INTEGRATIONS.md'];
+  const docs = {};
+  for (const f of docFiles) {
+    const p = path.join(docsDir, f);
+    if (fs.existsSync(p)) {
+      try {
+        docs[f.replace('.md', '').toLowerCase()] = fs.readFileSync(p, 'utf8');
+      } catch { /* skip unreadable */ }
+    }
+  }
+  return docs;
+}
+
+/**
+ * Read a file, returning full content for small files or a summary object for large ones.
+ * Files with 200 lines or fewer are returned as-is. Larger files return a structured
+ * summary with the first `maxLines` lines and metadata, so consumers can decide whether
+ * to fetch the full content separately.
+ *
+ * @param {string} filePath - Absolute path to the file
+ * @param {number} [maxLines=50] - Number of leading lines to include in summary preview
+ * @returns {string|{path:string,total_lines:number,total_chars:number,summary:string,full_content_available:boolean}|null}
+ */
+function summarizeFile(filePath, maxLines = 50) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const lines = content.split('\n');
+    if (lines.length <= 200) return content; // Small file — return full content
+    return {
+      path: filePath,
+      total_lines: lines.length,
+      total_chars: content.length,
+      summary: lines.slice(0, maxLines).join('\n'),
+      full_content_available: true,
+    };
+  } catch { return null; }
+}
+
 function cmdInitExecutePhase(cwd, phase, includes, raw) {
   if (!phase) {
     error('phase required for init execute-phase');
@@ -75,7 +123,13 @@ function cmdInitExecutePhase(cwd, phase, includes, raw) {
     result.config_content = safeReadFile(path.join(cwd, '.planning', 'config.json'));
   }
   if (includes.has('roadmap')) {
-    result.roadmap_content = safeReadFile(path.join(cwd, '.planning', 'ROADMAP.md'));
+    result.roadmap_content = summarizeFile(path.join(cwd, '.planning', 'ROADMAP.md'));
+  }
+
+  // Include codebase docs when present (always — no flag required)
+  const codebaseDocs = codebaseDocsForPhaseType(cwd);
+  if (Object.keys(codebaseDocs).length > 0) {
+    result.codebase_docs = codebaseDocs;
   }
 
   // Include graph context if graph exists
@@ -161,10 +215,10 @@ function cmdInitPlanPhase(cwd, phase, includes, raw) {
     result.state_content = safeReadFile(path.join(cwd, '.planning', 'STATE.md'));
   }
   if (includes.has('roadmap')) {
-    result.roadmap_content = safeReadFile(path.join(cwd, '.planning', 'ROADMAP.md'));
+    result.roadmap_content = summarizeFile(path.join(cwd, '.planning', 'ROADMAP.md'));
   }
   if (includes.has('requirements')) {
-    result.requirements_content = safeReadFile(path.join(cwd, '.planning', 'REQUIREMENTS.md'));
+    result.requirements_content = summarizeFile(path.join(cwd, '.planning', 'REQUIREMENTS.md'));
   }
   if (includes.has('context') && phaseInfo?.directory) {
     // Find *-CONTEXT.md in phase directory
@@ -209,6 +263,12 @@ function cmdInitPlanPhase(cwd, phase, includes, raw) {
         result.uat_content = safeReadFile(path.join(phaseDirFull, uatFile));
       }
     } catch {}
+  }
+
+  // Include codebase docs when present (always — no flag required)
+  const codebaseDocs = codebaseDocsForPhaseType(cwd);
+  if (Object.keys(codebaseDocs).length > 0) {
+    result.codebase_docs = codebaseDocs;
   }
 
   // Include graph context if graph exists and phase has plans with files_modified
@@ -747,4 +807,19 @@ function cmdInitProgress(cwd, includes, raw) {
   output(result, raw);
 }
 
-module.exports = { cmdInitExecutePhase, cmdInitPlanPhase, cmdInitNewProject, cmdInitNewMilestone, cmdInitQuick, cmdInitResume, cmdInitVerifyWork, cmdInitPhaseOp, cmdInitTodos, cmdInitMilestoneOp, cmdInitMapCodebase, cmdInitProgress };
+module.exports = {
+  cmdInitExecutePhase,
+  cmdInitPlanPhase,
+  cmdInitNewProject,
+  cmdInitNewMilestone,
+  cmdInitQuick,
+  cmdInitResume,
+  cmdInitVerifyWork,
+  cmdInitPhaseOp,
+  cmdInitTodos,
+  cmdInitMilestoneOp,
+  cmdInitMapCodebase,
+  cmdInitProgress,
+  codebaseDocsForPhaseType,
+  summarizeFile,
+};
