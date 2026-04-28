@@ -308,11 +308,13 @@ Wait for user response (plain text, no AskUserQuestion).
 
 **Backend tests are auto-evaluated by a script. Do NOT run the raw command yourself. Do NOT show raw test output. Do NOT ask user to type "pass". Run the evaluator script and check exit code.**
 
-Run this ONE command via Bash tool (substitute {command} and {expected} from the UAT test):
+Run this ONE command via Bash tool (substitute {command}, {expected}, and the project root from the UAT test):
 
 ```bash
-node "$HOME/.claude/atos-forge/bin/uat-run-and-eval.cjs" --command "{command}" --expected "{expected}"
+node "$HOME/.claude/atos-forge/bin/uat-run-and-eval.cjs" --command "{command}" --expected "{expected}" --cwd "$(pwd)"
 ```
+
+The `--cwd` flag ensures the test command executes in the correct project root, even if the script is invoked from a different directory (e.g., the Forge tool repo). If omitted, the runner auto-detects the project root by walking up from `$PWD` looking for `.planning/` or `.forge/`.
 
 **If exit code is 0** (output starts with `FORGE_UAT_PASS`):
 The test passed. Do NOT show anything to user. Do NOT wait for user. Record as `auto_pass` in UAT file with `auto_check` set to the reason from the output. Collect into a batch. After all consecutive auto-passing backend tests finish (or a non-pass test appears, or tests end), display the batch summary:

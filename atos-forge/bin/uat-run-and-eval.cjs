@@ -11,7 +11,7 @@
  * to show output and ask the user to "Type pass".
  *
  * Usage:
- *   node uat-run-and-eval.cjs --command "cargo test ..." --expected "all tests pass"
+ *   node uat-run-and-eval.cjs --command "cargo test ..." --expected "all tests pass" [--cwd /path/to/project]
  *
  * Exit codes:
  *   0 — PASS (auto-pass, no user interaction needed)
@@ -29,6 +29,7 @@ const path = require('path');
 // ── Parse arguments ──────────────────────────────────────────────────────────
 let command = '';
 let expected = '';
+let cwd = '';
 
 for (let i = 2; i < process.argv.length; i++) {
   const a = process.argv[i];
@@ -36,6 +37,8 @@ for (let i = 2; i < process.argv.length; i++) {
     command = process.argv[++i];
   } else if (a === '--expected' && process.argv[i + 1]) {
     expected = process.argv[++i];
+  } else if (a === '--cwd' && process.argv[i + 1]) {
+    cwd = process.argv[++i];
   }
 }
 
@@ -48,12 +51,31 @@ if (!expected) {
   process.exit(2);
 }
 
+// ── Resolve working directory ────────────────────────────────────────────────
+const fs = require('fs');
+
+function findProjectRoot(startDir) {
+  let dir = startDir;
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(dir, '.planning')) || fs.existsSync(path.join(dir, '.forge'))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return startDir;
+}
+
+const execCwd = cwd || findProjectRoot(process.cwd());
+
 // ── Execute the test command ─────────────────────────────────────────────────
 let output = '';
 let exitCode = 0;
 
 try {
   output = execSync(command, {
+    cwd: execCwd,
     encoding: 'utf8',
     timeout: 120000,
     shell: true,
