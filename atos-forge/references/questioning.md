@@ -100,6 +100,40 @@ Users who want a slightly modified version of an option can select "Other" and r
 
 </using_askuserquestion>
 
+<codebase_explorer_option>
+
+**Every substantive per-area question in discuss_areas includes "Use Codebase Explorer" as the last option.**
+
+This is a delegation action — like "You decide" but evidence-based. When selected:
+- Query the CCE API (`POST /api/chat`) with the question context (phase goal, area, question, options)
+- Synthesize the analysis into a concrete decision
+- Record it and move on — do NOT re-ask the question
+
+**When it applies:** Only on per-area implementation questions in the `discuss_areas` step —
+questions about design choices, behavior, scope of implementation, etc.
+
+**When it does NOT apply:** Navigation questions (`check_existing`, `present_gray_areas`,
+resolution checks like "anything else?", final "ready to create context?").
+
+**Query formulation:** Include the phase goal, current area, question text, and the
+concrete options being evaluated. The CCE backend has full codebase access and will
+search, read files, trace call graphs, etc. to produce an informed analysis.
+
+**Auto-answer behavior:** Unlike "You decide" (which defers to Claude's discretion without
+specific analysis), "Use Codebase Explorer" produces an evidence-backed decision. Claude
+presents a brief summary of the finding, records the decision with codebase evidence,
+and continues. The user is not re-asked.
+
+**Recording:** Decisions go under "### Codebase-Informed" in CONTEXT.md with evidence
+summary and *(via Codebase Explorer)* attribution. This gives downstream agents
+(researcher, planner) concrete codebase evidence to build on — stronger than
+Claude's Discretion because it's grounded in actual code analysis.
+
+**Fallback:** If `CCE_API_KEY` is not set or the query fails, inform the user and
+re-ask the question without the CCE option.
+
+</codebase_explorer_option>
+
 <context_checklist>
 
 Use this as a **background checklist**, not a conversation structure. Check these mentally as you go. If gaps remain, weave questions naturally.

@@ -48,6 +48,14 @@ Template for `.planning/phases/XX-name/{phase_num}-CONTEXT.md` - captures implem
 ### [Area 2 that was discussed]
 - [Specific decision made]
 
+### Codebase-Informed
+[Decisions where user selected "Use Codebase Explorer" — decided based on codebase
+analysis via the CCE API. Includes evidence so downstream agents (researcher, planner)
+understand the rationale and can verify against the actual code.]
+- [Decision] — [evidence summary] *(via Codebase Explorer)*
+
+[If no CCE-informed decisions were made: omit this section]
+
 ### Claude's Discretion
 [Areas where user explicitly said "you decide" — Claude has flexibility here during planning/implementation]
 
@@ -146,129 +154,7 @@ Display posts from followed users in a scrollable feed. Users can view posts and
 *Context gathered: 2025-01-20*
 ```
 
-**Example 2: CLI tool (Database backup)**
-
-```markdown
-# Phase 2: Backup Command - Context
-
-**Gathered:** 2025-01-20
-**Status:** Ready for planning
-
-<domain>
-## Phase Boundary
-
-CLI command to backup database to local file or S3. Supports full and incremental backups. Restore command is a separate phase.
-
-</domain>
-
-<decisions>
-## Implementation Decisions
-
-### Output format
-- JSON for programmatic use, table format for humans
-- Default to table, --json flag for JSON
-- Verbose mode (-v) shows progress, silent by default
-
-### Flag design
-- Short flags for common options: -o (output), -v (verbose), -f (force)
-- Long flags for clarity: --incremental, --compress, --encrypt
-- Required: database connection string (positional or --db)
-
-### Error recovery
-- Retry 3 times on network failure, then fail with clear message
-- --no-retry flag to fail fast
-- Partial backups are deleted on failure (no corrupt files)
-
-### Claude's Discretion
-- Exact progress bar implementation
-- Compression algorithm choice
-- Temp file handling
-
-</decisions>
-
-<specifics>
-## Specific Ideas
-
-- "I want it to feel like pg_dump — familiar to database people"
-- Should work in CI pipelines (exit codes, no interactive prompts)
-
-</specifics>
-
-<deferred>
-## Deferred Ideas
-
-- Scheduled backups — separate phase
-- Backup rotation/retention — add to backlog
-
-</deferred>
-
----
-
-*Phase: 02-backup-command*
-*Context gathered: 2025-01-20*
-```
-
-**Example 3: Organization task (Photo library)**
-
-```markdown
-# Phase 1: Photo Organization - Context
-
-**Gathered:** 2025-01-20
-**Status:** Ready for planning
-
-<domain>
-## Phase Boundary
-
-Organize existing photo library into structured folders. Handle duplicates and apply consistent naming. Tagging and search are separate phases.
-
-</domain>
-
-<decisions>
-## Implementation Decisions
-
-### Grouping criteria
-- Primary grouping by year, then by month
-- Events detected by time clustering (photos within 2 hours = same event)
-- Event folders named by date + location if available
-
-### Duplicate handling
-- Keep highest resolution version
-- Move duplicates to _duplicates folder (don't delete)
-- Log all duplicate decisions for review
-
-### Naming convention
-- Format: YYYY-MM-DD_HH-MM-SS_originalname.ext
-- Preserve original filename as suffix for searchability
-- Handle name collisions with incrementing suffix
-
-### Claude's Discretion
-- Exact clustering algorithm
-- How to handle photos with no EXIF data
-- Folder emoji usage
-
-</decisions>
-
-<specifics>
-## Specific Ideas
-
-- "I want to be able to find photos by roughly when they were taken"
-- Don't delete anything — worst case, move to a review folder
-
-</specifics>
-
-<deferred>
-## Deferred Ideas
-
-- Face detection grouping — future phase
-- Cloud sync — out of scope for now
-
-</deferred>
-
----
-
-*Phase: 01-photo-organization*
-*Context gathered: 2025-01-20*
-```
+_Additional examples (CLI tool, organization task) in `context-examples.md`._
 
 </good_examples>
 

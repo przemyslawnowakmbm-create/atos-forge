@@ -295,6 +295,8 @@ Each gray area has a natural resolution point — some need 1 question, others n
    - question: Start with the most impactful decision for the area
    - options: 2-3 concrete choices (AskUserQuestion adds "Other" automatically)
    - Include "You decide" as an option when reasonable — captures Claude discretion
+   - **Always include "Use Codebase Explorer" as the LAST option** with description
+     "Analyze the codebase to decide this automatically"
    - Each answer informs the next question (or signals completion)
    - Continue asking until the area's key decisions are captured
    - Typical range: 2-6 questions per area (varies by complexity)
@@ -317,6 +319,69 @@ Each gray area has a natural resolution point — some need 1 question, others n
 - Options should be concrete, not abstract ("Cards" not "Option A")
 - Each answer should inform the next question
 - If user picks "Other", receive their input, reflect it back, confirm
+
+**Codebase Explorer handler:**
+When user selects "Use Codebase Explorer":
+
+1. **Check CCE availability:**
+   ```bash
+   echo "$CCE_API_KEY"
+   ```
+   If not set: inform user ("Codebase Explorer not configured — set CCE_API_KEY to enable."),
+   re-ask the same question without the CCE option. Stop here.
+
+2. **Formulate query** from the current context:
+   - Phase goal (from ROADMAP.md)
+   - Current area being discussed
+   - The specific question that was asked
+   - The concrete options that were offered (so CCE can evaluate them)
+
+   Query template: "In the context of [phase goal], regarding [area]:
+   [question text]. The options being considered are: [list options].
+   Analyze the codebase to determine which approach is best and why."
+
+3. **Discover project (first time only):**
+   ```bash
+   BASE_URL="${CCE_BASE_URL:-https://ceb.datahat.io}"
+   curl -sk -H "Authorization: Bearer $CCE_API_KEY" "$BASE_URL/api/projects"
+   ```
+   Pick the project matching the current codebase. If ambiguous, ask user once.
+   Cache the project/stream choice for the rest of the session.
+
+4. **Call CCE API:**
+   ```bash
+   BASE_URL="${CCE_BASE_URL:-https://ceb.datahat.io}"
+   curl -sk -N -X POST "$BASE_URL/api/chat" \
+     -H "Authorization: Bearer $CCE_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d "{\"message\": \"<QUERY>\", \"history\": [], \"model\": \"claude-sonnet-4-6\", \"project\": \"<PROJECT>\", \"stream\": \"develop\", \"diagram_mode\": \"mermaid\", \"reasoning_mode\": \"low-level\", \"user_role\": \"developer\"}" \
+     2>/dev/null | python3 -c "
+   import sys, json
+   r = []
+   for line in sys.stdin:
+       line = line.strip()
+       if not line.startswith('data: '): continue
+       try:
+           evt = json.loads(line[6:])
+           if evt.get('type') == 'content_delta':
+               r.append(evt['data']['text'])
+       except: pass
+   print(''.join(r))
+   "
+   ```
+
+5. **On success — auto-answer (no re-asking):**
+   - Synthesize the CCE analysis into a concrete decision for the question
+   - Present brief summary to user:
+     ```
+     **Codebase Explorer →** [1-2 sentence synthesized decision with key evidence]
+     ```
+   - Record the decision internally, attributed to CCE (for the "Codebase-Informed" section in CONTEXT.md)
+   - Continue to the next question in the area (or area resolution check) — do NOT re-ask
+
+6. **On failure** (timeout, HTTP error, empty response):
+   - Inform user: "Codebase Explorer query failed: [reason]"
+   - Re-ask the same question WITHOUT the "Use Codebase Explorer" option
 
 **Scope creep handling:**
 If user mentions something outside the phase domain:
@@ -379,6 +444,14 @@ mkdir -p ".planning/phases/${padded_phase}-${phase_slug}"
 
 ### [Category 2 that was discussed]
 - [Decision or preference captured]
+
+### Codebase-Informed
+[Decisions where user selected "Use Codebase Explorer" — Claude analyzed
+the codebase and chose based on evidence. Each includes the rationale
+so downstream agents can verify and build on the analysis.]
+- [Decision] — [brief evidence from codebase] *(via Codebase Explorer)*
+
+[If no CCE-informed decisions were made: omit this section]
 
 ### Claude's Discretion
 [Areas where user said "you decide" — note that Claude has flexibility here]
