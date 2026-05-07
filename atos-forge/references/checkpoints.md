@@ -456,7 +456,7 @@ npm run dev &
 DEV_SERVER_PID=$!
 
 # Wait for ready (max 30s)
-timeout 30 bash -c 'until curl -s localhost:3000 > /dev/null 2>&1; do sleep 1; done'
+for i in $(seq 1 30); do curl -s localhost:3000 > /dev/null 2>&1 && break; sleep 1; done
 ```
 
 **Port conflicts:** Kill stale process (`lsof -ti:3000 | xargs kill`) or use alternate port (`--port 3001`).

@@ -343,7 +343,7 @@ When user selects "Use Codebase Explorer":
 3. **Discover project (first time only):**
    ```bash
    BASE_URL="${CCE_BASE_URL:-https://ceb.datahat.io}"
-   curl -sk -H "Authorization: Bearer $CCE_API_KEY" "$BASE_URL/api/projects"
+   curl -sk --connect-timeout 10 --max-time 30 -H "Authorization: Bearer $CCE_API_KEY" "$BASE_URL/api/projects"
    ```
    Pick the project matching the current codebase. If ambiguous, ask user once.
    Cache the project/stream choice for the rest of the session.
@@ -351,7 +351,7 @@ When user selects "Use Codebase Explorer":
 4. **Call CCE API:**
    ```bash
    BASE_URL="${CCE_BASE_URL:-https://ceb.datahat.io}"
-   curl -sk -N -X POST "$BASE_URL/api/chat" \
+   curl -sk -N --connect-timeout 10 --max-time 300 -X POST "$BASE_URL/api/chat" \
      -H "Authorization: Bearer $CCE_API_KEY" \
      -H "Content-Type: application/json" \
      -d "{\"message\": \"<QUERY>\", \"history\": [], \"model\": \"claude-sonnet-4-6\", \"project\": \"<PROJECT>\", \"stream\": \"develop\", \"diagram_mode\": \"mermaid\", \"reasoning_mode\": \"low-level\", \"user_role\": \"developer\"}" \
