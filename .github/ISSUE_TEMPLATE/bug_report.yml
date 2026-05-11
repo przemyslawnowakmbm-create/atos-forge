@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Forge Version
-      description: "Run: npm list -g atos-forge"
+      description: "Run: npm list -g forge-cli"
       placeholder: "e.g., 1.18.0"
     validations:
       required: true

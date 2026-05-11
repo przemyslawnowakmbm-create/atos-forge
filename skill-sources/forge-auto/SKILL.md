@@ -12,9 +12,9 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 </execution_context>
 
 $ARGUMENTS: [--verbose] [--timeout <seconds>]
 
-Load and follow @atos-forge/workflows/auto.md
+Load and follow @forge/workflows/auto.md

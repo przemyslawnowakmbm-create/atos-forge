@@ -9,8 +9,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/settings.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/settings.md
 </execution_context>
 
 <objective>
@@ -27,7 +27,7 @@ Routes to the settings workflow which handles:
 
 
 <process>
-**Follow the settings workflow** from `@~/.claude/atos-forge/workflows/settings.md`.
+**Follow the settings workflow** from `@~/.claude/forge-cli/workflows/settings.md`.
 
 The workflow handles all logic including:
 1. Config file creation with defaults if missing

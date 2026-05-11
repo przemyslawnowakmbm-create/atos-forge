@@ -4,8 +4,8 @@ description: Show available Forge commands and usage guide
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/help.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/help.md
 </execution_context>
 
 <objective>
@@ -19,6 +19,6 @@ Output ONLY the reference content below. Do NOT add:
 </objective>
 
 <process>
-Output the complete Forge command reference from @~/.codex/forge/atos-forge/workflows/help.md.
+Output the complete Forge command reference from @~/.codex/forge/forge-cli/workflows/help.md.
 Display the reference content directly — no additions or modifications.
 </process>

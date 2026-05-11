@@ -4,7 +4,7 @@ description: Analyze change impact for a file or phase
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -25,7 +25,7 @@ Arguments: $ARGUMENTS
 ## 1. Check Graph Exists
 
 ```bash
-STATUS=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs graph status)
+STATUS=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs graph status)
 GRAPH_EXISTS=$(echo "$STATUS" | jq -r '.graph_exists')
 ```
 
@@ -50,12 +50,12 @@ Parse $ARGUMENTS:
 
 **File mode:**
 ```bash
-IMPACT=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs graph impact "$FILE" --depth $DEPTH)
+IMPACT=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs graph impact "$FILE" --depth $DEPTH)
 ```
 
 **Phase mode:**
 ```bash
-IMPACT=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs graph impact --phase "$PHASE")
+IMPACT=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs graph impact --phase "$PHASE")
 ```
 
 ## 4. Display Results

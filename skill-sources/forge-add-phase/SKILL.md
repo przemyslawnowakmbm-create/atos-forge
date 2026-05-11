@@ -9,10 +9,10 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 @.planning/ROADMAP.md
 @.planning/STATE.md
-@~/.claude/atos-forge/workflows/add-phase.md
+@~/.claude/forge-cli/workflows/add-phase.md
 </execution_context>
 
 <objective>
@@ -28,7 +28,7 @@ Routes to the add-phase workflow which handles:
 
 
 <process>
-**Follow the add-phase workflow** from `@~/.claude/atos-forge/workflows/add-phase.md`.
+**Follow the add-phase workflow** from `@~/.claude/forge-cli/workflows/add-phase.md`.
 
 The workflow handles all logic including:
 1. Argument parsing and validation

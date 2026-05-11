@@ -10,8 +10,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/diagnose-issues.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/diagnose-issues.md
 </execution_context>
 
 <objective>
@@ -30,7 +30,7 @@ Read the Gaps section for failed/blocker items with their truth, reason, severit
 </context>
 
 <process>
-Execute the diagnose-issues workflow from @~/.claude/atos-forge/workflows/diagnose-issues.md end-to-end.
+Execute the diagnose-issues workflow from @~/.claude/forge-cli/workflows/diagnose-issues.md end-to-end.
 
 Steps in order:
 1. parse_gaps — Extract all failed/blocker gaps from UAT.md Gaps section

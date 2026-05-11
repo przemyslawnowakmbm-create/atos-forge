@@ -11,8 +11,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/system-architect.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/system-architect.md
 @.planning/PROJECT.md
 </execution_context>
 
@@ -33,7 +33,7 @@ Run this workflow BEFORE per-service `/forge-architect` when the system involves
 </context>
 
 <process>
-Follow the system-architect workflow from `@~/.claude/atos-forge/workflows/system-architect.md` end-to-end.
+Follow the system-architect workflow from `@~/.claude/forge-cli/workflows/system-architect.md` end-to-end.
 
 Preserve all workflow gates including:
 - Service discovery (scan directories, PROJECT.md, or user enumeration)

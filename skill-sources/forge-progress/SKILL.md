@@ -10,8 +10,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/progress.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/progress.md
 </execution_context>
 
 <objective>
@@ -23,6 +23,6 @@ Provides situational awareness before continuing work.
 
 
 <process>
-Execute the progress workflow from @~/.claude/atos-forge/workflows/progress.md end-to-end.
+Execute the progress workflow from @~/.claude/forge-cli/workflows/progress.md end-to-end.
 Preserve all routing logic (Routes A through F) and edge case handling.
 </process>

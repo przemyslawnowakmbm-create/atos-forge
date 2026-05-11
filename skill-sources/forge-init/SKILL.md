@@ -8,7 +8,7 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -35,10 +35,32 @@ Display banner:
 Run the graph build:
 
 ```bash
-RESULT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph init $ARGUMENTS)
+RESULT=$(node ~/.claude/forge-cli/bin/forge-tools.cjs graph init $ARGUMENTS)
 ```
 
 Parse JSON result for: `success`, `build_time`, `total_files`, `total_symbols`, `module_count`, `dependency_count`, `hooks_installed`, `capabilities_detected`, `gitignore_updated`, `db_path`.
+
+## 1b. Deploy Forge Templates
+
+Copy first-run templates into `.forge/` without overwriting user customizations:
+
+```bash
+FORGE_DIR=".forge"
+TEMPLATES_DIR="$HOME/.claude/forge-cli/templates"
+
+if [ ! -f "$FORGE_DIR/constitution.md" ] && [ -f "$TEMPLATES_DIR/constitution.md" ]; then
+  mkdir -p "$FORGE_DIR"
+  cp "$TEMPLATES_DIR/constitution.md" "$FORGE_DIR/constitution.md"
+  echo "  ✓ Deployed constitution.md (8 non-negotiable rules)"
+fi
+
+if [ ! -f "$FORGE_DIR/glossary.md" ] && [ -f "$TEMPLATES_DIR/glossary.md" ]; then
+  cp "$TEMPLATES_DIR/glossary.md" "$FORGE_DIR/glossary.md"
+  echo "  ✓ Deployed glossary.md (domain term definitions)"
+fi
+```
+
+This step is idempotent — the existence check ensures user edits to `.forge/constitution.md` are never overwritten on re-init.
 
 ## 2. Report Results
 

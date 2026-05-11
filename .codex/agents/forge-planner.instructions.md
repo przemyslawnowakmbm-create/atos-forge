@@ -213,7 +213,7 @@ Each task: **15-60 minutes** Codex execution time.
 
 ## UI/UX Task Specificity (Frontend Phases)
 
-When planning tasks that produce visual UI, apply these additional specificity rules. Reference `@~/.codex/forge/atos-forge/references/ui-ux-quality.md` in the plan's `<execution_context>`.
+When planning tasks that produce visual UI, apply these additional specificity rules. Reference `@~/.codex/forge/forge-cli/references/ui-ux-quality.md` in the plan's `<execution_context>`.
 
 **Color:** Specify semantic tokens (--primary, --accent, --muted), not raw hex. If RESEARCH.md includes a `## UI/UX Recommendations` section, use its recommended palette.
 
@@ -272,7 +272,7 @@ When planning tasks that produce visual UI, apply these additional specificity r
     - Data transformations / validators: edge case coverage (empty, null, boundary values)
     
     Follow project test conventions (file naming, directory structure, framework).
-    If no test framework exists, set one up first (see @~/.codex/forge/atos-forge/references/tdd.md <framework_setup>).
+    If no test framework exists, set one up first (see @~/.codex/forge/forge-cli/references/tdd.md <framework_setup>).
   </action>
   <verify>[project test command] passes with 0 failures</verify>
   <done>All new tests pass. Test files committed alongside implementation.</done>
@@ -450,8 +450,8 @@ Output: [Artifacts created]
 </objective>
 
 <execution_context>
-@~/.codex/forge/atos-forge/workflows/execute-plan.md
-@~/.codex/forge/atos-forge/templates/summary.md
+@~/.codex/forge/forge-cli/workflows/execute-plan.md
+@~/.codex/forge/forge-cli/templates/summary.md
 </execution_context>
 
 <context>
@@ -884,7 +884,7 @@ Group by plan, dimension, severity.
 ### Step 6: Commit
 
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs commit "fix($PHASE): revise plans based on checker feedback" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs commit "fix($PHASE): revise plans based on checker feedback" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md
 ```
 
 ### Step 7: Return Revision Summary
@@ -923,7 +923,7 @@ node ~/.codex/forge/atos-forge/bin/forge-tools.cjs commit "fix($PHASE): revise p
 Load planning context:
 
 ```bash
-INIT=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs init plan-phase "${PHASE}")
+INIT=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs init plan-phase "${PHASE}")
 ```
 
 Extract from init JSON: `planner_model`, `researcher_model`, `checker_model`, `commit_docs`, `research_enabled`, `phase_dir`, `phase_number`, `has_research`, `has_context`.
@@ -979,7 +979,7 @@ Apply discovery level protocol (see discovery_levels section).
 
 **Step 1 — Generate digest index:**
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs history-digest
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs history-digest
 ```
 
 **Step 2 — Select relevant phases (typically 2-4):**
@@ -1097,7 +1097,7 @@ Include all frontmatter fields.
 Validate each created PLAN.md using forge-tools:
 
 ```bash
-VALID=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs frontmatter validate "$PLAN_PATH" --schema plan)
+VALID=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs frontmatter validate "$PLAN_PATH" --schema plan)
 ```
 
 Returns JSON: `{ valid, missing, present, schema }`
@@ -1126,7 +1126,7 @@ The `verification_must_check` items are verified by the engine's behavioral laye
 Also validate plan structure:
 
 ```bash
-STRUCTURE=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs verify plan-structure "$PLAN_PATH")
+STRUCTURE=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs verify plan-structure "$PLAN_PATH")
 ```
 
 Returns JSON: `{ valid, errors, warnings, task_count, tasks }`
@@ -1163,7 +1163,7 @@ Plans:
 
 <step name="git_commit">
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs commit "docs($PHASE): create phase plan" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md .planning/ROADMAP.md
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs commit "docs($PHASE): create phase plan" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md .planning/ROADMAP.md
 ```
 </step>
 

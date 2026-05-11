@@ -4,8 +4,8 @@ description: Remove a future phase from roadmap and renumber subsequent phases
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/remove-phase.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/remove-phase.md
 </execution_context>
 
 <objective>
@@ -23,6 +23,6 @@ Phase: $ARGUMENTS
 </context>
 
 <process>
-Execute the remove-phase workflow from @~/.codex/forge/atos-forge/workflows/remove-phase.md end-to-end.
+Execute the remove-phase workflow from @~/.codex/forge/forge-cli/workflows/remove-phase.md end-to-end.
 Preserve all validation gates (future phase check, work check), renumbering logic, and commit.
 </process>

@@ -707,7 +707,7 @@ function copyFlattenedCommands(srcSkillsDir, destDir, prefix, pathPrefix, runtim
     const destPath = path.join(destDir, `${skillName}.md`);
 
     let content = fs.readFileSync(srcSkillFile, 'utf8');
-    content = mergeExecutionContextBlocks(content, ['@~/.claude/atos-forge/references/agent-directives.md']);
+    content = mergeExecutionContextBlocks(content, ['@~/.claude/forge-cli/references/agent-directives.md']);
     const globalClaudeRegex = /~\/\.claude\//g;
     const localClaudeRegex = /\.\/\.claude\//g;
     const opencodeDirRegex = /~\/\.opencode\//g;
@@ -766,7 +766,7 @@ function copyAsSkills(srcSkillsDir, destSkillsDir, prefix, pathPrefix, runtime) 
     fs.mkdirSync(destSkillDir, { recursive: true });
 
     let content = fs.readFileSync(srcSkillFile, 'utf8');
-    content = mergeExecutionContextBlocks(content, ['@~/.claude/atos-forge/references/agent-directives.md']);
+    content = mergeExecutionContextBlocks(content, ['@~/.claude/forge-cli/references/agent-directives.md']);
     const globalClaudeRegex = /~\/\.claude\//g;
     const localClaudeRegex = /\.\/\.claude\//g;
     const opencodeDirRegex = /~\/\.opencode\//g;
@@ -1014,12 +1014,12 @@ function uninstall(isGlobal, runtime = 'claude') {
     console.log(`  ${green}✓${reset} Removed forge skills`);
   }
 
-  // 2. Remove atos-forge directory
-  const forgeDir = path.join(targetDir, 'atos-forge');
+  // 2. Remove forge-cli directory
+  const forgeDir = path.join(targetDir, 'forge-cli');
   if (fs.existsSync(forgeDir)) {
     fs.rmSync(forgeDir, { recursive: true });
     removedCount++;
-    console.log(`  ${green}✓${reset} Removed atos-forge/`);
+    console.log(`  ${green}✓${reset} Removed forge-cli/`);
   }
 
   // 3. Remove Forge agents (forge-*.md files only)
@@ -1060,7 +1060,7 @@ function uninstall(isGlobal, runtime = 'claude') {
   // 4. Remove Forge hooks
   const hooksDir = path.join(isCodex ? runtimeRoot : targetDir, 'hooks');
   if (fs.existsSync(hooksDir)) {
-    const forgeHooks = ['forge-statusline.js', 'forge-check-update.js', 'forge-check-update.sh', 'forge-context-monitor.js'];
+    const forgeHooks = ['forge-statusline.js', 'forge-check-update.js', 'forge-check-update.sh', 'forge-context-monitor.js', 'forge-guard.js'];
     let hookCount = 0;
     for (const hook of forgeHooks) {
       const hookPath = path.join(hooksDir, hook);
@@ -1156,6 +1156,33 @@ function uninstall(isGlobal, runtime = 'claude') {
       }
     }
 
+    // Remove Forge hooks from PreToolUse
+    if (settings.hooks && settings.hooks.PreToolUse) {
+      const before = settings.hooks.PreToolUse.length;
+      settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(entry => {
+        if (entry.hooks && Array.isArray(entry.hooks)) {
+          // Filter out Forge hooks
+          const hasForgeHook = entry.hooks.some(h =>
+            h.command && h.command.includes('forge-guard')
+          );
+          return !hasForgeHook;
+        }
+        return true;
+      });
+      if (settings.hooks.PreToolUse.length < before) {
+        settingsModified = true;
+        console.log(`  ${green}✓${reset} Removed Forge PreToolUse hooks from settings`);
+      }
+      // Clean up empty array
+      if (settings.hooks.PreToolUse.length === 0) {
+        delete settings.hooks.PreToolUse;
+      }
+      // Clean up empty hooks object
+      if (settings.hooks && Object.keys(settings.hooks).length === 0) {
+        delete settings.hooks;
+      }
+    }
+
     if (settingsModified) {
       writeSettings(settingsPath, settings);
       removedCount++;
@@ -1181,7 +1208,7 @@ function uninstall(isGlobal, runtime = 'claude') {
             if (config.permission[permType]) {
               const keys = Object.keys(config.permission[permType]);
               for (const key of keys) {
-                if (key.includes('atos-forge')) {
+                if (key.includes('forge-cli')) {
                   delete config.permission[permType][key];
                   modified = true;
                 }
@@ -1281,7 +1308,7 @@ function parseJsonc(content) {
 
 /**
  * Configure OpenCode permissions to allow reading Forge reference docs
- * This prevents permission prompts when Forge accesses the atos-forge directory
+ * This prevents permission prompts when Forge accesses the forge-cli directory
  * @param {boolean} isGlobal - Whether this is a global or local install
  */
 function configureOpencodePermissions(isGlobal = true) {
@@ -1319,8 +1346,8 @@ function configureOpencodePermissions(isGlobal = true) {
   // Use ~ shorthand if it's in the default location, otherwise use full path
   const defaultConfigDir = path.join(os.homedir(), '.config', 'opencode');
   const forgePath = opencodeConfigDir === defaultConfigDir
-    ? '~/.config/opencode/atos-forge/*'
-    : `${opencodeConfigDir.replace(/\\/g, '/')}/atos-forge/*`;
+    ? '~/.config/opencode/forge-cli/*'
+    : `${opencodeConfigDir.replace(/\\/g, '/')}/forge-cli/*`;
   
   let modified = false;
 
@@ -1392,7 +1419,7 @@ function copyCodexAssetTree(srcDir, destDir, pathPrefix, codexRootPrefix = null)
       const codexRoot = codexRootPrefix || pathPrefix;
       let text = content.toString('utf8');
       if (entry.name.endsWith('.md') && srcPath.includes(`${path.sep}.codex${path.sep}skills${path.sep}`)) {
-        text = mergeExecutionContextBlocks(text, ['@~/.codex/forge/atos-forge/references/agent-directives.md']);
+        text = mergeExecutionContextBlocks(text, ['@~/.codex/forge/forge-cli/references/agent-directives.md']);
       }
       text = text
         .replace(/~\/\.codex\/forge\//g, pathPrefix)
@@ -1513,14 +1540,14 @@ function generateManifest(dir, baseDir) {
  * Write file manifest after installation for future modification detection
  */
 function writeManifest(configDir) {
-  const forgeDir = path.join(configDir, 'atos-forge');
+  const forgeDir = path.join(configDir, 'forge-cli');
   const commandsDir = path.join(configDir, 'commands');
   const agentsDir = path.join(configDir, 'agents');
   const manifest = { version: pkg.version, timestamp: new Date().toISOString(), files: {} };
 
   const forgeHashes = generateManifest(forgeDir);
   for (const [rel, hash] of Object.entries(forgeHashes)) {
-    manifest.files['atos-forge/' + rel] = hash;
+    manifest.files['forge-cli/' + rel] = hash;
   }
   // Track forge skills in skills/<name>/SKILL.md
   const skillsDir = path.join(configDir, 'skills');
@@ -1717,14 +1744,14 @@ function install(isGlobal, runtime = 'claude') {
     }
   }
 
-  // Copy atos-forge skill with path replacement
-  const skillSrc = path.join(src, 'atos-forge');
-  const skillDest = path.join(targetDir, 'atos-forge');
+  // Copy forge-cli skill with path replacement
+  const skillSrc = path.join(src, 'forge-cli');
+  const skillDest = path.join(targetDir, 'forge-cli');
   copyWithPathReplacement(skillSrc, skillDest, pathPrefix, runtime);
-  if (verifyInstalled(skillDest, 'atos-forge')) {
-    console.log(`  ${green}✓${reset} Installed atos-forge`);
+  if (verifyInstalled(skillDest, 'forge-cli')) {
+    console.log(`  ${green}✓${reset} Installed forge-cli`);
   } else {
-    failures.push('atos-forge');
+    failures.push('forge-cli');
   }
 
   // Copy forge-* engine modules used by forge-tools.cjs and skill workflows
@@ -1797,7 +1824,7 @@ function install(isGlobal, runtime = 'claude') {
 
   // Copy CHANGELOG.md
   const changelogSrc = path.join(src, 'CHANGELOG.md');
-  const changelogDest = path.join(targetDir, 'atos-forge', 'CHANGELOG.md');
+  const changelogDest = path.join(targetDir, 'forge-cli', 'CHANGELOG.md');
   if (fs.existsSync(changelogSrc)) {
     fs.copyFileSync(changelogSrc, changelogDest);
     if (verifyFileInstalled(changelogDest, 'CHANGELOG.md')) {
@@ -1808,7 +1835,7 @@ function install(isGlobal, runtime = 'claude') {
   }
 
   // Write VERSION file
-  const versionDest = path.join(targetDir, 'atos-forge', 'VERSION');
+  const versionDest = path.join(targetDir, 'forge-cli', 'VERSION');
   fs.writeFileSync(versionDest, pkg.version);
   if (verifyFileInstalled(versionDest, 'VERSION')) {
     console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`);
@@ -1944,6 +1971,29 @@ function install(isGlobal, runtime = 'claude') {
         }]
       });
       console.log(`  ${green}✓${reset} Configured context monitor hook`);
+    }
+  }
+
+  // Configure PreToolUse hook for guard (secret/hash-lock protection)
+  if (!isOpencode) {
+    if (!settings.hooks.PreToolUse) {
+      settings.hooks.PreToolUse = [];
+    }
+
+    const hasGuard = settings.hooks.PreToolUse.some(entry =>
+      entry.hooks && entry.hooks.some(h => h.command && h.command.includes('forge-guard'))
+    );
+
+    if (!hasGuard) {
+      settings.hooks.PreToolUse.push({
+        hooks: [{
+          type: 'command',
+          command: isGlobal
+            ? buildHookCommand(targetDir, 'forge-guard.js')
+            : 'node ' + dirName + '/hooks/forge-guard.js'
+        }]
+      });
+      console.log(`  ${green}✓${reset} Configured guard hook (secret/hash-lock protection)`);
     }
   }
 

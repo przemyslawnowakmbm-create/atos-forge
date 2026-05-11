@@ -12,8 +12,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/audit-milestone.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/audit-milestone.md
 </execution_context>
 
 <objective>
@@ -41,6 +41,6 @@ Glob: .planning/phases/*/*-VERIFICATION.md
 </context>
 
 <process>
-Execute the audit-milestone workflow from @~/.claude/atos-forge/workflows/audit-milestone.md end-to-end.
+Execute the audit-milestone workflow from @~/.claude/forge-cli/workflows/audit-milestone.md end-to-end.
 Preserve all workflow gates (scope determination, verification reading, integration check, requirements coverage, routing).
 </process>

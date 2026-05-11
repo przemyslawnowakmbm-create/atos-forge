@@ -4,9 +4,9 @@ description: Re-evaluate roadmap after phase completion — reorder, add, or rem
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 </execution_context>
 
 $ARGUMENTS: none
 
-Load and follow @atos-forge/workflows/reassess-roadmap.md
+Load and follow @forge/workflows/reassess-roadmap.md

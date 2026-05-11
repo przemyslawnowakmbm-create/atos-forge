@@ -4,9 +4,9 @@ description: Create detailed phase plan (PLAN.md) with verification loop
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/plan-phase.md
-@~/.codex/forge/atos-forge/references/ui-brand.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/plan-phase.md
+@~/.codex/forge/forge-cli/references/ui-brand.md
 </execution_context>
 
 <objective>
@@ -30,6 +30,6 @@ Normalize phase input in step 2 before any directory lookups.
 </context>
 
 <process>
-Execute the plan-phase workflow from @~/.codex/forge/atos-forge/workflows/plan-phase.md end-to-end.
+Execute the plan-phase workflow from @~/.codex/forge/forge-cli/workflows/plan-phase.md end-to-end.
 Preserve all workflow gates (validation, research, planning, verification loop, routing).
 </process>

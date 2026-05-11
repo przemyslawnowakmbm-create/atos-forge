@@ -4,8 +4,8 @@ description: Refresh stale research dimensions by re-running only expired ones
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/research-refresh.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/research-refresh.md
 </execution_context>
 
 <objective>
@@ -38,7 +38,7 @@ Options: $ARGUMENTS (optional)
 </context>
 
 <process>
-Execute the research-refresh workflow from @~/.codex/forge/atos-forge/workflows/research-refresh.md end-to-end.
+Execute the research-refresh workflow from @~/.codex/forge/forge-cli/workflows/research-refresh.md end-to-end.
 
 Steps in order:
 1. Scan research files — read all `.planning/research/*.md`, extract `valid_until` and `dimension`

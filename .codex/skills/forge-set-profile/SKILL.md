@@ -4,8 +4,8 @@ description: Switch model profile for Forge agents (quality/balanced/budget)
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/set-profile.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/set-profile.md
 </execution_context>
 
 <objective>
@@ -19,7 +19,7 @@ Routes to the set-profile workflow which handles:
 </objective>
 
 <process>
-**Follow the set-profile workflow** from `@~/.codex/forge/atos-forge/workflows/set-profile.md`.
+**Follow the set-profile workflow** from `@~/.codex/forge/forge-cli/workflows/set-profile.md`.
 
 The workflow handles all logic including:
 1. Profile argument validation

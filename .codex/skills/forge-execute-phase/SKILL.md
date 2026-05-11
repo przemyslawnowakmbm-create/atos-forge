@@ -4,9 +4,9 @@ description: Execute all plans in a phase with wave-based parallelization
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/execute-phase.md
-@~/.codex/forge/atos-forge/references/ui-brand.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/execute-phase.md
+@~/.codex/forge/forge-cli/references/ui-brand.md
 </execution_context>
 
 <objective>
@@ -28,6 +28,6 @@ Phase: $ARGUMENTS
 </context>
 
 <process>
-Execute the execute-phase workflow from @~/.codex/forge/atos-forge/workflows/execute-phase.md end-to-end.
+Execute the execute-phase workflow from @~/.codex/forge/forge-cli/workflows/execute-phase.md end-to-end.
 Preserve all workflow gates (wave execution, checkpoint handling, verification, state updates, routing).
 </process>

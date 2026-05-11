@@ -165,7 +165,7 @@ step "Ensuring Forge source code"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-if [ -f "$REPO_ROOT/package.json" ] && grep -q '"atos-forge"' "$REPO_ROOT/package.json" 2>/dev/null; then
+if [ -f "$REPO_ROOT/package.json" ] && grep -q '"forge-cli"' "$REPO_ROOT/package.json" 2>/dev/null; then
   ok "Running from Forge repository: $REPO_ROOT"
   SRC_DIR="$REPO_ROOT"
 elif [ -d "$FORGE_SRC_DIR" ] && [ -f "$FORGE_SRC_DIR/package.json" ]; then

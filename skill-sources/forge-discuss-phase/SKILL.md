@@ -13,9 +13,9 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/discuss-phase.md
-@~/.claude/atos-forge/templates/context.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/discuss-phase.md
+@~/.claude/forge-cli/templates/context.md
 </execution_context>
 
 <objective>

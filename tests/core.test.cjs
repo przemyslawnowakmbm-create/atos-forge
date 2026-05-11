@@ -1,7 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
-const core = require(path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'core.cjs'));
+const core = require(path.join(__dirname, '..', 'forge-cli', 'bin', 'lib', 'core.cjs'));
 
 describe('core.cjs', () => {
   it('generateSlugInternal converts text to slug', () => {
@@ -32,7 +32,7 @@ describe('core.cjs', () => {
   it('safeReadFile returns content for existing file', () => {
     const content = core.safeReadFile(path.join(process.cwd(), 'package.json'));
     assert.ok(content !== null);
-    assert.ok(content.includes('atos-forge'));
+    assert.ok(content.includes('forge-cli'));
   });
 
   it('safeReadFile returns null for missing file', () => {

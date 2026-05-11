@@ -77,12 +77,12 @@ function loadAgentDirectives() {
   try {
     // Resolve from forge root (sibling to forge-agents/)
     const forgeRoot = path.resolve(__dirname, '..');
-    const directivesPath = path.join(forgeRoot, 'atos-forge', 'references', 'agent-directives.md');
+    const directivesPath = path.join(forgeRoot, 'forge-cli', 'references', 'agent-directives.md');
     if (fs.existsSync(directivesPath)) {
       _agentDirectives = fs.readFileSync(directivesPath, 'utf8').trim();
     } else {
       // Fallback: installed location (forge root is ~/.claude/)
-      const altPath = path.join(forgeRoot, 'atos-forge', 'references', 'agent-directives.md');
+      const altPath = path.join(forgeRoot, 'forge-cli', 'references', 'agent-directives.md');
       _agentDirectives = fs.existsSync(altPath) ? fs.readFileSync(altPath, 'utf8').trim() : '';
     }
   } catch {
@@ -213,7 +213,7 @@ const MODULE_THRESHOLD_INTEGRATOR = 3;
 const CAPABILITY_CONFIDENCE_MIN = 0.3;
 
 // Maximum ledger entries per category to include in session context (prevents token bloat)
-const MAX_ENTRIES_PER_CATEGORY = 30;
+const MAX_ENTRIES_PER_CATEGORY = 15;
 
 // Verification built-in checks keyed by detected capability
 const CAPABILITY_VERIFICATION_MAP = {
@@ -647,7 +647,7 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
       ? (() => { try { return forgeConfig().getAgentRegistry(analysis.cwd); } catch { return null; } })()
       : null;
     const _maxInjected = (_catalogConfig && _catalogConfig.max_injected_agents) ? _catalogConfig.max_injected_agents : 2;
-    const _maxBodyChars = (_catalogConfig && _catalogConfig.max_body_chars) ? _catalogConfig.max_body_chars : 1500;
+    const _maxBodyChars = (_catalogConfig && _catalogConfig.max_body_chars) ? _catalogConfig.max_body_chars : 800;
     const _catalogMatched = matchCatalogAgents(analysis, _maxInjected);
     if (_catalogMatched.length > 0) {
       const expertiseParts = ['\n## Catalog Specialist Expertise\n'];

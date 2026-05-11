@@ -10,9 +10,9 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 @.planning/STATE.md
-@~/.claude/atos-forge/workflows/add-todo.md
+@~/.claude/forge-cli/workflows/add-todo.md
 </execution_context>
 
 <objective>
@@ -31,7 +31,7 @@ Routes to the add-todo workflow which handles:
 
 
 <process>
-**Follow the add-todo workflow** from `@~/.claude/atos-forge/workflows/add-todo.md`.
+**Follow the add-todo workflow** from `@~/.claude/forge-cli/workflows/add-todo.md`.
 
 The workflow handles all logic including:
 1. Directory ensuring

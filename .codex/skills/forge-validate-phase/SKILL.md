@@ -4,9 +4,9 @@ description: Validate phase plans before execution — checks completeness, depe
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 </execution_context>
 
 $ARGUMENTS: phase number
 
-Load and follow @atos-forge/workflows/validate-phase.md
+Load and follow @forge/workflows/validate-phase.md

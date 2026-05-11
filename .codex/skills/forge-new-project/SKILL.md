@@ -4,12 +4,12 @@ description: Initialize a new project with deep context gathering and PROJECT.md
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/new-project.md
-@~/.codex/forge/atos-forge/references/questioning.md
-@~/.codex/forge/atos-forge/references/ui-brand.md
-@~/.codex/forge/atos-forge/templates/project.md
-@~/.codex/forge/atos-forge/templates/requirements.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/new-project.md
+@~/.codex/forge/forge-cli/references/questioning.md
+@~/.codex/forge/forge-cli/references/ui-brand.md
+@~/.codex/forge/forge-cli/templates/project.md
+@~/.codex/forge/forge-cli/templates/requirements.md
 </execution_context>
 
 <context>
@@ -32,6 +32,6 @@ Initialize a new project through unified flow: questioning → research (optiona
 </objective>
 
 <process>
-Execute the new-project workflow from @~/.codex/forge/atos-forge/workflows/new-project.md end-to-end.
+Execute the new-project workflow from @~/.codex/forge/forge-cli/workflows/new-project.md end-to-end.
 Preserve all workflow gates (validation, approvals, commits, routing).
 </process>

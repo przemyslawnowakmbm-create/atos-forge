@@ -4,8 +4,8 @@ description: Resume work from previous session with full context restoration
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/resume-project.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/resume-project.md
 </execution_context>
 
 <objective>
@@ -21,7 +21,7 @@ Routes to the resume-project workflow which handles:
   </objective>
 
 <process>
-**Follow the resume-project workflow** from `@~/.codex/forge/atos-forge/workflows/resume-project.md`.
+**Follow the resume-project workflow** from `@~/.codex/forge/forge-cli/workflows/resume-project.md`.
 
 The workflow handles all resumption logic including:
 

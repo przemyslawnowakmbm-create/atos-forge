@@ -61,7 +61,7 @@ node bin/install.js --claude --global
 This copies to `~/.claude/`:
 - `skills/` — 41 forge skills (from `skill-sources/forge-*/SKILL.md`)
 - `agents/` — 11 specialized agent definitions
-- `atos-forge/` — workflows, templates, references, CLI (forge-tools.cjs + 21 lib modules)
+- `forge-cli/` — workflows, templates, references, CLI (forge-tools.cjs + 21 lib modules)
 - `forge-graph/` — code graph engine (builder, query, schema, dashboard, conventions, watcher)
 - `forge-config/` — unified configuration and doctor/settings helpers
 - `forge-session/` — session memory (ledger, decisions, knowledge, crash-recovery, metrics)
@@ -186,7 +186,7 @@ Removes all Forge files from `~/.claude/` but preserves your project's `.forge/`
 ~/.claude/                          Global Claude Code config
 ├── skills/                         41 Forge skills (forge-*/SKILL.md)
 ├── agents/                         11 specialized agents
-├── atos-forge/                     CLI, workflows, templates
+├── forge-cli/                     CLI, workflows, templates
 │   ├── bin/forge-tools.cjs         Thin dispatcher (709L)
 │   ├── bin/lib/                    21 CLI modules
 │   ├── workflows/                  34 workflow definitions

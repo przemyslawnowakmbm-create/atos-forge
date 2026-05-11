@@ -1,15 +1,15 @@
 {
-  "name": "atos-forge",
+  "name": "forge-cli",
   "version": "1.20.4",
   "description": "Forge — An enterprise-grade, AI-powered spec-driven development system with dynamic agent creation, ephemeral container execution, and code graph intelligence.",
   "bin": {
-    "atos-forge": "bin/install.js"
+    "forge-cli": "bin/install.js"
   },
   "files": [
     ".codex",
     "bin",
     "skill-sources",
-    "atos-forge",
+    "forge-cli",
     "agents",
     "hooks/dist",
     "scripts",
@@ -59,8 +59,8 @@
   },
   "scripts": {
     "build:hooks": "node scripts/build-hooks.js",
-    "test": "node --test atos-forge/bin/forge-tools.test.cjs tests/*.test.cjs",
-    "test:cli": "node --test atos-forge/bin/forge-tools.test.cjs",
+    "test": "node --test forge-cli/bin/forge-tools.test.cjs tests/*.test.cjs",
+    "test:cli": "node --test forge-cli/bin/forge-tools.test.cjs",
     "test:unit": "node --test tests/*.test.cjs"
   }
 }

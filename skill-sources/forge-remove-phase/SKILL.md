@@ -10,8 +10,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/remove-phase.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/remove-phase.md
 </execution_context>
 
 <objective>
@@ -31,6 +31,6 @@ Phase: $ARGUMENTS
 </context>
 
 <process>
-Execute the remove-phase workflow from @~/.claude/atos-forge/workflows/remove-phase.md end-to-end.
+Execute the remove-phase workflow from @~/.claude/forge-cli/workflows/remove-phase.md end-to-end.
 Preserve all validation gates (future phase check, work check), renumbering logic, and commit.
 </process>

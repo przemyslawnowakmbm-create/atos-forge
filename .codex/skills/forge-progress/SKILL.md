@@ -4,8 +4,8 @@ description: Check project progress, show context, and route to next action (exe
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/progress.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/progress.md
 </execution_context>
 
 <objective>
@@ -15,6 +15,6 @@ Provides situational awareness before continuing work.
 </objective>
 
 <process>
-Execute the progress workflow from @~/.codex/forge/atos-forge/workflows/progress.md end-to-end.
+Execute the progress workflow from @~/.codex/forge/forge-cli/workflows/progress.md end-to-end.
 Preserve all routing logic (Routes A through F) and edge case handling.
 </process>

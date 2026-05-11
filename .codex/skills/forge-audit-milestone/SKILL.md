@@ -4,8 +4,8 @@ description: Audit milestone completion against original intent before archiving
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/audit-milestone.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/audit-milestone.md
 </execution_context>
 
 <objective>
@@ -31,6 +31,6 @@ Glob: .planning/phases/*/*-VERIFICATION.md
 </context>
 
 <process>
-Execute the audit-milestone workflow from @~/.codex/forge/atos-forge/workflows/audit-milestone.md end-to-end.
+Execute the audit-milestone workflow from @~/.codex/forge/forge-cli/workflows/audit-milestone.md end-to-end.
 Preserve all workflow gates (scope determination, verification reading, integration check, requirements coverage, routing).
 </process>

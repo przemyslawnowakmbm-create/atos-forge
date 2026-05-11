@@ -13,8 +13,8 @@ const cacheDir = path.join(homeDir, '.claude', 'cache');
 const cacheFile = path.join(cacheDir, 'forge-update-check.json');
 
 // VERSION file locations (check project first, then global)
-const projectVersionFile = path.join(cwd, '.claude', 'atos-forge', 'VERSION');
-const globalVersionFile = path.join(homeDir, '.claude', 'atos-forge', 'VERSION');
+const projectVersionFile = path.join(cwd, '.claude', 'forge-cli', 'VERSION');
+const globalVersionFile = path.join(homeDir, '.claude', 'forge-cli', 'VERSION');
 
 // Ensure cache directory exists
 if (!fs.existsSync(cacheDir)) {
@@ -42,7 +42,7 @@ const child = spawn(process.execPath, ['-e', `
 
   let latest = null;
   try {
-    latest = execSync('npm view atos-forge version', { encoding: 'utf8', timeout: 10000, windowsHide: true }).trim();
+    latest = execSync('npm view forge-cli version', { encoding: 'utf8', timeout: 10000, windowsHide: true }).trim();
   } catch (e) {}
 
   const result = {

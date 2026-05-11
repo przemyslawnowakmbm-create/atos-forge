@@ -14,8 +14,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/quick.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/quick.md
 </execution_context>
 
 <objective>
@@ -39,6 +39,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the quick workflow from @~/.claude/atos-forge/workflows/quick.md end-to-end.
+Execute the quick workflow from @~/.claude/forge-cli/workflows/quick.md end-to-end.
 Preserve all workflow gates (validation, task description, planning, execution, state updates, commits).
 </process>

@@ -974,7 +974,7 @@ mv .planning/debug/{slug}.md .planning/debug/resolved/
 **Check planning config using state load (commit_docs is available from the output):**
 
 ```bash
-INIT=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs state load)
+INIT=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs state load)
 # commit_docs is in the JSON output
 ```
 
@@ -991,7 +991,7 @@ Root cause: {root_cause}"
 
 Then commit planning docs via CLI (respects `commit_docs` config automatically):
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs commit "docs: resolve debug {slug}" --files .planning/debug/resolved/{slug}.md
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs commit "docs: resolve debug {slug}" --files .planning/debug/resolved/{slug}.md
 ```
 
 Report completion and offer next steps.

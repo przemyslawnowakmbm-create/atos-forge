@@ -4,8 +4,8 @@ description: Surface Codex's assumptions about a phase approach before planning
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/list-phase-assumptions.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/list-phase-assumptions.md
 </execution_context>
 
 <objective>

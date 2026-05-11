@@ -8,7 +8,7 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -26,7 +26,7 @@ If `--raw` is present, return the CLI JSON output without extra formatting.
 Run:
 
 ```bash
-node ~/.claude/atos-forge/bin/forge-tools.cjs graph show $ARGUMENTS
+node ~/.claude/forge-cli/bin/forge-tools.cjs graph show $ARGUMENTS
 ```
 
 If no file was provided, ask for one concise file path.

@@ -11,8 +11,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/plan-milestone-gaps.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/plan-milestone-gaps.md
 </execution_context>
 
 <objective>
@@ -39,6 +39,6 @@ Glob: .planning/v*-MILESTONE-AUDIT.md (use most recent)
 </context>
 
 <process>
-Execute the plan-milestone-gaps workflow from @~/.claude/atos-forge/workflows/plan-milestone-gaps.md end-to-end.
+Execute the plan-milestone-gaps workflow from @~/.claude/forge-cli/workflows/plan-milestone-gaps.md end-to-end.
 Preserve all workflow gates (audit loading, prioritization, phase grouping, user confirmation, roadmap updates).
 </process>

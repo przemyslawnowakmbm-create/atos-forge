@@ -10,7 +10,7 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -35,12 +35,12 @@ ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
 ## 0. Initialize Context
 
 ```bash
-INIT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs state load)
+INIT=$(node ~/.claude/forge-cli/bin/forge-tools.cjs state load)
 ```
 
 Extract `commit_docs` from init JSON. Resolve debugger model:
 ```bash
-DEBUGGER_MODEL=$(node ~/.claude/atos-forge/bin/forge-tools.cjs resolve-model forge-debugger --raw)
+DEBUGGER_MODEL=$(node ~/.claude/forge-cli/bin/forge-tools.cjs resolve-model forge-debugger --raw)
 ```
 
 ## 1. Check Active Sessions

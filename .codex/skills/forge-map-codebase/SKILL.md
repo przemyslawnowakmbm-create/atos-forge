@@ -4,8 +4,8 @@ description: Analyze codebase with parallel mapper agents to produce .planning/c
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/map-codebase.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/map-codebase.md
 </execution_context>
 
 <objective>

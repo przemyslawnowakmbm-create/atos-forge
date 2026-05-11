@@ -4,9 +4,9 @@ description: Validate built features through conversational UAT
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/verify-work.md
-@~/.codex/forge/atos-forge/templates/UAT.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/verify-work.md
+@~/.codex/forge/forge-cli/templates/UAT.md
 </execution_context>
 
 <objective>
@@ -27,6 +27,6 @@ Phase: $ARGUMENTS (optional)
 </context>
 
 <process>
-Execute the verify-work workflow from @~/.codex/forge/atos-forge/workflows/verify-work.md end-to-end.
+Execute the verify-work workflow from @~/.codex/forge/forge-cli/workflows/verify-work.md end-to-end.
 Preserve all workflow gates (session management, test presentation, diagnosis, fix planning, routing).
 </process>

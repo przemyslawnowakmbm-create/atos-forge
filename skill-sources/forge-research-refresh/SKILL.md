@@ -14,8 +14,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/research-refresh.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/research-refresh.md
 </execution_context>
 
 <objective>
@@ -48,7 +48,7 @@ Options: $ARGUMENTS (optional)
 </context>
 
 <process>
-Execute the research-refresh workflow from @~/.claude/atos-forge/workflows/research-refresh.md end-to-end.
+Execute the research-refresh workflow from @~/.claude/forge-cli/workflows/research-refresh.md end-to-end.
 
 Steps in order:
 1. Scan research files — read all `.planning/research/*.md`, extract `valid_until` and `dimension`

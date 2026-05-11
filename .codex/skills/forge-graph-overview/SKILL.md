@@ -4,7 +4,7 @@ description: Show a high-level codebase summary from the Forge graph
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -21,7 +21,7 @@ If `--raw` is present, return the CLI JSON output without extra formatting.
 Run:
 
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs graph overview $ARGUMENTS
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs graph overview $ARGUMENTS
 ```
 
 If the graph does not exist, tell the user to run `$forge-init`.

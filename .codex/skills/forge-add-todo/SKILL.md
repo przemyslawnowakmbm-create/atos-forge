@@ -4,9 +4,9 @@ description: Capture idea or task as todo from current conversation context
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 @.planning/STATE.md
-@~/.codex/forge/atos-forge/workflows/add-todo.md
+@~/.codex/forge/forge-cli/workflows/add-todo.md
 </execution_context>
 
 <objective>
@@ -23,7 +23,7 @@ Routes to the add-todo workflow which handles:
 </objective>
 
 <process>
-**Follow the add-todo workflow** from `@~/.codex/forge/atos-forge/workflows/add-todo.md`.
+**Follow the add-todo workflow** from `@~/.codex/forge/forge-cli/workflows/add-todo.md`.
 
 The workflow handles all logic including:
 1. Directory ensuring

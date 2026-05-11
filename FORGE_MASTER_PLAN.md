@@ -1,4 +1,4 @@
-# Atos Forge — Master Remediation Plan
+# Forge — Master Remediation Plan
 
 > **Canonical, CLI-executable fix roadmap.** Consolidates all findings
 > from the four prior documents:
@@ -63,13 +63,13 @@ against "fixed something else" drift.
 ### 1.1 Clone and install
 
 ```bash
-cd /tmp && rm -rf atos-forge-fix
-git clone <repo-url> atos-forge-fix
-cd atos-forge-fix
+cd /tmp && rm -rf forge-cli-fix
+git clone <repo-url> forge-cli-fix
+cd forge-cli-fix
 git checkout -b fix/master-remediation
 
 cd forge-graph && npm install --no-audit --no-fund && cd ..
-node atos-forge/bin/forge-tools.cjs doctor
+node forge-cli/bin/forge-tools.cjs doctor
 ```
 
 ### 1.2 Set up the simulation project
@@ -126,7 +126,7 @@ Write the spec-compliant `PLAN.md` from [Appendix A](#appendix-a) to
 
 ```bash
 cd "$SIM"
-FORGE=/tmp/atos-forge-fix
+FORGE=/tmp/forge-cli-fix
 node "$FORGE/forge-graph/builder.js" .
 ```
 
@@ -145,7 +145,7 @@ node -e "const c=JSON.parse(require('fs').readFileSync('/tmp/agent.json')); cons
 # EXPECTED BUG: must_haves in fm? false
 
 # B3: verify artifacts cannot find the block
-node "$FORGE/atos-forge/bin/forge-tools.cjs" verify artifacts .planning/phases/01-feedback-form/01-01-PLAN.md
+node "$FORGE/forge-cli/bin/forge-tools.cjs" verify artifacts .planning/phases/01-feedback-form/01-01-PLAN.md
 # EXPECTED BUG: { "error": "No must_haves.artifacts found in frontmatter" }
 
 # B4: 6-layer engine returns PASS for broken implementation
@@ -194,7 +194,7 @@ bugs.
 **Files:**
 - `forge-assess/package.json` (create if missing)
 - `forge-assess/assessor.js` — function `parsePlan` (~line 89)
-- `atos-forge/bin/lib/frontmatter.cjs` — function `parseMustHavesBlock` (~line 155)
+- `forge-cli/bin/lib/frontmatter.cjs` — function `parseMustHavesBlock` (~line 155)
   and `extractFrontmatter`
 
 **Approach:**
@@ -204,7 +204,7 @@ bugs.
    cd forge-assess
    # if package.json missing:
    cat > package.json <<'EOF'
-   { "name": "@atos-forge/assess", "version": "0.1.0", "private": true,
+   { "name": "@forge/assess", "version": "0.1.0", "private": true,
      "main": "assessor.js", "dependencies": { "yaml": "^2.6.0" } }
    EOF
    npm install --no-audit --no-fund
@@ -260,7 +260,7 @@ node -e "const a=require('$FORGE/forge-assess/assessor.js'); const p=a.parsePlan
 # EXPECTED: fmKeys includes 'must_haves','requirements','phase','plan','type','has_tests'
 #           hasMustHaves: true, truths: 7, keyLinks: 4, requirements: 5
 
-node "$FORGE/atos-forge/bin/forge-tools.cjs" verify artifacts .planning/phases/01-feedback-form/01-01-PLAN.md
+node "$FORGE/forge-cli/bin/forge-tools.cjs" verify artifacts .planning/phases/01-feedback-form/01-01-PLAN.md
 # EXPECTED: returns list (3/5 fail, 2/5 pass), not "No must_haves.artifacts found"
 ```
 
@@ -321,7 +321,7 @@ node -e "const a=require('$FORGE/forge-assess/assessor.js'); const p=a.parsePlan
 
 **Severity:** Critical. 2 of 3 broken wirings pass with false positives today.
 
-**File:** `atos-forge/bin/lib/verify.cjs::cmdVerifyKeyLinks` (~lines 260-274)
+**File:** `forge-cli/bin/lib/verify.cjs::cmdVerifyKeyLinks` (~lines 260-274)
 
 **Problem:** Current logic tries pattern in source, then falls back to
 target. Searching for `FeedbackForm` in `FeedbackForm.jsx` trivially
@@ -351,7 +351,7 @@ For the no-pattern path (`sourceContent.includes(link.to)`), keep the existing s
 **Acceptance:**
 ```bash
 cd "$SIM"
-node "$FORGE/atos-forge/bin/forge-tools.cjs" verify key-links .planning/phases/01-feedback-form/01-01-PLAN.md
+node "$FORGE/forge-cli/bin/forge-tools.cjs" verify key-links .planning/phases/01-feedback-form/01-01-PLAN.md
 # EXPECTED: verified: 1 / 4
 # Only Layout->FeedbackButton is genuinely wired; 3 broken links marked verified: false.
 ```
@@ -535,7 +535,7 @@ function layerKeyLinks(opts) {
   }
   let parseMustHavesBlock;
   try {
-    ({ parseMustHavesBlock } = require(path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'frontmatter.cjs')));
+    ({ parseMustHavesBlock } = require(path.join(__dirname, '..', 'forge-cli', 'bin', 'lib', 'frontmatter.cjs')));
   } catch {
     return { passed: true, links: [], skipped: true, reason: 'frontmatter parser unavailable', duration_ms: Date.now() - start };
   }
@@ -808,7 +808,7 @@ if (opts?.previousFindings) {
 
 **Severity:** Low-Medium. Revision agents get cached config without checker issues.
 
-**Files:** `atos-forge/workflows/plan-phase.md` (revision spawn), `atos-forge/workflows/execute-phase.md` (fix-agent spawn)
+**Files:** `forge-cli/workflows/plan-phase.md` (revision spawn), `forge-cli/workflows/execute-phase.md` (fix-agent spawn)
 
 **Approach:** Pass `opts.skipCache: true` when building revision/fix-agent configs. The plumbing exists at `factory.js:1156-1166`, just needs to be called.
 
@@ -824,8 +824,8 @@ if (opts?.previousFindings) {
 
 **Files:**
 - New: `agents/forge-code-reviewer.md`
-- Modify: `atos-forge/workflows/execute-phase.md` step 5d
-- `atos-forge/bin/lib/core.cjs` (add model registration)
+- Modify: `forge-cli/workflows/execute-phase.md` step 5d
+- `forge-cli/bin/lib/core.cjs` (add model registration)
 
 **Approach:**
 
@@ -866,7 +866,7 @@ Returns issues if any artifact is a stub or any link unwired. Orchestrator trigg
 
 **Severity:** High. Currently undefined — debugger behavior is non-deterministic.
 
-**Files:** `atos-forge/workflows/diagnose-issues.md`
+**Files:** `forge-cli/workflows/diagnose-issues.md`
 
 **Problem:** Line 78 says "fill the debug-subagent-prompt template" but no template is defined anywhere in the codebase.
 
@@ -882,7 +882,7 @@ Returns issues if any artifact is a stub or any link unwired. Orchestrator trigg
 
 **Severity:** Medium. Crash-during-commit corrupts resume.
 
-**Files:** `atos-forge/bin/lib/init.cjs::cmdInitExecutePhase`, `atos-forge/workflows/execute-phase.md` filtering step
+**Files:** `forge-cli/bin/lib/init.cjs::cmdInitExecutePhase`, `forge-cli/workflows/execute-phase.md` filtering step
 
 **Problem:** `has_summary: true` check passes even if:
 - SUMMARY.md exists but commits are missing
@@ -935,7 +935,7 @@ If any of 2-4 fails: mark plan as `incomplete_partial`, present user with recove
 
 **Files:**
 - New: `agents/forge-research-checker.md`
-- Modify: `atos-forge/workflows/plan-phase.md` step 5, `new-project.md` after-synthesizer step
+- Modify: `forge-cli/workflows/plan-phase.md` step 5, `new-project.md` after-synthesizer step
 - `forge-agents/cache.js` (extend P1.10 hash with `.planning/research/*.md` + `package.json`)
 
 **Approach:**
@@ -992,7 +992,7 @@ New simulations to add to `tests/requirements-pipeline.test.cjs`:
 
 **Files:**
 - New: `agents/forge-test-author.md`
-- Modify: `agents/forge-planner.md` (mandatory test task), `atos-forge/references/tdd.md`, `atos-forge/workflows/execute-phase.md` (add test-author wave)
+- Modify: `agents/forge-planner.md` (mandatory test task), `forge-cli/references/tdd.md`, `forge-cli/workflows/execute-phase.md` (add test-author wave)
 
 **Problem:** Tests are currently written from the code (planner's mandatory test task says "Test scope: match to what was implemented"; `/forge-add-tests` classifies changed files; executor's auto-fix Rule 1 is ambiguous between fixing code and fixing tests). This produces tautological coverage.
 
@@ -1041,7 +1041,7 @@ Also update deviation-rules examples to show what "auto-fix" means vs doesn't.
 
 **Severity:** Medium. Currently verifier runs only at end of phase.
 
-**Files:** `forge-verify/loop.js`, `atos-forge/workflows/execute-phase.md` step 5d
+**Files:** `forge-verify/loop.js`, `forge-cli/workflows/execute-phase.md` step 5d
 
 **Approach:** After each wave, run only:
 - Layer 1 STRUCTURAL
@@ -1062,7 +1062,7 @@ Wave with broken wiring fails before next wave starts.
 
 **Severity:** High. Classifier-based tests map to file contents, not requirements.
 
-**Files:** `atos-forge/workflows/add-tests.md`, `skill-sources/forge-add-tests/SKILL.md`
+**Files:** `forge-cli/workflows/add-tests.md`, `skill-sources/forge-add-tests/SKILL.md`
 
 **Approach:** Workflow reads `must_haves.truths` from PLAN.md. For each truth without a corresponding test, generate one. Falls back to classifier only if `must_haves` absent (legacy plans).
 
@@ -1094,7 +1094,7 @@ Remove the TDD/E2E/Skip classification language at lines 60-66 of `add-tests.md`
 
 **Severity:** High. 5 of 7 mapper outputs are write-only.
 
-**Files:** `atos-forge/bin/lib/init.cjs::cmdInitPlanPhase`, `cmdInitExecutePhase`
+**Files:** `forge-cli/bin/lib/init.cjs::cmdInitPlanPhase`, `cmdInitExecutePhase`
 
 **Problem:** `forge-codebase-mapper` claims plan-phase and execute-phase load CONVENTIONS/STRUCTURE/TESTING/CONCERNS/INTEGRATIONS.md. Grep: nothing reads them.
 
@@ -1118,7 +1118,7 @@ Choose based on whether the team values per-phase context loading enough to inve
 
 **Severity:** Medium. Auditability gap + staleness blind spot.
 
-**Files:** `agents/forge-requirement-enhancer.md`, `atos-forge/workflows/enhance-requirements.md`, `atos-forge/bin/forge-tools.cjs requirements add`, new workflow `research-refresh.md`
+**Files:** `agents/forge-requirement-enhancer.md`, `forge-cli/workflows/enhance-requirements.md`, `forge-cli/bin/forge-tools.cjs requirements add`, new workflow `research-refresh.md`
 
 **Approach:**
 
@@ -1208,7 +1208,7 @@ Additional simulations:
 
 **Estimated savings:** ~15K tokens per invocation using 3+ defined terms.
 
-**File:** new `atos-forge/references/common-vocabulary.md`
+**File:** new `forge-cli/references/common-vocabulary.md`
 
 **Approach:** Define once in the new reference: `must_haves`, `key_links`, `truths`, `requirements`, `CONTEXT.md`, `STATE.md`, `SUMMARY.md`, `Phase Boundary`, `goal-backward`, `frontmatter`, `Locked Decisions`, etc. Strip definitions from every agent prompt; replace with `@common-vocabulary.md` reference.
 
@@ -1257,7 +1257,7 @@ Target: 5K tokens for base planner prompt.
 
 **Estimated savings:** 50-150K tokens per phase on mature projects.
 
-**Files:** `atos-forge/bin/lib/init.cjs::cmdInitPlanPhase`, `cmdInitExecutePhase`
+**Files:** `forge-cli/bin/lib/init.cjs::cmdInitPlanPhase`, `cmdInitExecutePhase`
 
 **Problem:** Today `--include state,roadmap,requirements,context,research,verification,uat` inlines full file contents. For a mature project REQUIREMENTS+ROADMAP+CONTEXT can be 20-80K tokens; that is then duplicated across researcher, planner, checker sub-agents (60-240K total just for bulk-load).
 
@@ -1301,7 +1301,7 @@ Target: 5K tokens for base planner prompt.
 
 **Estimated savings:** 16K tokens per `/forge-new-project`, up to 44K per planner revision loop.
 
-**Files:** `atos-forge/workflows/new-project.md` (4 researcher spawns), `plan-phase.md` (initial + revision planner, phase-researcher), `quick.md` (planner), `diagnose-issues.md` (debugger)
+**Files:** `forge-cli/workflows/new-project.md` (4 researcher spawns), `plan-phase.md` (initial + revision planner, phase-researcher), `quick.md` (planner), `diagnose-issues.md` (debugger)
 
 **Problem:** 8 invocation sites use `subagent_type="general-purpose"` with `"First, read ~/.claude/agents/forge-X.md"` prepended. Role loads via Read tool into conversation context instead of system message — expensive and weakens agent identity.
 

@@ -4,10 +4,10 @@ description: Archive completed milestone and prepare for next version
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 **Load these files NOW (before proceeding):**
-- @~/.codex/forge/atos-forge/workflows/complete-milestone.md (main workflow)
-- @~/.codex/forge/atos-forge/templates/milestone-archive.md (archive template)
+- @~/.codex/forge/forge-cli/workflows/complete-milestone.md (main workflow)
+- @~/.codex/forge/forge-cli/templates/milestone-archive.md (archive template)
 </execution_context>
 
 <objective>

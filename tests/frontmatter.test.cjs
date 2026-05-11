@@ -1,7 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
-const fm = require(path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'frontmatter.cjs'));
+const fm = require(path.join(__dirname, '..', 'forge-cli', 'bin', 'lib', 'frontmatter.cjs'));
 
 describe('frontmatter.cjs', () => {
   it('extractFrontmatter parses YAML frontmatter', () => {

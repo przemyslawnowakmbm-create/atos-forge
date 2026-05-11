@@ -8,9 +8,9 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 @.planning/STATE.md
-@~/.claude/atos-forge/workflows/pause-work.md
+@~/.claude/forge-cli/workflows/pause-work.md
 </execution_context>
 
 <objective>
@@ -27,7 +27,7 @@ Routes to the pause-work workflow which handles:
 
 
 <process>
-**Follow the pause-work workflow** from `@~/.claude/atos-forge/workflows/pause-work.md`.
+**Follow the pause-work workflow** from `@~/.claude/forge-cli/workflows/pause-work.md`.
 
 The workflow handles all logic including:
 1. Phase directory detection

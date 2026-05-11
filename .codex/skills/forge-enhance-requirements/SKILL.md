@@ -4,9 +4,9 @@ description: Enhance requirements through quality audit, domain research, and ga
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/enhance-requirements.md
-@~/.codex/forge/atos-forge/templates/requirements.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/enhance-requirements.md
+@~/.codex/forge/forge-cli/templates/requirements.md
 </execution_context>
 
 <objective>
@@ -44,7 +44,7 @@ Supported: --mode full, --mode quality, --mode gaps, --mode add
 </context>
 
 <process>
-Execute the enhance-requirements workflow from @~/.codex/forge/atos-forge/workflows/enhance-requirements.md end-to-end.
+Execute the enhance-requirements workflow from @~/.codex/forge/forge-cli/workflows/enhance-requirements.md end-to-end.
 
 If --mode flag provided, skip mode selection and jump to the specified mode:
 - --mode full → run steps 3, 4, 5, 6, 7, 8, 9, 10

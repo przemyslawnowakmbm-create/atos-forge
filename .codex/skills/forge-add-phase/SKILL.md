@@ -4,10 +4,10 @@ description: Add phase to end of current milestone in roadmap
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 @.planning/ROADMAP.md
 @.planning/STATE.md
-@~/.codex/forge/atos-forge/workflows/add-phase.md
+@~/.codex/forge/forge-cli/workflows/add-phase.md
 </execution_context>
 
 <objective>
@@ -21,7 +21,7 @@ Routes to the add-phase workflow which handles:
 </objective>
 
 <process>
-**Follow the add-phase workflow** from `@~/.codex/forge/atos-forge/workflows/add-phase.md`.
+**Follow the add-phase workflow** from `@~/.codex/forge/forge-cli/workflows/add-phase.md`.
 
 The workflow handles all logic including:
 1. Argument parsing and validation

@@ -17,8 +17,8 @@ const path = require('path');
 const os = require('os');
 
 // ── Module under test ────────────────────────────────────────────────────────
-const fm = require(path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'frontmatter.cjs'));
-const core = require(path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'core.cjs'));
+const fm = require(path.join(__dirname, '..', 'forge-cli', 'bin', 'lib', 'frontmatter.cjs'));
+const core = require(path.join(__dirname, '..', 'forge-cli', 'bin', 'lib', 'core.cjs'));
 const { parsePlan } = require(path.join(__dirname, '..', 'forge-assess', 'assessor.js'));
 const { computeInputHash } = require(path.join(__dirname, '..', 'forge-agents', 'cache.js'));
 const { loadConfig, validate } = require(path.join(__dirname, '..', 'forge-config', 'config.js'));

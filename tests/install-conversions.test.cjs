@@ -1134,25 +1134,25 @@ description: broken`;
   describe('relative to absolute path conversion', () => {
     it('resolves relative path against cwd to an absolute path', () => {
       const cwd = '/some/project';
-      const rel = 'atos-forge/bin/forge-tools.cjs';
+      const rel = 'forge-cli/bin/forge-tools.cjs';
       const abs = path.resolve(cwd, rel);
       assert.ok(path.isAbsolute(abs));
-      assert.strictEqual(abs, '/some/project/atos-forge/bin/forge-tools.cjs');
+      assert.strictEqual(abs, '/some/project/forge-cli/bin/forge-tools.cjs');
     });
 
     it('path.join produces correct install target paths for global claude', () => {
       const homeDir = os.homedir();
       const configDir = path.join(homeDir, '.claude');
-      const forgeTarget = path.join(configDir, 'atos-forge');
+      const forgeTarget = path.join(configDir, 'forge-cli');
       assert.ok(path.isAbsolute(forgeTarget));
       assert.ok(forgeTarget.includes('.claude'));
-      assert.ok(forgeTarget.endsWith('atos-forge'));
+      assert.ok(forgeTarget.endsWith('forge-cli'));
     });
 
     it('path.join produces correct install target paths for local install', () => {
       const projectDir = '/my/project';
-      const localTarget = path.join(projectDir, '.claude', 'atos-forge');
-      assert.strictEqual(localTarget, '/my/project/.claude/atos-forge');
+      const localTarget = path.join(projectDir, '.claude', 'forge-cli');
+      assert.strictEqual(localTarget, '/my/project/.claude/forge-cli');
     });
 
     it('global codex install path appends /forge', () => {
@@ -1184,7 +1184,7 @@ description: broken`;
     });
 
     it('recreating a directory (rmSync + mkdirSync) is idempotent', () => {
-      const dirPath = path.join(tmpDir, 'atos-forge');
+      const dirPath = path.join(tmpDir, 'forge-cli');
       fs.mkdirSync(dirPath);
       fs.writeFileSync(path.join(dirPath, 'old-file.md'), 'old content');
 

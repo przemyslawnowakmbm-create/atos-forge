@@ -441,13 +441,13 @@ function dryRun(repos, output) {
 function resolveForgeTools() {
   // Find forge-tools.cjs relative to this module
   const candidates = [
-    path.join(__dirname, '..', 'atos-forge', 'bin', 'forge-tools.cjs'),
+    path.join(__dirname, '..', 'forge-cli', 'bin', 'forge-tools.cjs'),
     path.join(__dirname, '..', 'bin', 'forge-tools.cjs'),
   ];
 
   // Also try FORGE_HOME
   if (process.env.FORGE_HOME) {
-    candidates.unshift(path.join(process.env.FORGE_HOME, 'atos-forge', 'bin', 'forge-tools.cjs'));
+    candidates.unshift(path.join(process.env.FORGE_HOME, 'forge-cli', 'bin', 'forge-tools.cjs'));
   }
 
   for (const candidate of candidates) {
@@ -455,7 +455,7 @@ function resolveForgeTools() {
   }
 
   // Fallback: try to find via require resolution
-  throw new Error('Cannot find forge-tools.cjs. Set FORGE_HOME or ensure atos-forge/ is a sibling of forge-system/.');
+  throw new Error('Cannot find forge-tools.cjs. Set FORGE_HOME or ensure forge-cli/ is a sibling of forge-system/.');
 }
 
 function summarizeInitResults(results) {

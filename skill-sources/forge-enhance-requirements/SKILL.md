@@ -15,9 +15,9 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/enhance-requirements.md
-@~/.claude/atos-forge/templates/requirements.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/enhance-requirements.md
+@~/.claude/forge-cli/templates/requirements.md
 </execution_context>
 
 <objective>
@@ -55,7 +55,7 @@ Supported: --mode full, --mode quality, --mode gaps, --mode add
 </context>
 
 <process>
-Execute the enhance-requirements workflow from @~/.claude/atos-forge/workflows/enhance-requirements.md end-to-end.
+Execute the enhance-requirements workflow from @~/.claude/forge-cli/workflows/enhance-requirements.md end-to-end.
 
 If --mode flag provided, skip mode selection and jump to the specified mode:
 - --mode full → run steps 3, 4, 5, 6, 7, 8, 9, 10

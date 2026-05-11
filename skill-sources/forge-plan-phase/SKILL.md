@@ -15,9 +15,9 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/plan-phase.md
-@~/.claude/atos-forge/references/ui-brand.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/plan-phase.md
+@~/.claude/forge-cli/references/ui-brand.md
 </execution_context>
 
 <objective>
@@ -43,6 +43,6 @@ Normalize phase input in step 2 before any directory lookups.
 </context>
 
 <process>
-Execute the plan-phase workflow from @~/.claude/atos-forge/workflows/plan-phase.md end-to-end.
+Execute the plan-phase workflow from @~/.claude/forge-cli/workflows/plan-phase.md end-to-end.
 Preserve all workflow gates (validation, research, planning, verification loop, routing).
 </process>

@@ -10,8 +10,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/health.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/health.md
 </execution_context>
 
 <objective>
@@ -22,6 +22,6 @@ Use --repair to auto-fix detected issues (creates missing directories and config
 
 
 <process>
-Execute the health workflow from @~/.claude/atos-forge/workflows/health.md end-to-end.
+Execute the health workflow from @~/.claude/forge-cli/workflows/health.md end-to-end.
 Parse --repair flag from arguments and pass to workflow.
 </process>

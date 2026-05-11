@@ -4,8 +4,8 @@ description: Orchestrate parallel debug agents to investigate UAT gaps and find 
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/diagnose-issues.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/diagnose-issues.md
 </execution_context>
 
 <objective>
@@ -24,7 +24,7 @@ Read the Gaps section for failed/blocker items with their truth, reason, severit
 </context>
 
 <process>
-Execute the diagnose-issues workflow from @~/.codex/forge/atos-forge/workflows/diagnose-issues.md end-to-end.
+Execute the diagnose-issues workflow from @~/.codex/forge/forge-cli/workflows/diagnose-issues.md end-to-end.
 
 Steps in order:
 1. parse_gaps — Extract all failed/blocker gaps from UAT.md Gaps section

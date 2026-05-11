@@ -1,5 +1,5 @@
 {
-  "name": "@atos-forge/system",
+  "name": "@forge/system",
   "version": "0.1.0",
   "private": true,
   "description": "System Graph Engine — multi-repo interface detection, cross-repo dependency tracking, and system-level impact analysis.",

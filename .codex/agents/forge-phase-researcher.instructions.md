@@ -99,7 +99,7 @@ When researching "best library for X": find what the ecosystem actually uses, do
 Check `brave_search` from init context. If `true`, use Brave Search for higher quality results:
 
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs websearch "your query" --limit 10
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs websearch "your query" --limit 10
 ```
 
 **Options:**
@@ -309,7 +309,7 @@ Orchestrator provides: phase number/name, description/goal, requirements, constr
 
 Load phase context using init command:
 ```bash
-INIT=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs init phase-op "${PHASE}")
+INIT=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs init phase-op "${PHASE}")
 ```
 
 Extract from init JSON: `phase_dir`, `padded_phase`, `phase_number`, `commit_docs`.
@@ -349,7 +349,7 @@ Based on phase description, identify what needs investigating:
 
 When activated, add these research dimensions alongside standard technical research:
 
-1. **Style Pattern** — Determine appropriate visual style for the product type (e.g., Minimalism for SaaS, Glassmorphism for creative tools). Reference `@~/.codex/forge/atos-forge/references/ui-ux-quality.md` Section 3 (Color System) and Section 4 (Typography).
+1. **Style Pattern** — Determine appropriate visual style for the product type (e.g., Minimalism for SaaS, Glassmorphism for creative tools). Reference `@~/.codex/forge/forge-cli/references/ui-ux-quality.md` Section 3 (Color System) and Section 4 (Typography).
 2. **Color Palette** — Recommend semantic token set (primary, secondary, accent, background, card, muted, border, destructive + on-* variants). All accent colors WCAG 3:1 minimum. Primary text 4.5:1 minimum.
 3. **Typography Pairing** — Recommend heading + body font pairing with Google Fonts URL and Tailwind config snippet. Match mood to product type (see ui-ux-quality.md Section 4 pairings table).
 4. **Accessibility Requirements** — Document WCAG level target, contrast ratios, keyboard navigation scope, ARIA patterns needed, reduced-motion handling.
@@ -423,7 +423,7 @@ Write to: `$PHASE_DIR/$PADDED_PHASE-RESEARCH.md`
 ## Step 6: Commit Research (optional)
 
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs commit "docs($PHASE): research phase domain" --files "$PHASE_DIR/$PADDED_PHASE-RESEARCH.md"
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs commit "docs($PHASE): research phase domain" --files "$PHASE_DIR/$PADDED_PHASE-RESEARCH.md"
 ```
 
 ## Step 7: Return Structured Result

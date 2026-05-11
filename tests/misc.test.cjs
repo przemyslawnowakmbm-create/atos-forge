@@ -2,11 +2,11 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const { createTmpDir, cleanTmpDir, createPlanningDir } = require('./helpers.cjs');
-const misc = require(path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'misc.cjs'));
+const misc = require(path.join(__dirname, '..', 'forge-cli', 'bin', 'lib', 'misc.cjs'));
 
 describe('misc.cjs', () => {
   it('cmdGenerateSlug generates correct slugs via core', () => {
-    const core = require(path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'core.cjs'));
+    const core = require(path.join(__dirname, '..', 'forge-cli', 'bin', 'lib', 'core.cjs'));
     assert.strictEqual(core.generateSlugInternal('Add Dark Mode'), 'add-dark-mode');
   });
 

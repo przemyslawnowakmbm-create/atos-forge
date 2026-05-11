@@ -179,10 +179,10 @@ Auto-detected at runtime. Override with `execution.container_backend` in config.
 node forge-graph/builder.js .
 
 # 2. Check everything is working
-node atos-forge/bin/forge-tools.cjs doctor
+node forge-cli/bin/forge-tools.cjs doctor
 
 # 3. Explore the codebase visually
-node atos-forge/bin/forge-tools.cjs graph visualize --open
+node forge-cli/bin/forge-tools.cjs graph visualize --open
 
 # 4. Query the graph
 node forge-graph/query.js overview
@@ -315,21 +315,21 @@ node forge-graph/query.js modules
 
 ```bash
 # Same queries routed through the CLI
-node atos-forge/bin/forge-tools.cjs graph init         # Build graph
-node atos-forge/bin/forge-tools.cjs graph status       # Health + stats
-node atos-forge/bin/forge-tools.cjs graph impact <file>
-node atos-forge/bin/forge-tools.cjs graph context <f1> <f2>
-node atos-forge/bin/forge-tools.cjs graph visualize    # Generate dashboard
-node atos-forge/bin/forge-tools.cjs graph snapshot save
-node atos-forge/bin/forge-tools.cjs graph snapshot list
-node atos-forge/bin/forge-tools.cjs graph snapshot-diff
+node forge-cli/bin/forge-tools.cjs graph init         # Build graph
+node forge-cli/bin/forge-tools.cjs graph status       # Health + stats
+node forge-cli/bin/forge-tools.cjs graph impact <file>
+node forge-cli/bin/forge-tools.cjs graph context <f1> <f2>
+node forge-cli/bin/forge-tools.cjs graph visualize    # Generate dashboard
+node forge-cli/bin/forge-tools.cjs graph snapshot save
+node forge-cli/bin/forge-tools.cjs graph snapshot list
+node forge-cli/bin/forge-tools.cjs graph snapshot-diff
 ```
 
 ### Dashboard
 
 ```bash
 # Generate and open the interactive HTML dashboard
-node atos-forge/bin/forge-tools.cjs graph visualize --open
+node forge-cli/bin/forge-tools.cjs graph visualize --open
 ```
 
 The dashboard is a single `.forge/dashboard.html` file (~1MB) with embedded D3.js. Five tabs:
@@ -360,16 +360,16 @@ The ledger contains:
 
 ```bash
 # Read current ledger state
-node atos-forge/bin/forge-tools.cjs ledger state
+node forge-cli/bin/forge-tools.cjs ledger state
 
 # View the full ledger
-node atos-forge/bin/forge-tools.cjs ledger read
+node forge-cli/bin/forge-tools.cjs ledger read
 
 # Compact (stay under token budget)
-node atos-forge/bin/forge-tools.cjs ledger compact
+node forge-cli/bin/forge-tools.cjs ledger compact
 
 # Archive and reset for a new phase
-node atos-forge/bin/forge-tools.cjs ledger archive
+node forge-cli/bin/forge-tools.cjs ledger archive
 ```
 
 When agents are instructed via CLAUDE.md, the first thing they do is read the ledger. If the conversation context gets compacted by Claude Code, the ledger is still there on disk with the full picture. Trust the ledger over summarized history when they conflict.
@@ -447,7 +447,7 @@ Set any layer to `false` to skip it globally.
 Checks all dependencies, graph health, container readiness, and system resources in one command.
 
 ```bash
-node atos-forge/bin/forge-tools.cjs doctor
+node forge-cli/bin/forge-tools.cjs doctor
 ```
 
 ```
@@ -477,7 +477,7 @@ node atos-forge/bin/forge-tools.cjs doctor
 ╚══════════════════════════════════════════════════════════╝
 ```
 
-JSON output: `node atos-forge/bin/forge-tools.cjs doctor --raw`
+JSON output: `node forge-cli/bin/forge-tools.cjs doctor --raw`
 
 ### Settings
 
@@ -486,39 +486,39 @@ View effective config, detect system capabilities, get recommendations.
 ```bash
 # Show all settings with source attribution
 # D = default, G = global (~/.forge/config.json), P = project (.forge/config.json)
-node atos-forge/bin/forge-tools.cjs settings
+node forge-cli/bin/forge-tools.cjs settings
 
 # Get a specific value
-node atos-forge/bin/forge-tools.cjs settings get containers.max_concurrent
+node forge-cli/bin/forge-tools.cjs settings get containers.max_concurrent
 
 # Set a value (validates after save)
-node atos-forge/bin/forge-tools.cjs settings set containers.max_concurrent 4
+node forge-cli/bin/forge-tools.cjs settings set containers.max_concurrent 4
 
 # System-aware recommendations
-node atos-forge/bin/forge-tools.cjs settings recommend
+node forge-cli/bin/forge-tools.cjs settings recommend
 
 # Validate config
-node atos-forge/bin/forge-tools.cjs settings validate
+node forge-cli/bin/forge-tools.cjs settings validate
 ```
 
 ### Init (graph)
 
 ```bash
 # Build code graph from scratch
-node atos-forge/bin/forge-tools.cjs graph init
+node forge-cli/bin/forge-tools.cjs graph init
 
 # Graph health and statistics
-node atos-forge/bin/forge-tools.cjs graph status
+node forge-cli/bin/forge-tools.cjs graph status
 ```
 
 ### Impact analysis
 
 ```bash
 # What breaks if this file changes?
-node atos-forge/bin/forge-tools.cjs graph impact src/auth/session.ts
+node forge-cli/bin/forge-tools.cjs graph impact src/auth/session.ts
 
 # What context does an agent need for these files?
-node atos-forge/bin/forge-tools.cjs graph context src/api/users.ts src/db/models.ts
+node forge-cli/bin/forge-tools.cjs graph context src/api/users.ts src/db/models.ts
 ```
 
 ### Verification
@@ -531,20 +531,20 @@ node forge-verify/engine.js --root . --files src/api/users.ts
 node forge-verify/loop.js --root . --files src/api/users.ts --max-loops 3
 
 # Via forge-tools
-node atos-forge/bin/forge-tools.cjs verify work --files src/api/users.ts --commit
+node forge-cli/bin/forge-tools.cjs verify work --files src/api/users.ts --commit
 ```
 
 ### Snapshots
 
 ```bash
 # Save current graph state
-node atos-forge/bin/forge-tools.cjs graph snapshot save
+node forge-cli/bin/forge-tools.cjs graph snapshot save
 
 # List saved snapshots
-node atos-forge/bin/forge-tools.cjs graph snapshot list
+node forge-cli/bin/forge-tools.cjs graph snapshot list
 
 # Compare current graph against last snapshot
-node atos-forge/bin/forge-tools.cjs graph snapshot-diff
+node forge-cli/bin/forge-tools.cjs graph snapshot-diff
 ```
 
 ---
@@ -552,8 +552,8 @@ node atos-forge/bin/forge-tools.cjs graph snapshot-diff
 ## Directory structure
 
 ```
-atos-forge/
-├── atos-forge/              CLI, workflows, templates
+forge-cli/
+├── forge-cli/              CLI, workflows, templates
 │   ├── bin/forge-tools.cjs  Main CLI entry point (6000 lines, 50+ subcommands)
 │   ├── workflows/           Execution pipeline definitions
 │   └── templates/           Config and scaffold templates
@@ -616,7 +616,7 @@ atos-forge/
 | tree-sitter | (npm) | No | Better AST parsing (falls back to regex) |
 | better-sqlite3 | (npm) | No | Graph database (graph features disabled without it) |
 
-Run `node atos-forge/bin/forge-tools.cjs doctor` to check your environment.
+Run `node forge-cli/bin/forge-tools.cjs doctor` to check your environment.
 
 **Air-gapped operation:** Forge makes no network calls. The graph database, dashboard, ledger, and config are all local files. The only external dependency is Claude Code itself (which handles its own API connection). If you pre-install npm dependencies, everything works fully offline.
 

@@ -11,8 +11,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/architect.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/architect.md
 @.planning/REQUIREMENTS.md
 @.planning/PROJECT.md
 </execution_context>
@@ -31,7 +31,7 @@ architecture must conform to system-level constraints.
 </context>
 
 <process>
-Follow the architect workflow from `@~/.claude/atos-forge/workflows/architect.md` end-to-end.
+Follow the architect workflow from `@~/.claude/forge-cli/workflows/architect.md` end-to-end.
 
 Preserve all workflow gates including:
 - Context loading (requirements, project, system constraints, existing codebase map)

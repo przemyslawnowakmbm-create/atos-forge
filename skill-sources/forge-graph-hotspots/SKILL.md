@@ -8,7 +8,7 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -26,7 +26,7 @@ If `--raw` is present, return the CLI JSON output without extra formatting.
 Run:
 
 ```bash
-node ~/.claude/atos-forge/bin/forge-tools.cjs graph hotspots $ARGUMENTS
+node ~/.claude/forge-cli/bin/forge-tools.cjs graph hotspots $ARGUMENTS
 ```
 
 If the graph does not exist, tell the user to run `/forge-init`.

@@ -1,5 +1,5 @@
 {
-  "name": "@atos-forge/graph",
+  "name": "@forge/graph",
   "version": "0.1.0",
   "private": true,
   "description": "Code Graph Engine — builds a queryable SQLite database representing repository structure, symbols, and dependencies.",

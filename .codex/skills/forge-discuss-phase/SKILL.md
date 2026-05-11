@@ -4,9 +4,9 @@ description: Gather phase context through adaptive questioning before planning
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/discuss-phase.md
-@~/.codex/forge/atos-forge/templates/context.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/discuss-phase.md
+@~/.codex/forge/forge-cli/templates/context.md
 </execution_context>
 
 <objective>

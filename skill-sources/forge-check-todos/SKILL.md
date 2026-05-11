@@ -10,10 +10,10 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 @.planning/STATE.md
 @.planning/ROADMAP.md
-@~/.claude/atos-forge/workflows/check-todos.md
+@~/.claude/forge-cli/workflows/check-todos.md
 </execution_context>
 
 <objective>
@@ -30,7 +30,7 @@ Routes to the check-todos workflow which handles:
 
 
 <process>
-**Follow the check-todos workflow** from `@~/.claude/atos-forge/workflows/check-todos.md`.
+**Follow the check-todos workflow** from `@~/.claude/forge-cli/workflows/check-todos.md`.
 
 The workflow handles all logic including:
 1. Todo existence checking

@@ -11,12 +11,12 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/new-milestone.md
-@~/.claude/atos-forge/references/questioning.md
-@~/.claude/atos-forge/references/ui-brand.md
-@~/.claude/atos-forge/templates/project.md
-@~/.claude/atos-forge/templates/requirements.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/new-milestone.md
+@~/.claude/forge-cli/references/questioning.md
+@~/.claude/forge-cli/references/ui-brand.md
+@~/.claude/forge-cli/templates/project.md
+@~/.claude/forge-cli/templates/requirements.md
 </execution_context>
 
 <objective>
@@ -50,6 +50,6 @@ Milestone name: $ARGUMENTS (optional - will prompt if not provided)
 </context>
 
 <process>
-Execute the new-milestone workflow from @~/.claude/atos-forge/workflows/new-milestone.md end-to-end.
+Execute the new-milestone workflow from @~/.claude/forge-cli/workflows/new-milestone.md end-to-end.
 Preserve all workflow gates (validation, questioning, research, requirements, roadmap approval, commits).
 </process>

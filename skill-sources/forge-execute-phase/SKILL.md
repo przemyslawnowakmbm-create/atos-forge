@@ -15,9 +15,9 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/execute-phase.md
-@~/.claude/atos-forge/references/ui-brand.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/execute-phase.md
+@~/.claude/forge-cli/references/ui-brand.md
 </execution_context>
 
 <objective>
@@ -41,6 +41,6 @@ Phase: $ARGUMENTS
 </context>
 
 <process>
-Execute the execute-phase workflow from @~/.claude/atos-forge/workflows/execute-phase.md end-to-end.
+Execute the execute-phase workflow from @~/.claude/forge-cli/workflows/execute-phase.md end-to-end.
 Preserve all workflow gates (wave execution, checkpoint handling, verification, state updates, routing).
 </process>

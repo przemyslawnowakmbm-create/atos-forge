@@ -89,7 +89,7 @@ forge-system-init --github-org myorg
 ### Module Layout
 
 ```
-atos-forge/          (existing — CLI entry point)
+forge-cli/          (existing — CLI entry point)
 forge-graph/         (existing — per-repo code graph)
 forge-system/        (NEW — system-level graph)
   ├── schema.sql           — SQLite schema for system-graph.db
@@ -797,7 +797,7 @@ This is the key new capability — one command to bootstrap an entire multi-repo
 
 ### Phase 7: CLI + forge-tools Integration (modify 1 existing file)
 
-**Files:** Modify `atos-forge/bin/forge-tools.cjs`
+**Files:** Modify `forge-cli/bin/forge-tools.cjs`
 
 1. Add commands: `system-init`, `system-rebuild`, `system-sync`, `system-status`, `system-impact`, `system-validate`, `system-dashboard`
 2. Wire commands to `forge-system/` modules
@@ -865,7 +865,7 @@ New verification file:
   └── forge-verify/contract-layer.js    — Layer 7 contract verification logic
 
 Modified existing files:
-  ├── atos-forge/bin/forge-tools.cjs    — New system-* commands
+  ├── forge-cli/bin/forge-tools.cjs    — New system-* commands
   ├── forge-agents/factory.js           — Cross-repo context in agent prompts
   ├── forge-agents/parallel-planner.js  — Cross-repo DAG planning
   ├── forge-containers/orchestrator.js  — Mount system context in containers

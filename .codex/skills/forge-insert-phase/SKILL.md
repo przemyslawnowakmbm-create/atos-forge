@@ -4,8 +4,8 @@ description: Insert urgent work as decimal phase (e.g., 72.1) between existing p
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/insert-phase.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/insert-phase.md
 </execution_context>
 
 <objective>
@@ -24,6 +24,6 @@ Arguments: $ARGUMENTS (format: <after-phase-number> <description>)
 </context>
 
 <process>
-Execute the insert-phase workflow from @~/.codex/forge/atos-forge/workflows/insert-phase.md end-to-end.
+Execute the insert-phase workflow from @~/.codex/forge/forge-cli/workflows/insert-phase.md end-to-end.
 Preserve all validation gates (argument parsing, phase verification, decimal calculation, roadmap updates).
 </process>

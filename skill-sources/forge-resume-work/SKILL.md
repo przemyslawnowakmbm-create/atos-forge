@@ -10,8 +10,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/resume-project.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/resume-project.md
 </execution_context>
 
 <objective>
@@ -29,7 +29,7 @@ Routes to the resume-project workflow which handles:
 
 
 <process>
-**Follow the resume-project workflow** from `@~/.claude/atos-forge/workflows/resume-project.md`.
+**Follow the resume-project workflow** from `@~/.claude/forge-cli/workflows/resume-project.md`.
 
 The workflow handles all resumption logic including:
 

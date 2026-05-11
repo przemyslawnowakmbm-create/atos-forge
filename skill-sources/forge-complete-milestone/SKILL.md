@@ -10,10 +10,10 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 **Load these files NOW (before proceeding):**
-- @~/.claude/atos-forge/workflows/complete-milestone.md (main workflow)
-- @~/.claude/atos-forge/templates/milestone-archive.md (archive template)
+- @~/.claude/forge-cli/workflows/complete-milestone.md (main workflow)
+- @~/.claude/forge-cli/templates/milestone-archive.md (archive template)
 </execution_context>
 
 <objective>

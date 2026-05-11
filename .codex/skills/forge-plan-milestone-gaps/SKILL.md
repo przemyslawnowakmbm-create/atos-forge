@@ -4,8 +4,8 @@ description: Create phases to close all gaps identified by milestone audit
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/plan-milestone-gaps.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/plan-milestone-gaps.md
 </execution_context>
 
 <objective>
@@ -30,6 +30,6 @@ Glob: .planning/v*-MILESTONE-AUDIT.md (use most recent)
 </context>
 
 <process>
-Execute the plan-milestone-gaps workflow from @~/.codex/forge/atos-forge/workflows/plan-milestone-gaps.md end-to-end.
+Execute the plan-milestone-gaps workflow from @~/.codex/forge/forge-cli/workflows/plan-milestone-gaps.md end-to-end.
 Preserve all workflow gates (audit loading, prioritization, phase grouping, user confirmation, roadmap updates).
 </process>

@@ -4,7 +4,7 @@ description: Build the code graph and initialize .forge/ infrastructure
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -31,7 +31,7 @@ Display banner:
 Run the graph build:
 
 ```bash
-RESULT=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs graph init $ARGUMENTS)
+RESULT=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs graph init $ARGUMENTS)
 ```
 
 Parse JSON result for: `success`, `build_time`, `total_files`, `total_symbols`, `module_count`, `dependency_count`, `hooks_installed`, `capabilities_detected`, `gitignore_updated`, `db_path`.

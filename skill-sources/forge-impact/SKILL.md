@@ -8,7 +8,7 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -29,7 +29,7 @@ Arguments: $ARGUMENTS
 ## 1. Check Graph Exists
 
 ```bash
-STATUS=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph status)
+STATUS=$(node ~/.claude/forge-cli/bin/forge-tools.cjs graph status)
 GRAPH_EXISTS=$(echo "$STATUS" | jq -r '.graph_exists')
 ```
 
@@ -54,12 +54,12 @@ Parse $ARGUMENTS:
 
 **File mode:**
 ```bash
-IMPACT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph impact "$FILE" --depth $DEPTH)
+IMPACT=$(node ~/.claude/forge-cli/bin/forge-tools.cjs graph impact "$FILE" --depth $DEPTH)
 ```
 
 **Phase mode:**
 ```bash
-IMPACT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs graph impact --phase "$PHASE")
+IMPACT=$(node ~/.claude/forge-cli/bin/forge-tools.cjs graph impact --phase "$PHASE")
 ```
 
 ## 4. Display Results

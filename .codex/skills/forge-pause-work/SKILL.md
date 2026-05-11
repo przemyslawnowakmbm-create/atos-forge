@@ -4,9 +4,9 @@ description: Create context handoff when pausing work mid-phase
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 @.planning/STATE.md
-@~/.codex/forge/atos-forge/workflows/pause-work.md
+@~/.codex/forge/forge-cli/workflows/pause-work.md
 </execution_context>
 
 <objective>
@@ -21,7 +21,7 @@ Routes to the pause-work workflow which handles:
 </objective>
 
 <process>
-**Follow the pause-work workflow** from `@~/.codex/forge/atos-forge/workflows/pause-work.md`.
+**Follow the pause-work workflow** from `@~/.codex/forge/forge-cli/workflows/pause-work.md`.
 
 The workflow handles all logic including:
 1. Phase directory detection

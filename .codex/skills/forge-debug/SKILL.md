@@ -4,7 +4,7 @@ description: Systematic debugging with persistent state across context resets
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -29,12 +29,12 @@ ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
 ## 0. Initialize Context
 
 ```bash
-INIT=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs state load)
+INIT=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs state load)
 ```
 
 Extract `commit_docs` from init JSON. Resolve debugger model:
 ```bash
-DEBUGGER_MODEL=$(node ~/.codex/forge/atos-forge/bin/forge-tools.cjs resolve-model forge-debugger --raw)
+DEBUGGER_MODEL=$(node ~/.codex/forge/forge-cli/bin/forge-tools.cjs resolve-model forge-debugger --raw)
 ```
 
 ## 1. Check Active Sessions

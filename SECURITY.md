@@ -4,7 +4,7 @@
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to: **security@atos-forge.dev**
+Instead, please report them via email to: **security@forge.dev**
 
 Include:
 - Description of the vulnerability

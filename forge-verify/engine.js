@@ -68,6 +68,9 @@ const LAYER_NAMES = [
   'ARCHITECTURAL',
   'BROWSER',
   'MUTATION',
+  'COVERAGE',
+  'ENTROPY',
+  'REGRESSION',
 ];
 
 const LAYER_ICONS = { pass: '\u2705', fail: '\u274C', skip: '\u23ED\uFE0F' };
@@ -1153,7 +1156,7 @@ function layerHashLock(opts) {
 }
 
 // ============================================================
-// Layer 9.5 — SEMANTIC (optional, LLM-based, off by default)
+// Layer 7.5 — SEMANTIC (optional, LLM-based, off by default)
 // ============================================================
 
 /**
@@ -1725,7 +1728,7 @@ function layerKeyLinks(opts) {
   }
   let parseMustHavesBlock;
   try {
-    const fmPath = path.join(__dirname, '..', 'atos-forge', 'bin', 'lib', 'frontmatter.cjs');
+    const fmPath = path.join(__dirname, '..', 'forge-cli', 'bin', 'lib', 'frontmatter.cjs');
     ({ parseMustHavesBlock } = require(fmPath));
   } catch {
     return { passed: true, links: [], skipped: true, reason: 'frontmatter parser unavailable', duration_ms: Date.now() - start };
@@ -2043,6 +2046,66 @@ async function verify(opts) {
     }
   } else if (maxLayer >= 10) {
     layers.push({ index: 10, name: 'MUTATION', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'disabled (opt-in)', duration_ms: 0 }, duration_ms: 0 });
+  }
+
+  // Layer 11 — COVERAGE (optional, off by default)
+  if (maxLayer >= 11 && verifyConfig.layers && verifyConfig.layers.coverage === true) {
+    if (!layerCoverageMod) {
+      layers.push({ index: 11, name: 'COVERAGE', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'coverage.js not found', duration_ms: 0 }, duration_ms: 0 });
+    } else {
+      const cachedCov = cache ? cache.get('COVERAGE', files, cwd) : null;
+      const resultCov = cachedCov || layerCoverageMod.collectCoverage(cwd, {
+        files,
+        ...(verifyConfig.coverage || {}),
+      });
+      if (!cachedCov && cache) cache.set('COVERAGE', files, cwd, resultCov);
+      layers.push({ index: 11, name: 'COVERAGE', passed: resultCov.passed, skipped: !!resultCov.skipped, result: resultCov, duration_ms: resultCov.duration_ms || 0 });
+      if (!resultCov.passed && failFast) {
+        return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+      }
+    }
+  } else if (maxLayer >= 11) {
+    layers.push({ index: 11, name: 'COVERAGE', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'disabled (opt-in)', duration_ms: 0 }, duration_ms: 0 });
+  }
+
+  // Layer 12 — ENTROPY (optional, off by default)
+  if (maxLayer >= 12 && verifyConfig.layers && verifyConfig.layers.entropy === true) {
+    if (!layerEntropyMod) {
+      layers.push({ index: 12, name: 'ENTROPY', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'entropy.js not found', duration_ms: 0 }, duration_ms: 0 });
+    } else {
+      const cachedEnt = cache ? cache.get('ENTROPY', files, cwd) : null;
+      const resultEnt = cachedEnt || layerEntropyMod.computeEntropy(cwd, {
+        ...(verifyConfig.entropy || {}),
+      });
+      if (!cachedEnt && cache) cache.set('ENTROPY', files, cwd, resultEnt);
+      const entPassed = resultEnt.skipped ? true : (resultEnt.aggregate && resultEnt.aggregate.health !== 'red');
+      layers.push({ index: 12, name: 'ENTROPY', passed: entPassed, skipped: !!resultEnt.skipped, result: resultEnt, duration_ms: resultEnt.duration_ms || 0 });
+      if (!entPassed && failFast) {
+        return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+      }
+    }
+  } else if (maxLayer >= 12) {
+    layers.push({ index: 12, name: 'ENTROPY', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'disabled (opt-in)', duration_ms: 0 }, duration_ms: 0 });
+  }
+
+  // Layer 13 — REGRESSION (optional, off by default)
+  if (maxLayer >= 13 && verifyConfig.layers && verifyConfig.layers.regression === true) {
+    if (!layerRegressionMod) {
+      layers.push({ index: 13, name: 'REGRESSION', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'regression.js not found', duration_ms: 0 }, duration_ms: 0 });
+    } else {
+      const cachedReg = cache ? cache.get('REGRESSION', files, cwd) : null;
+      const resultReg = cachedReg || layerRegressionMod.runRegression(cwd, {
+        files,
+        ...(verifyConfig.regression || {}),
+      });
+      if (!cachedReg && cache) cache.set('REGRESSION', files, cwd, resultReg);
+      layers.push({ index: 13, name: 'REGRESSION', passed: resultReg.passed, skipped: !!resultReg.skipped, result: resultReg, duration_ms: resultReg.duration_ms || 0 });
+      if (!resultReg.passed && failFast) {
+        return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+      }
+    }
+  } else if (maxLayer >= 13) {
+    layers.push({ index: 13, name: 'REGRESSION', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'disabled (opt-in)', duration_ms: 0 }, duration_ms: 0 });
   }
 
   return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });

@@ -9,8 +9,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/set-profile.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/set-profile.md
 </execution_context>
 
 <objective>
@@ -26,7 +26,7 @@ Routes to the set-profile workflow which handles:
 
 
 <process>
-**Follow the set-profile workflow** from `@~/.claude/atos-forge/workflows/set-profile.md`.
+**Follow the set-profile workflow** from `@~/.claude/forge-cli/workflows/set-profile.md`.
 
 The workflow handles all logic including:
 1. Profile argument validation

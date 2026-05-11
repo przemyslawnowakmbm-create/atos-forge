@@ -1,14 +1,14 @@
 # Forge — Agent Instructions
 
 ## Module Layout & Path Resolution
-Forge consists of `atos-forge/` (CLI entry point) and 9 sibling engine modules:
+Forge consists of `forge-cli/` (CLI entry point) and 9 sibling engine modules:
   forge-graph/, forge-config/, forge-session/, forge-verify/,
   forge-assess/, forge-agents/, forge-containers/, forge-system/, forge-analyze/
 
 All modules must be siblings under the same parent directory (the "forge root").
 `forge-tools.cjs` resolves the forge root via `getForgeRoot()`:
 1. `FORGE_HOME` env var (if set)
-2. Default: 2 levels up from `atos-forge/bin/forge-tools.cjs`
+2. Default: 2 levels up from `forge-cli/bin/forge-tools.cjs`
 
 The installer (`bin/install.js`) copies all 10 directories to the target config dir.
 
@@ -104,11 +104,11 @@ Agent integration: `factory.js extractSessionContext()` → `knowledge.relevantF
 section in agent system prompts.
 
 CLI commands:
-  node atos-forge/bin/forge-tools.cjs knowledge list              — Show all learnings
-  node atos-forge/bin/forge-tools.cjs knowledge add <text>        — Manual entry
+  node forge-cli/bin/forge-tools.cjs knowledge list              — Show all learnings
+  node forge-cli/bin/forge-tools.cjs knowledge add <text>        — Manual entry
     [--type <type>] [--modules <m1,m2>] [--relevance <level>]
-  node atos-forge/bin/forge-tools.cjs knowledge prune <id>        — Remove stale learning
-  node atos-forge/bin/forge-tools.cjs knowledge promote           — Manual promotion from ledger
+  node forge-cli/bin/forge-tools.cjs knowledge prune <id>        — Remove stale learning
+  node forge-cli/bin/forge-tools.cjs knowledge promote           — Manual promotion from ledger
 
 Configuration in .forge/config.json (knowledge section):
   enabled (default true), auto_promote (default true), max_entries (default 200),
@@ -134,8 +134,8 @@ Integration:
 - factory.js — injects impact_analysis into agent session_context + "Cross-Repo Impact" prompt section
 
 CLI commands:
-  node atos-forge/bin/forge-tools.cjs impact analyze [--phase N] [--goal <text>] [--json] [--write]
-  node atos-forge/bin/forge-tools.cjs impact show --phase N
+  node forge-cli/bin/forge-tools.cjs impact analyze [--phase N] [--goal <text>] [--json] [--write]
+  node forge-cli/bin/forge-tools.cjs impact show --phase N
 
 Configuration in .forge/config.json (impact_analysis section):
   enabled (default true), auto_detect (default true), max_depth (default 2), scope_threshold (default 1).
@@ -157,7 +157,7 @@ Configuration in .forge/config.json or .planning/config.json (execution section)
   safety_margin (default 0.20), auto_split, max_fix_loops, overhead_per_subtask.
 
 ## Execution Pipeline
-The execute-phase workflow (atos-forge/workflows/execute-phase.md) runs the full pipeline:
+The execute-phase workflow (forge-cli/workflows/execute-phase.md) runs the full pipeline:
 
 1. **Load plans** — discover incomplete plans, filter by wave/gaps
 2. **Assess & split** — assessor checks context fit, splitter breaks oversized plans
@@ -250,11 +250,11 @@ Cross-repo agent awareness (Phase 4):
 - Worktree orchestrator copies system-graph.db + neighbor interfaces to agent worktree
 
 Agent Cache — built agents persist to `.forge/agents/` for reuse:
-  node atos-forge/bin/forge-tools.cjs agents list              — List cached agents with staleness
-  node atos-forge/bin/forge-tools.cjs agents show <task-id>    — Detailed agent info
-  node atos-forge/bin/forge-tools.cjs agents invalidate        — Remove stale agents
-  node atos-forge/bin/forge-tools.cjs agents invalidate --all  — Clear entire cache
-  node atos-forge/bin/forge-tools.cjs agents rebuild <task-id> — Force rebuild from plan
+  node forge-cli/bin/forge-tools.cjs agents list              — List cached agents with staleness
+  node forge-cli/bin/forge-tools.cjs agents show <task-id>    — Detailed agent info
+  node forge-cli/bin/forge-tools.cjs agents invalidate        — Remove stale agents
+  node forge-cli/bin/forge-tools.cjs agents invalidate --all  — Clear entire cache
+  node forge-cli/bin/forge-tools.cjs agents rebuild <task-id> — Force rebuild from plan
 
 Cache key: SHA-256 of plan content + graph.db mtime + system-graph.db mtime + knowledge hash + ledger mtime.
 Cache hit → instant reuse. Cache miss → full 7-step build → auto-saves to cache.
@@ -340,7 +340,7 @@ Contract layer module: require('forge-verify/contract-layer')
 ## Verification Loop (Auto-Fix)
 Verify → fix → re-verify loop with loop detection and escalation:
   node forge-verify/loop.js --root . [--files f1,f2] [--plan plan.md] [--max-loops 3] [--commit] [--json]
-  node atos-forge/bin/forge-tools.cjs verify work [--files f1,f2] [--max-loops 3] [--commit] [--no-agent]
+  node forge-cli/bin/forge-tools.cjs verify work [--files f1,f2] [--max-loops 3] [--commit] [--no-agent]
 
 Flow: verify → PASS? done : analyze fixability → build fix agent → run via worktree → re-verify → max N loops → escalate.
 Auto-fixable: type errors (L2), missing imports (L4), assertion mismatches (L5), interface breaks (L3), syntax issues (L1), contract drift (L7).
@@ -401,7 +401,7 @@ Section accessors (backward-compatible return shapes):
 All existing consumers delegate to unified config with try/catch fallback to original inline logic.
 
 ## Forge Settings
-  node atos-forge/bin/forge-tools.cjs settings [show|recommend|validate|get|set]
+  node forge-cli/bin/forge-tools.cjs settings [show|recommend|validate|get|set]
 
 Subcommands:
 - (none) or show — display effective config with source attribution (D=default, G=global, P=project)
@@ -414,10 +414,10 @@ Subcommands:
 Discovers and catalogs specialized agent definitions from `~/.claude/agents/`, `.claude/agents/` (project-local), and any paths in `agent_registry.scan_paths`. Enables the Dynamic Agent Factory to inject domain expertise from specialized agents (typescript-pro, api-designer, test-automator, etc.) into execution agent prompts — replacing 1-sentence capability snippets with detailed checklists, patterns, and rules.
 
 CLI commands:
-  node atos-forge/bin/forge-tools.cjs registry scan [--json]    — Discover agents, rebuild .forge/agents/catalog.json
-  node atos-forge/bin/forge-tools.cjs registry list [--json]    — List all discovered agents
-  node atos-forge/bin/forge-tools.cjs registry show <id>        — Agent details, expertise preview, usage stats
-  node atos-forge/bin/forge-tools.cjs registry match <cap> [...] — Find agents for capabilities
+  node forge-cli/bin/forge-tools.cjs registry scan [--json]    — Discover agents, rebuild .forge/agents/catalog.json
+  node forge-cli/bin/forge-tools.cjs registry list [--json]    — List all discovered agents
+  node forge-cli/bin/forge-tools.cjs registry show <id>        — Agent details, expertise preview, usage stats
+  node forge-cli/bin/forge-tools.cjs registry match <cap> [...] — Find agents for capabilities
 
 Catalog stored at: `.forge/agents/catalog.json`
   { version, last_scan, agents: [{id, description, source_type, capability_tags, expertise, usage_count, success_rate}], capability_map }
@@ -451,7 +451,7 @@ Auto-scan: triggered when agent_registry.auto_scan=true and forge-init runs.
 Usage tracking: recordUsage(cwd, agentIds, 'success'|'failure') updates success_rate in catalog.
 
 ## Forge Doctor
-  node atos-forge/bin/forge-tools.cjs doctor [--raw for JSON]
+  node forge-cli/bin/forge-tools.cjs doctor [--raw for JSON]
   node forge-config/doctor.js --root . [--json]
 
 18 health checks across 3 categories:
@@ -462,7 +462,7 @@ Usage tracking: recordUsage(cwd, agentIds, 'success'|'failure') updates success_
 Box-drawing terminal output with status icons. Returns { checks[], summary: { ok, warn, fail, skip } }.
 
 ## System CLI Commands
-  node atos-forge/bin/forge-tools.cjs system <subcommand> [options]
+  node forge-cli/bin/forge-tools.cjs system <subcommand> [options]
 
 Subcommands:
 - init — Discover repos, run forge-init on each, build system-graph.db

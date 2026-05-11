@@ -9,7 +9,7 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -38,20 +38,20 @@ Normalize phase input in step 1 before any directory lookups.
 ## 0. Initialize Context
 
 ```bash
-INIT=$(node ~/.claude/atos-forge/bin/forge-tools.cjs init phase-op "$ARGUMENTS")
+INIT=$(node ~/.claude/forge-cli/bin/forge-tools.cjs init phase-op "$ARGUMENTS")
 ```
 
 Extract from init JSON: `phase_dir`, `phase_number`, `phase_name`, `phase_found`, `commit_docs`, `has_research`.
 
 Resolve researcher model:
 ```bash
-RESEARCHER_MODEL=$(node ~/.claude/atos-forge/bin/forge-tools.cjs resolve-model forge-phase-researcher --raw)
+RESEARCHER_MODEL=$(node ~/.claude/forge-cli/bin/forge-tools.cjs resolve-model forge-phase-researcher --raw)
 ```
 
 ## 1. Validate Phase
 
 ```bash
-PHASE_INFO=$(node ~/.claude/atos-forge/bin/forge-tools.cjs roadmap get-phase "${phase_number}")
+PHASE_INFO=$(node ~/.claude/forge-cli/bin/forge-tools.cjs roadmap get-phase "${phase_number}")
 ```
 
 **If `found` is false:** Error and exit. **If `found` is true:** Extract `phase_number`, `phase_name`, `goal` from JSON.

@@ -140,7 +140,7 @@ Only one interpretation is possible. Avoid subjective terms.
 Check `brave_search` from init context. If `true`, use Brave Search for higher quality results:
 
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs websearch "your query" --limit 10
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs websearch "your query" --limit 10
 ```
 
 **Options:**

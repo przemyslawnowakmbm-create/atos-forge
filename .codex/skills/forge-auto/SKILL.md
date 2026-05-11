@@ -4,9 +4,9 @@ description: Run autonomous mode — researches, plans, executes, verifies, comm
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 </execution_context>
 
 $ARGUMENTS: [--verbose] [--timeout <seconds>]
 
-Load and follow @atos-forge/workflows/auto.md
+Load and follow @forge/workflows/auto.md

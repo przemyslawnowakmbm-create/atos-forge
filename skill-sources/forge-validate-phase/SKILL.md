@@ -14,9 +14,9 @@ argument-instructions: |
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
+@~/.claude/forge-cli/references/agent-directives.md
 </execution_context>
 
 $ARGUMENTS: phase number
 
-Load and follow @atos-forge/workflows/validate-phase.md
+Load and follow @forge/workflows/validate-phase.md

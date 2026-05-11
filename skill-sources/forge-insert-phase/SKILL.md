@@ -9,8 +9,8 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/insert-phase.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/insert-phase.md
 </execution_context>
 
 <objective>
@@ -31,6 +31,6 @@ Arguments: $ARGUMENTS (format: <after-phase-number> <description>)
 </context>
 
 <process>
-Execute the insert-phase workflow from @~/.claude/atos-forge/workflows/insert-phase.md end-to-end.
+Execute the insert-phase workflow from @~/.claude/forge-cli/workflows/insert-phase.md end-to-end.
 Preserve all validation gates (argument parsing, phase verification, decimal calculation, roadmap updates).
 </process>

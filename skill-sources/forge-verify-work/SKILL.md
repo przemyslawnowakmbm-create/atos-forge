@@ -13,9 +13,9 @@ allowed-tools:
 ---
 
 <execution_context>
-@~/.claude/atos-forge/references/agent-directives.md
-@~/.claude/atos-forge/workflows/verify-work.md
-@~/.claude/atos-forge/templates/UAT.md
+@~/.claude/forge-cli/references/agent-directives.md
+@~/.claude/forge-cli/workflows/verify-work.md
+@~/.claude/forge-cli/templates/UAT.md
 </execution_context>
 
 <objective>
@@ -38,6 +38,6 @@ Phase: $ARGUMENTS (optional)
 </context>
 
 <process>
-Execute the verify-work workflow from @~/.claude/atos-forge/workflows/verify-work.md end-to-end.
+Execute the verify-work workflow from @~/.claude/forge-cli/workflows/verify-work.md end-to-end.
 Preserve all workflow gates (session management, test presentation, diagnosis, fix planning, routing).
 </process>

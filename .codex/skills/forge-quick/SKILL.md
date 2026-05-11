@@ -4,8 +4,8 @@ description: Execute a quick task with Forge guarantees (atomic commits, state t
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
-@~/.codex/forge/atos-forge/workflows/quick.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
+@~/.codex/forge/forge-cli/workflows/quick.md
 </execution_context>
 
 <objective>
@@ -27,6 +27,6 @@ $ARGUMENTS
 </context>
 
 <process>
-Execute the quick workflow from @~/.codex/forge/atos-forge/workflows/quick.md end-to-end.
+Execute the quick workflow from @~/.codex/forge/forge-cli/workflows/quick.md end-to-end.
 Preserve all workflow gates (validation, task description, planning, execution, state updates, commits).
 </process>

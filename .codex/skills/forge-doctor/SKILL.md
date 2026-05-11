@@ -4,7 +4,7 @@ description: Run Forge health checks for dependencies, graph state, hooks, and r
 ---
 
 <execution_context>
-@~/.codex/forge/atos-forge/references/agent-directives.md
+@~/.codex/forge/forge-cli/references/agent-directives.md
 </execution_context>
 
 <objective>
@@ -21,7 +21,7 @@ If `--raw` is present, return the CLI JSON output without extra formatting.
 Run:
 
 ```bash
-node ~/.codex/forge/atos-forge/bin/forge-tools.cjs doctor $ARGUMENTS
+node ~/.codex/forge/forge-cli/bin/forge-tools.cjs doctor $ARGUMENTS
 ```
 
 If not using `--raw`, present failures and warnings first, then summarize overall status.
