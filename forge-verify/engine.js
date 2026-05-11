@@ -55,6 +55,7 @@ try {
 // ============================================================
 
 const LAYER_NAMES = [
+  'HASH_LOCK',
   'STRUCTURAL',
   'TYPE_COMPILE',
   'INTERFACE_CONTRACTS',
@@ -63,8 +64,10 @@ const LAYER_NAMES = [
   'TESTS',
   'BEHAVIORAL',
   'CONTRACT',
+  'SEMANTIC',
   'ARCHITECTURAL',
   'BROWSER',
+  'MUTATION',
 ];
 
 const LAYER_ICONS = { pass: '\u2705', fail: '\u274C', skip: '\u23ED\uFE0F' };
@@ -920,6 +923,19 @@ function contractLayer() {
 let layerBrowserMod; try { layerBrowserMod = require('./browser-layer'); } catch {}
 
 // ============================================================
+// New lazy-loaded optional modules
+// ============================================================
+
+let layerMutationMod;
+try { layerMutationMod = require('./mutation'); } catch {}
+let layerCoverageMod;
+try { layerCoverageMod = require('./coverage'); } catch {}
+let layerEntropyMod;
+try { layerEntropyMod = require('./entropy'); } catch {}
+let layerRegressionMod;
+try { layerRegressionMod = require('./regression'); } catch {}
+
+// ============================================================
 // Layer 8 — ARCHITECTURAL (optional, agent-based)
 // ============================================================
 
@@ -1089,6 +1105,118 @@ function parseArchitecturalResponse(output) {
     }
   } catch { /* parse failure */ }
   return [];
+}
+
+// ============================================================
+// Layer 0 — HASH_LOCK
+// ============================================================
+
+/**
+ * Verify that locked test files have not been tampered with.
+ * Reads .forge/hash-locks.json and compares SHA-256 hashes.
+ * @param {object} opts
+ * @param {string} opts.cwd
+ * @param {string[]} [opts.files]
+ * @returns {{ passed: boolean, skipped: boolean, violations: object[], duration_ms: number }}
+ */
+function layerHashLock(opts) {
+  const start = Date.now();
+  const crypto = require('crypto');
+  const violations = [];
+  const lockPath = path.join(opts.cwd, '.forge', 'hash-locks.json');
+  if (!fs.existsSync(lockPath)) {
+    return { passed: true, skipped: true, violations: [], duration_ms: Date.now() - start };
+  }
+  let locks;
+  try { locks = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {
+    return { passed: true, skipped: true, violations: [], duration_ms: Date.now() - start };
+  }
+  for (const [planId, entries] of Object.entries(locks)) {
+    if (!Array.isArray(entries)) continue;
+    for (const entry of entries) {
+      if (entry.type === 'test_file') {
+        const fullPath = path.join(opts.cwd, entry.path);
+        if (!fs.existsSync(fullPath)) continue;
+        const currentHash = crypto.createHash('sha256')
+          .update(fs.readFileSync(fullPath, 'utf8')).digest('hex');
+        if (currentHash !== entry.sha256) {
+          violations.push({
+            type: 'test_file_tampered', plan: planId, path: entry.path,
+            expected: entry.sha256.slice(0, 12), actual: currentHash.slice(0, 12),
+            message: 'Test file "' + entry.path + '" was modified after locking. Fix the implementation, not the tests.',
+          });
+        }
+      }
+    }
+  }
+  return { passed: violations.length === 0, skipped: false, violations, duration_ms: Date.now() - start };
+}
+
+// ============================================================
+// Layer 9.5 — SEMANTIC (optional, LLM-based, off by default)
+// ============================================================
+
+/**
+ * Semantic verification: checks must_haves from plan against the actual code diff.
+ * Requires Claude CLI. Off by default; enable via verification.layers.semantic = true.
+ * @param {object} opts
+ * @param {string} opts.cwd
+ * @param {string[]} [opts.files]
+ * @param {string} [opts.planPath]
+ * @returns {{ passed: boolean, skipped: boolean, criteria: object[], duration_ms: number }}
+ */
+function layerSemantic(opts) {
+  const start = Date.now();
+  if (!opts.planPath) {
+    return { passed: true, skipped: true, reason: 'No plan file specified', duration_ms: Date.now() - start };
+  }
+  try {
+    const planContent = fs.readFileSync(opts.planPath, 'utf8');
+    const mustHavesMatch = planContent.match(/must_haves:\s*\n((?:\s+-\s+.+\n?)*)/);
+    if (!mustHavesMatch) {
+      return { passed: true, skipped: true, reason: 'No must_haves in plan', duration_ms: Date.now() - start };
+    }
+    const mustHaves = mustHavesMatch[1].trim();
+    const { spawnSync: spawnSyncLocal } = require('child_process');
+    let diff = '';
+    const diffResult = spawnSyncLocal('git', ['diff', 'HEAD~1'], { cwd: opts.cwd, encoding: 'utf8', timeout: 10000 });
+    diff = diffResult.stdout || '';
+    if (!diff) {
+      const cachedResult = spawnSyncLocal('git', ['diff', '--cached'], { cwd: opts.cwd, encoding: 'utf8', timeout: 10000 });
+      diff = cachedResult.stdout || '';
+    }
+    if (!diff) {
+      return { passed: true, skipped: true, reason: 'No diff available', duration_ms: Date.now() - start };
+    }
+    if (diff.length > 40000) diff = diff.slice(0, 40000) + '\n... (truncated)';
+    const verifierPath = path.join(__dirname, '..', 'forge-agents', 'catalog', 'semantic-verifier.md');
+    let systemPrompt = 'You verify that code changes satisfy plan requirements. Respond ONLY with JSON: { "criteria": [{ "criterion": "...", "verdict": "SATISFIED"|"NOT_SATISFIED"|"PARTIAL", "explanation": "..." }] }';
+    if (fs.existsSync(verifierPath)) {
+      try {
+        const content = fs.readFileSync(verifierPath, 'utf8');
+        const bodyMatch = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
+        if (bodyMatch) systemPrompt = bodyMatch[1].trim() + '\n\n' + systemPrompt;
+      } catch {}
+    }
+    const userPrompt = '## Must-Haves to verify:\n' + mustHaves + '\n\n## Code diff:\n```\n' + diff + '\n```\n\nVerify each must-have against the diff. Respond with JSON only.';
+    const claudeResult = spawnSync('claude', ['--print', '-p', userPrompt, '--system', systemPrompt], {
+      cwd: opts.cwd, encoding: 'utf8', timeout: 60000, maxBuffer: 5 * 1024 * 1024,
+    });
+    if (claudeResult.status !== 0) {
+      return { passed: true, skipped: true, reason: 'Claude CLI not available or failed', duration_ms: Date.now() - start };
+    }
+    const output = claudeResult.stdout || '';
+    const jsonMatch = output.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return { passed: true, skipped: true, reason: 'Could not parse LLM response', duration_ms: Date.now() - start };
+    }
+    const parsed = JSON.parse(jsonMatch[0]);
+    const criteria = parsed.criteria || [];
+    const allSatisfied = criteria.every(c => c.verdict === 'SATISFIED');
+    return { passed: allSatisfied, skipped: false, criteria, duration_ms: Date.now() - start };
+  } catch (err) {
+    return { passed: true, skipped: true, reason: 'Semantic check error: ' + (err.message || 'unknown'), duration_ms: Date.now() - start };
+  }
 }
 
 // ============================================================
@@ -1754,6 +1882,20 @@ async function verify(opts) {
   const layers = [];
   const totalStart = Date.now();
 
+  // Layer 0 — HASH_LOCK (test-file tamper detection)
+  {
+    const cfg_hl = verifyConfig.layers || {};
+    if (cfg_hl.hash_lock === false) {
+      layers.push({ index: 0, name: 'HASH_LOCK', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'disabled', violations: [], duration_ms: 0 }, duration_ms: 0 });
+    } else {
+      const resultHL = layerHashLock({ cwd, files });
+      layers.push({ index: 0, name: 'HASH_LOCK', passed: resultHL.passed, skipped: !!resultHL.skipped, result: resultHL, duration_ms: resultHL.duration_ms });
+      if (!resultHL.passed && failFast) {
+        return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+      }
+    }
+  }
+
   // Layer 1 — STRUCTURAL
   if (maxLayer >= 1 && !(verifyConfig.layers && verifyConfig.layers.STRUCTURAL === false)) {
     const cached1 = cache ? cache.get('STRUCTURAL', files, cwd) : null;
@@ -1850,6 +1992,19 @@ async function verify(opts) {
     }
   }
 
+  // Layer 7.5 — SEMANTIC (optional, LLM-based, off by default)
+  if (maxLayer >= 8 && verifyConfig.layers && verifyConfig.layers.semantic === true) {
+    const cachedSem = cache ? cache.get('SEMANTIC', files, cwd) : null;
+    const resultSem = cachedSem || layerSemantic({ cwd, files, planPath: opts.planPath });
+    if (!cachedSem && cache) cache.set('SEMANTIC', files, cwd, resultSem);
+    layers.push({ index: 7.5, name: 'SEMANTIC', passed: resultSem.passed, skipped: !!resultSem.skipped, result: resultSem, duration_ms: resultSem.duration_ms });
+    if (!resultSem.passed && failFast) {
+      return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+    }
+  } else if (maxLayer >= 8) {
+    layers.push({ index: 7.5, name: 'SEMANTIC', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'disabled (opt-in)', duration_ms: 0 }, duration_ms: 0 });
+  }
+
   // Layer 8 — ARCHITECTURAL (optional, agent-based, off by default)
   if (maxLayer >= 8 && verifyConfig.layers && verifyConfig.layers.ARCHITECTURAL === true) {
     const cached8 = cache ? cache.get('ARCHITECTURAL', files, cwd) : null;
@@ -1868,6 +2023,26 @@ async function verify(opts) {
     if (!result.passed && !result.skipped && opts.failFast) {
       return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
     }
+  }
+
+  // Layer 10 — MUTATION (optional, mutation testing, off by default)
+  if (maxLayer >= 10 && verifyConfig.layers && verifyConfig.layers.mutation === true) {
+    if (!layerMutationMod) {
+      layers.push({ index: 10, name: 'MUTATION', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'mutation.js not found', duration_ms: 0 }, duration_ms: 0 });
+    } else {
+      const cachedMut = cache ? cache.get('MUTATION', files, cwd) : null;
+      const resultMut = cachedMut || layerMutationMod.runMutationTesting(cwd, {
+        files, testCommand: verifyConfig.test_command,
+        ...(verifyConfig.mutation || {}),
+      });
+      if (!cachedMut && cache) cache.set('MUTATION', files, cwd, resultMut);
+      layers.push({ index: 10, name: 'MUTATION', passed: resultMut.passed, skipped: !!resultMut.skipped, result: resultMut, duration_ms: resultMut.duration_ms || 0 });
+      if (!resultMut.passed && failFast) {
+        return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
+      }
+    }
+  } else if (maxLayer >= 10) {
+    layers.push({ index: 10, name: 'MUTATION', passed: true, skipped: true, result: { passed: true, skipped: true, reason: 'disabled (opt-in)', duration_ms: 0 }, duration_ms: 0 });
   }
 
   return finalize({ cwd, layers, files, dbPath, opts, totalStart, verifySteps, capabilities, baselineCycleCount, logLedger });
@@ -1943,6 +2118,7 @@ async function main() {
 
 module.exports = {
   verify,
+  layerHashLock,
   layerStructural,
   layerTypeCompile,
   layerInterfaceContracts,
@@ -1951,8 +2127,10 @@ module.exports = {
   layerTests,
   layerBehavioral,
   get layerContract() { const cl = contractLayer(); return cl ? cl.layerContract : null; },
+  layerSemantic,
   layerArchitectural,
   get layerBrowser() { return layerBrowserMod ? layerBrowserMod.layerBrowser : null; },
+  get layerMutation() { return layerMutationMod ? layerMutationMod.runMutationTesting : null; },
   parsePlanVerifySteps,
   parsePlanFiles,
   generateFixSuggestions,

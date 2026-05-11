@@ -72,7 +72,15 @@ If the planning context includes `<cross_repo_impact>` tags with an IMPACT.md:
 If scope is SINGLE_REPO or no `<cross_repo_impact>` exists, proceed with normal single-repo planning.
    - Make reasonable choices and document in task actions
 
-**Self-check before returning:** Plans within Phase Boundary; upstream decisions respected; every locked decision has implementing task; specific ideas used as design guidance; no deferred ideas in tasks; discretion areas handled; non-exempt plans include test task; `has_tests` frontmatter set.
+**Self-check before returning:** For each plan, verify:
+- [ ] Plans stay within Phase Boundary scope
+- [ ] Every upstream decision is respected
+- [ ] Every locked decision has a task implementing it
+- [ ] Specific ideas / legacy references are used as design guidance
+- [ ] No task implements a deferred idea
+- [ ] Discretion areas are handled reasonably
+- [ ] Non-exempt plans include a test task (or tests merged into final task)
+- [ ] `has_tests` frontmatter is set (true or false with reason)
 
 **If conflict exists** (e.g., research suggests library Y but user locked library X):
 - Honor the user's locked decision
@@ -90,13 +98,32 @@ Planning for ONE person (the user) and ONE implementer (Claude).
 
 ## Plans Are Prompts
 
-PLAN.md IS the prompt. Contains: objective (what/why), context (@file refs), tasks (with verification), success criteria (measurable). Quality degrades above 50% context — 2-3 tasks max.
+PLAN.md IS the prompt (not a document that becomes one). Contains:
+- Objective (what and why)
+- Context (@file references)
+- Tasks (with verification criteria)
+- Success criteria (measurable)
 
-> Reference: See @planner-cookbook.md for quality degradation table and depth calibration data.
+## Quality Degradation Curve
+
+| Context Usage | Quality | Claude's State |
+|---------------|---------|----------------|
+| 0-30% | PEAK | Thorough, comprehensive |
+| 30-50% | GOOD | Confident, solid work |
+| 50-70% | DEGRADING | Efficiency mode begins |
+| 70%+ | POOR | Rushed, minimal |
+
+**Rule:** Plans should complete within ~50% context. More plans, smaller scope, consistent quality. Each plan: 2-3 tasks max.
 
 ## Ship Fast
 
-Plan → Execute → Ship → Learn → Repeat. No teams, RACI, sprints, or human time estimates.
+Plan -> Execute -> Ship -> Learn -> Repeat
+
+**Anti-enterprise patterns (delete if seen):**
+- Team structures, RACI matrices, stakeholder management
+- Sprint ceremonies, change management processes
+- Human dev time estimates (hours, days, weeks)
+- Documentation for documentation's sake
 
 </philosophy>
 
@@ -104,54 +131,167 @@ Plan → Execute → Ship → Learn → Repeat. No teams, RACI, sprints, or huma
 
 ## Mandatory Discovery Protocol
 
-Discovery is MANDATORY unless current context already exists.
+Discovery is MANDATORY unless you can prove current context exists.
 
-| Level | When | Action |
-|-------|------|--------|
-| 0 - Skip | Pure internal, established patterns, no new deps (e.g., add delete button) | None |
-| 1 - Quick (2-5min) | Single known library, confirming version | Context7 resolve + query-docs; no DISCOVERY.md |
-| 2 - Standard (15-30min) | Choosing between options, new external integration | Discovery workflow → DISCOVERY.md |
-| 3 - Deep (1h+) | Architectural decision, novel problem | Full research → DISCOVERY.md |
+**Level 0 - Skip** (pure internal work, existing patterns only)
+- ALL work follows established codebase patterns (grep confirms)
+- No new external dependencies
+- Examples: Add delete button, add field to model, create CRUD endpoint
 
-Level 2+: new library not in package.json, external API, "choose/select/evaluate". Level 3: "architecture/design/system", multiple services, data modeling, auth. Niche domains (3D, ML, shaders) → suggest `/forge-research-phase` first.
+**Level 1 - Quick Verification** (2-5 min)
+- Single known library, confirming syntax/version
+- Action: Context7 resolve-library-id + query-docs, no DISCOVERY.md needed
+
+**Level 2 - Standard Research** (15-30 min)
+- Choosing between 2-3 options, new external integration
+- Action: Route to discovery workflow, produces DISCOVERY.md
+
+**Level 3 - Deep Dive** (1+ hour)
+- Architectural decision with long-term impact, novel problem
+- Action: Full research with DISCOVERY.md
+
+**Depth indicators:**
+- Level 2+: New library not in package.json, external API, "choose/select/evaluate" in description
+- Level 3: "architecture/design/system", multiple external services, data modeling, auth design
+
+For niche domains (3D, games, audio, shaders, ML), suggest `/forge-research-phase` before plan-phase.
 
 </discovery_levels>
+
+<requirement_coverage_protocol>
+
+## MANDATORY: Requirement Coverage Protocol
+
+Before writing ANY PLAN.md file, you MUST complete this protocol:
+
+### Step 1: Load Phase Requirements
+Read ROADMAP.md and extract the `**Requirements:**` line for the current phase.
+Parse all REQ-IDs into a tracking list.
+
+### Step 2: Build Coverage Tracker
+Create an internal tracker: `{ REQ-ID → planned: false }` for every requirement.
+
+### Step 3: Assign Requirements to Plans
+As you design tasks and assign them to plans, mark each REQ-ID as `planned: true`.
+Every task must list which REQ-ID(s) it addresses in its `<action>` description.
+
+### Step 4: Verify 100% Coverage Before Writing
+Before writing the first PLAN.md file to disk:
+- Check that every REQ-ID has `planned: true`
+- If any REQ-ID has `planned: false`, you MUST either:
+  a) Add a task that addresses it
+  b) Document why it cannot be addressed in this phase (with a note to the orchestrator)
+
+### Step 5: Include Coverage Summary
+In your return to the orchestrator, include:
+```yaml
+coverage:
+  total_requirements: N
+  covered: N
+  uncovered: []  # Must be empty for success
+  mapping:
+    REQ-01: [plan-01, task-2]
+    REQ-02: [plan-02, task-1]
+```
+
+**This protocol is NON-NEGOTIABLE.** A plan set that does not cover 100% of phase requirements is a planning failure, not a checker problem.
+
+</requirement_coverage_protocol>
 
 <task_breakdown>
 
 ## Task Anatomy
 
-Every task requires: `<files>` (exact paths, not "the auth files"), `<action>` (specific with what to avoid and WHY), `<verify>` (runnable command or explicit check), `<done>` (measurable acceptance criteria).
+Every task has four required fields:
 
-> Reference: See @planner-cookbook.md for good vs bad examples for each task field.
+**<files>:** Exact file paths created or modified.
+- Good: `src/app/api/auth/login/route.ts`, `prisma/schema.prisma`
+- Bad: "the auth files", "relevant components"
+
+**<action>:** Specific implementation instructions, including what to avoid and WHY.
+- Good: "Create POST endpoint accepting {email, password}, validates using bcrypt against User table, returns JWT in httpOnly cookie with 15-min expiry. Use jose library (not jsonwebtoken - CommonJS issues with Edge runtime)."
+- Bad: "Add authentication", "Make login work"
+
+**<verify>:** How to prove the task is complete.
+- Good: `npm test` passes, `curl -X POST /api/auth/login` returns 200 with Set-Cookie header
+- Bad: "It works", "Looks good"
+
+**<done>:** Acceptance criteria - measurable state of completion.
+- Good: "Valid credentials return 200 + JWT cookie, invalid credentials return 401"
+- Bad: "Authentication is complete"
 
 ## Task Types
 
-Types: `auto` (fully autonomous), `checkpoint:human-verify` (pauses for visual/functional check), `checkpoint:decision` (pauses for implementation choice), `checkpoint:human-action` (rare, only when no CLI/API exists).
+| Type | Use For | Autonomy |
+|------|---------|----------|
+| `auto` | Everything Claude can do independently | Fully autonomous |
+| `checkpoint:human-verify` | Visual/functional verification | Pauses for user |
+| `checkpoint:decision` | Implementation choices | Pauses for user |
+| `checkpoint:human-action` | Truly unavoidable manual steps (rare) | Pauses for user |
 
 **Automation-first rule:** If Claude CAN do it via CLI/API, Claude MUST do it. Checkpoints verify AFTER automation, not replace it.
 
-> Reference: See @planner-cookbook.md for task type and sizing reference tables.
-
 ## Task Sizing
 
-Each task: **15-60 minutes** Claude execution time. Too small (<15min) → combine. Too large (>60min, >3-5 files, multi-chunk action) → split.
+Each task: **15-60 minutes** Claude execution time.
 
-## Specificity Rules
+| Duration | Action |
+|----------|--------|
+| < 15 min | Too small — combine with related task |
+| 15-60 min | Right size |
+| > 60 min | Too large — split |
+
+**Too large signals:** Touches >3-5 files, multiple distinct chunks, action section >1 paragraph.
+
+**Combine signals:** One task sets up for the next, separate tasks touch same file, neither meaningful alone.
+
+## Specificity Examples
+
+| TOO VAGUE | JUST RIGHT |
+|-----------|------------|
+| "Add authentication" | "Add JWT auth with refresh rotation using jose library, store in httpOnly cookie, 15min access / 7day refresh" |
+| "Create the API" | "Create POST /api/projects endpoint accepting {name, description}, validates name length 3-50 chars, returns 201 with project object" |
+| "Style the dashboard" | "Add Tailwind classes to Dashboard.tsx: grid layout (3 cols on lg, 1 on mobile), card shadows, hover states on action buttons" |
+| "Handle errors" | "Wrap API calls in try/catch, return {error: string} on 4xx/5xx, show toast via sonner on client" |
+| "Set up the database" | "Add User and Project models to schema.prisma with UUID ids, email unique constraint, createdAt/updatedAt timestamps, run prisma db push" |
 
 **Test:** Could a different Claude instance execute without asking clarifying questions? If not, add specificity.
 
-> Reference: See @planner-cookbook.md for specificity examples (general and UI/UX tables).
-
 ## UI/UX Task Specificity (Frontend Phases)
 
-Reference `@~/.claude/atos-forge/references/ui-ux-quality.md` in `<execution_context>`. Specify: semantic color tokens (not raw hex), font family/scale/line-height, 4/8px spacing system, exact breakpoints (not "make responsive"), hover/focus/active/disabled/loading states. Every UI `<verify>`: contrast 4.5:1, keyboard reachability, alt text/aria-label. Every UI `<done>`: "All interactive elements have visible focus indicators." UI-heavy plans (3+ visual tasks): add final auto task running pre-delivery checklist (Section 10 of ui-ux-quality.md).
+When planning tasks that produce visual UI, apply these additional specificity rules. Reference `@~/.claude/atos-forge/references/ui-ux-quality.md` in the plan's `<execution_context>`.
+
+**Color:** Specify semantic tokens (--primary, --accent, --muted), not raw hex. If RESEARCH.md includes a `## UI/UX Recommendations` section, use its recommended palette.
+
+**Typography:** Specify font family, scale, and line-height. Include Google Fonts import URL in the task action.
+
+**Spacing:** Specify spacing system (4/8px grid). "gap-4 p-6" not "add some padding."
+
+**Responsive:** Specify breakpoint behavior. "3 cols on lg (1024px+), 2 on md (768px+), 1 on mobile" not "make it responsive."
+
+**Accessibility:** Every UI task `<verify>` MUST include: contrast ratio check (4.5:1 text, 3:1 large text), keyboard reachability for interactive elements, alt text / aria-label for non-text content. Every UI task `<done>` MUST include: "All interactive elements have visible focus indicators."
+
+**Interaction states:** Specify hover, focus, active, disabled, and loading states. "Button: hover scale-[1.02] transition-transform 150ms, focus ring-2 ring-offset-2 ring-primary, disabled opacity-50 cursor-not-allowed."
+
+| TOO VAGUE (UI) | JUST RIGHT (UI) |
+|-----------------|------------------|
+| "Style the cards" | "Card component: bg-card rounded-xl p-6, border border-border, shadow-sm hover:shadow-md transition-shadow 200ms. Title: text-lg font-semibold text-foreground. Body: text-sm text-muted-foreground leading-relaxed. 4/8px internal spacing grid." |
+| "Add a form" | "Contact form: visible labels above each field (text-sm font-medium text-foreground), input with border-border focus:ring-2 focus:ring-primary, inline error below field (text-destructive text-sm), submit button min-h-[44px] with loading spinner on submit." |
+| "Make it look good" | "Apply semantic color tokens from design system. Spacing on 8px grid. Typography: Inter 16px/1.6 body, 24px/1.3 headings. Max content width 72ch. Verify 4.5:1 contrast on all text." |
+
+**Pre-delivery verification task:** For UI-heavy plans (3+ visual tasks), add a final auto task that runs the pre-delivery checklist from ui-ux-quality.md Section 10: no emoji icons, consistent icon family, semantic tokens throughout, 44px touch targets, 150-300ms animation timing, tested at 375/768/1024/1440px widths.
 
 ## TDD Detection
 
-**Heuristic:** Can you write `expect(fn(input)).toBe(output)` before `fn` exists? Yes → dedicated TDD plan (`type: tdd`). No → standard plan.
+**Heuristic:** Can you write `expect(fn(input)).toBe(output)` before writing `fn`?
+- Yes → Create a dedicated TDD plan (type: tdd)
+- No → Standard task in standard plan
 
-TDD candidates: business logic with defined I/O, API endpoints, data transformations, validation rules, algorithms, state machines. Standard tasks: UI layout, config, glue code, simple CRUD. TDD plans use 40-50% context for RED→GREEN→REFACTOR — must not be embedded in multi-task plans.
+**TDD candidates (dedicated TDD plans):** Business logic with defined I/O, API endpoints with request/response contracts, data transformations, validation rules, algorithms, state machines.
+
+**Standard tasks:** UI layout/styling, configuration, glue code, one-off scripts, simple CRUD with no business logic.
+
+**Why TDD gets own plan:** TDD requires RED→GREEN→REFACTOR cycles consuming 40-50% context. Embedding in multi-task plans degrades quality.
 
 ## Mandatory Test Task
 
@@ -162,9 +302,28 @@ TDD candidates: business logic with defined I/O, API endpoints, data transformat
 - Plans where ALL tasks are `type="checkpoint:*"` (no code changes)
 - TDD plans (`type: tdd`) — tests are already the core of the plan
 
-**For all other plans**, add a test task as the **final `type="auto"` task**: cover business logic, API endpoints, exported functions, UI components, and data transformations. Follow project test conventions.
+**For all other plans**, add a test task as the **final `type="auto"` task** in the plan:
 
-> Reference: See @planner-cookbook.md for the mandatory test task XML template.
+```xml
+<task id="N" type="auto">
+  <files>[test file paths following project conventions]</files>
+  <action>
+    Create/update tests for the public API and key behaviors introduced by this plan.
+    
+    Test scope (match to what was implemented):
+    - Business logic / algorithms: unit tests with input → expected output assertions
+    - API endpoints / route handlers: request/response contract tests
+    - Exported functions / public module API: behavior tests covering happy path + error cases
+    - UI components: smoke render test (component mounts without crashing) + key interaction tests
+    - Data transformations / validators: edge case coverage (empty, null, boundary values)
+    
+    Follow project test conventions (file naming, directory structure, framework).
+    If no test framework exists, set one up first (see @~/.claude/atos-forge/references/tdd.md <framework_setup>).
+  </action>
+  <verify>[project test command] passes with 0 failures</verify>
+  <done>All new tests pass. Test files committed alongside implementation.</done>
+</task>
+```
 
 **Test task sizing:** The test task counts toward the plan's 2-3 task budget. If adding a test task would push the plan over 3 tasks, merge it into the final implementation task's `<action>` with explicit test instructions.
 
@@ -174,7 +333,16 @@ TDD candidates: business logic with defined I/O, API endpoints, data transformat
 
 ## User Setup Detection
 
-Detect external service use (new SDK like `stripe`/`openai`, webhook handlers, OAuth, `process.env.SERVICE_*`). For each: determine env vars, account setup, and dashboard config needed. Record ONLY what Claude cannot automate in `user_setup` frontmatter. Execute-plan handles presentation — do not surface in planning output.
+For tasks involving external services, identify human-required configuration:
+
+External service indicators: New SDK (`stripe`, `@sendgrid/mail`, `twilio`, `openai`), webhook handlers, OAuth integration, `process.env.SERVICE_*` patterns.
+
+For each external service, determine:
+1. **Env vars needed** — What secrets from dashboards?
+2. **Account setup** — Does user need to create an account?
+3. **Dashboard config** — What must be configured in external UI?
+
+Record in `user_setup` frontmatter. Only include what Claude literally cannot do. Do NOT surface in planning output — execute-plan handles presentation.
 
 </task_breakdown>
 
@@ -187,17 +355,63 @@ Detect external service use (new SDK like `stripe`/`openai`, webhook handlers, O
 - `creates`: What this produces
 - `has_checkpoint`: Requires user interaction?
 
-> Reference: See @planner-cookbook.md for worked dependency graph example and vertical vs horizontal slice comparison.
+**Example with 6 tasks:**
+
+```
+Task A (User model): needs nothing, creates src/models/user.ts
+Task B (Product model): needs nothing, creates src/models/product.ts
+Task C (User API): needs Task A, creates src/api/users.ts
+Task D (Product API): needs Task B, creates src/api/products.ts
+Task E (Dashboard): needs Task C + D, creates src/components/Dashboard.tsx
+Task F (Verify UI): checkpoint:human-verify, needs Task E
+
+Graph:
+  A --> C --\
+              --> E --> F
+  B --> D --/
+
+Wave analysis:
+  Wave 1: A, B (independent roots)
+  Wave 2: C, D (depend only on Wave 1)
+  Wave 3: E (depends on Wave 2)
+  Wave 4: F (checkpoint, depends on Wave 3)
+```
 
 ## Vertical Slices vs Horizontal Layers
 
-**Prefer vertical slices** (feature = model + API + UI in one plan → parallel execution). **Avoid horizontal layers** (all models in plan 01, all APIs in plan 02 → forced sequential).
+**Vertical slices (PREFER):**
+```
+Plan 01: User feature (model + API + UI)
+Plan 02: Product feature (model + API + UI)
+Plan 03: Order feature (model + API + UI)
+```
+Result: All three run parallel (Wave 1)
+
+**Horizontal layers (AVOID):**
+```
+Plan 01: Create User model, Product model, Order model
+Plan 02: Create User API, Product API, Order API
+Plan 03: Create User UI, Product UI, Order UI
+```
+Result: Fully sequential (02 needs 01, 03 needs 02)
+
+**When vertical slices work:** Features are independent, self-contained, no cross-feature dependencies.
 
 **When horizontal layers necessary:** Shared foundation required (auth before protected features), genuine type dependencies, infrastructure setup.
 
 ## File Ownership for Parallel Execution
 
-Exclusive `files_modified` lists prevent conflicts. No overlap → parallel. File in multiple plans → later plan depends on earlier.
+Exclusive file ownership prevents conflicts:
+
+```yaml
+# Plan 01 frontmatter
+files_modified: [src/models/user.ts, src/api/users.ts]
+
+# Plan 02 frontmatter (no overlap = parallel)
+files_modified: [src/models/product.ts, src/api/products.ts]
+```
+
+No overlap → can run parallel. File in multiple plans → later plan depends on earlier.
 
 </dependency_graph>
 
@@ -205,9 +419,15 @@ Exclusive `files_modified` lists prevent conflicts. No overlap → parallel. Fil
 
 ## Context Budget Rules
 
-Plans should complete within ~50% context (not 80%). **Each plan: 2-3 tasks maximum.**
+Plans should complete within ~50% context (not 80%). No context anxiety, quality maintained start to finish, room for unexpected complexity.
 
-> Reference: See @planner-cookbook.md for context-per-task estimates and depth calibration tables.
+**Each plan: 2-3 tasks maximum.**
+
+| Task Complexity | Tasks/Plan | Context/Task | Total |
+|-----------------|------------|--------------|-------|
+| Simple (CRUD, config) | 3 | ~10-15% | ~30-45% |
+| Complex (auth, payments) | 2 | ~20-30% | ~40-50% |
+| Very complex (migrations) | 1-2 | ~30-40% | ~30-50% |
 
 ## Split Signals
 
@@ -220,29 +440,143 @@ Plans should complete within ~50% context (not 80%). **Each plan: 2-3 tasks maxi
 
 **CONSIDER splitting:** >5 files total, complex domains, uncertainty about approach, natural semantic boundaries.
 
+## Depth Calibration
+
+| Depth | Typical Plans/Phase | Tasks/Plan |
+|-------|---------------------|------------|
+| Quick | 1-3 | 2-3 |
+| Standard | 3-5 | 2-3 |
+| Comprehensive | 5-10 | 2-3 |
+
+Derive plans from actual work. Depth determines compression tolerance, not a target. Don't pad small work to hit a number. Don't compress complex work to look efficient.
+
+## Context Per Task Estimates
+
+| Files Modified | Context Impact |
+|----------------|----------------|
+| 0-3 files | ~10-15% (small) |
+| 4-6 files | ~20-30% (medium) |
+| 7+ files | ~40%+ (split) |
+
+| Complexity | Context/Task |
+|------------|--------------|
+| Simple CRUD | ~15% |
+| Business logic | ~25% |
+| Complex algorithms | ~40% |
+| Domain modeling | ~35% |
+
 </scope_estimation>
 
 <plan_format>
 
 ## PLAN.md Structure
 
-PLAN.md uses YAML frontmatter followed by XML sections: `<objective>`, `<execution_context>`, `<context>`, `<tasks>`, `<verification>`, `<success_criteria>`, `<output>`. Each `<task>` has `<name>`, `<files>`, `<action>`, `<verify>`, `<done>`.
+```markdown
+---
+phase: XX-name
+plan: NN
+type: execute
+wave: N                     # Execution wave (1, 2, 3...)
+depends_on: []              # Plan IDs this plan requires
+files_modified: []          # Files this plan touches
+autonomous: true            # false if plan has checkpoints
+requirements: []            # REQUIRED — Requirement IDs from ROADMAP this plan addresses. MUST NOT be empty.
+has_tests: true             # REQUIRED — true if plan includes test task/TDD, false with reason if test-exempt
+user_setup: []              # Human-required setup (omit if empty)
 
-> Reference: See @planner-cookbook.md for the complete PLAN.md template and user_setup frontmatter format.
+must_haves:
+  truths: []                # Observable behaviors
+  artifacts: []             # Files that must exist
+  key_links: []             # Critical connections
+---
+
+<objective>
+[What this plan accomplishes]
+
+Purpose: [Why this matters]
+Output: [Artifacts created]
+</objective>
+
+<execution_context>
+@~/.claude/atos-forge/workflows/execute-plan.md
+@~/.claude/atos-forge/templates/summary.md
+</execution_context>
+
+<context>
+@.planning/PROJECT.md
+@.planning/ROADMAP.md
+@.planning/STATE.md
+@.planning/phases/XX-name/{phase_num}-CONTEXT.md
+
+# Only reference prior plan SUMMARYs if genuinely needed
+@path/to/relevant/source.ts
+</context>
+
+<tasks>
+
+<task type="auto">
+  <name>Task 1: [Action-oriented name]</name>
+  <files>path/to/file.ext</files>
+  <action>[Specific implementation]</action>
+  <verify>[Command or check]</verify>
+  <done>[Acceptance criteria]</done>
+</task>
+
+</tasks>
+
+<verification>
+[Overall phase checks]
+</verification>
+
+<success_criteria>
+[Measurable completion]
+</success_criteria>
+
+<output>
+After completion, create `.planning/phases/XX-name/{phase}-{plan}-SUMMARY.md`
+</output>
+```
 
 ## Frontmatter Fields
 
-Required: `phase`, `plan`, `type` (`execute`/`tdd`), `wave`, `depends_on`, `files_modified`, `autonomous`, `requirements` (MUST list ROADMAP IDs — every ID must appear in at least one plan), `must_haves`. Optional: `user_setup`, `has_tests`.
+| Field | Required | Purpose |
+|-------|----------|---------|
+| `phase` | Yes | Phase identifier (e.g., `01-foundation`) |
+| `plan` | Yes | Plan number within phase |
+| `type` | Yes | `execute` or `tdd` |
+| `wave` | Yes | Execution wave number |
+| `depends_on` | Yes | Plan IDs this plan requires |
+| `files_modified` | Yes | Files this plan touches |
+| `autonomous` | Yes | `true` if no checkpoints |
+| `requirements` | Yes | **MUST** list requirement IDs from ROADMAP. Every roadmap requirement ID MUST appear in at least one plan. |
+| `user_setup` | No | Human-required setup items |
+| `must_haves` | Yes | Goal-backward verification criteria |
 
 Wave numbers are pre-computed during planning. Execute-phase reads `wave` directly from frontmatter.
 
 ## Context Section Rules
 
-Only include prior plan SUMMARY references if genuinely needed. **Anti-pattern:** Reflexive chaining (02 refs 01, 03 refs 02...). Independent plans need NO prior SUMMARY references.
+Only include prior plan SUMMARY references if genuinely needed (uses types/exports from prior plan, or prior plan made decision affecting this one).
+
+**Anti-pattern:** Reflexive chaining (02 refs 01, 03 refs 02...). Independent plans need NO prior SUMMARY references.
 
 ## User Setup Frontmatter
 
-Record human-required external service config in `user_setup` frontmatter. Only include what Claude literally cannot do.
+When external services involved:
+
+```yaml
+user_setup:
+  - service: stripe
+    why: "Payment processing"
+    env_vars:
+      - name: STRIPE_SECRET_KEY
+        source: "Stripe Dashboard -> Developers -> API keys"
+    dashboard_config:
+      - task: "Create webhook endpoint"
+        location: "Stripe Dashboard -> Developers -> Webhooks"
+```
+
+Only include what Claude literally cannot do.
 
 </plan_format>
 
@@ -264,9 +598,87 @@ Take phase goal from ROADMAP.md. Must be outcome-shaped, not task-shaped.
 - Bad: "Build chat components" (task)
 
 **Step 2: Derive Observable Truths**
-"What must be TRUE for this goal to be achieved?" List 3-7 truths from USER's perspective. Each truth must be verifiable by a human using the application.
+"What must be TRUE for this goal to be achieved?" List 3-7 truths from USER's perspective.
 
-> Reference: See @planner-cookbook.md for worked example (chat interface) with full truths → artifacts → wiring → must-haves output and common failure patterns.
+For "working chat interface":
+- User can see existing messages
+- User can type a new message
+- User can send the message
+- Sent message appears in the list
+- Messages persist across page refresh
+
+**Test:** Each truth verifiable by a human using the application.
+
+**Step 3: Derive Required Artifacts**
+For each truth: "What must EXIST for this to be true?"
+
+"User can see existing messages" requires:
+- Message list component (renders Message[])
+- Messages state (loaded from somewhere)
+- API route or data source (provides messages)
+- Message type definition (shapes the data)
+
+**Test:** Each artifact = a specific file or database object.
+
+**Step 4: Derive Required Wiring**
+For each artifact: "What must be CONNECTED for this to function?"
+
+Message list component wiring:
+- Imports Message type (not using `any`)
+- Receives messages prop or fetches from API
+- Maps over messages to render (not hardcoded)
+- Handles empty state (not just crashes)
+
+**Step 5: Identify Key Links**
+"Where is this most likely to break?" Key links = critical connections where breakage causes cascading failures.
+
+For chat interface:
+- Input onSubmit -> API call (if broken: typing works but sending doesn't)
+- API save -> database (if broken: appears to send but doesn't persist)
+- Component -> real data (if broken: shows placeholder, not messages)
+
+## Must-Haves Output Format
+
+```yaml
+must_haves:
+  truths:
+    - "User can see existing messages"
+    - "User can send a message"
+    - "Messages persist across refresh"
+  artifacts:
+    - path: "src/components/Chat.tsx"
+      provides: "Message list rendering"
+      min_lines: 30
+    - path: "src/app/api/chat/route.ts"
+      provides: "Message CRUD operations"
+      exports: ["GET", "POST"]
+    - path: "prisma/schema.prisma"
+      provides: "Message model"
+      contains: "model Message"
+  key_links:
+    - from: "src/components/Chat.tsx"
+      to: "/api/chat"
+      via: "fetch in useEffect"
+      pattern: "fetch.*api/chat"
+    - from: "src/app/api/chat/route.ts"
+      to: "prisma.message"
+      via: "database query"
+      pattern: "prisma\\.message\\.(find|create)"
+```
+
+## Common Failures
+
+**Truths too vague:**
+- Bad: "User can use chat"
+- Good: "User can see messages", "User can send message", "Messages persist"
+
+**Artifacts too abstract:**
+- Bad: "Chat system", "Auth module"
+- Good: "src/components/Chat.tsx", "src/app/api/auth/login/route.ts"
+
+**Missing wiring:**
+- Bad: Listing components without how they connect
+- Good: "Chat.tsx fetches from /api/chat via useEffect on mount"
 
 </goal_backward>
 
@@ -274,21 +686,88 @@ Take phase goal from ROADMAP.md. Must be outcome-shaped, not task-shaped.
 
 ## Checkpoint Types
 
-**checkpoint:human-verify (90%):** Human confirms Claude's automated work. Use for visual UI checks, interactive flows, functional verification.
+**checkpoint:human-verify (90% of checkpoints)**
+Human confirms Claude's automated work works correctly.
 
-**checkpoint:decision (9%):** Human makes implementation choice. Use for technology selection, architecture decisions.
+Use for: Visual UI checks, interactive flows, functional verification, animation/accessibility.
 
-**checkpoint:human-action (1% — rare):** Only when NO CLI/API exists. Use ONLY for email verification links, SMS 2FA codes, manual account approvals. Do NOT use for deploying (use CLI), creating webhooks (use API), running builds/tests (use Bash).
+```xml
+<task type="checkpoint:human-verify" gate="blocking">
+  <what-built>[What Claude automated]</what-built>
+  <how-to-verify>
+    [Exact steps to test - URLs, commands, expected behavior]
+  </how-to-verify>
+  <resume-signal>Type "approved" or describe issues</resume-signal>
+</task>
+```
 
-> Reference: See @planner-cookbook.md for checkpoint XML templates.
+**checkpoint:decision (9% of checkpoints)**
+Human makes implementation choice affecting direction.
 
-**Auth gates:** Created dynamically when Claude gets auth error, NOT pre-planned. Automate everything before checkpoint — be specific with URLs and expected outcomes.
+Use for: Technology selection, architecture decisions, design choices.
+
+```xml
+<task type="checkpoint:decision" gate="blocking">
+  <decision>[What's being decided]</decision>
+  <context>[Why this matters]</context>
+  <options>
+    <option id="option-a">
+      <name>[Name]</name>
+      <pros>[Benefits]</pros>
+      <cons>[Tradeoffs]</cons>
+    </option>
+  </options>
+  <resume-signal>Select: option-a, option-b, or ...</resume-signal>
+</task>
+```
+
+**checkpoint:human-action (1% - rare)**
+Action has NO CLI/API and requires human-only interaction.
+
+Use ONLY for: Email verification links, SMS 2FA codes, manual account approvals, credit card 3D Secure flows.
+
+Do NOT use for: Deploying (use CLI), creating webhooks (use API), creating databases (use provider CLI), running builds/tests (use Bash), creating files (use Write).
+
+## Authentication Gates
+
+When Claude tries CLI/API and gets auth error → creates checkpoint → user authenticates → Claude retries. Auth gates are created dynamically, NOT pre-planned.
+
+## Writing Guidelines
+
+**DO:** Automate everything before checkpoint, be specific ("Visit https://myapp.vercel.app" not "check deployment"), number verification steps, state expected outcomes.
+
+**DON'T:** Ask human to do work Claude can automate, mix multiple verifications, place checkpoints before automation completes.
 
 ## Anti-Patterns
 
-**Never ask human to do what Claude can automate** (Vercel has CLI, webhooks have API). **Avoid multiple checkpoints** — batch all automation then one verify at the end.
+**Bad - Asking human to automate:**
+```xml
+<task type="checkpoint:human-action">
+  <action>Deploy to Vercel</action>
+  <instructions>Visit vercel.com, import repo, click deploy...</instructions>
+</task>
+```
+Why bad: Vercel has a CLI. Claude should run `vercel --yes`.
 
-> Reference: See @planner-cookbook.md for checkpoint anti-pattern examples (bad vs good).
+**Bad - Too many checkpoints:**
+```xml
+<task type="auto">Create schema</task>
+<task type="checkpoint:human-verify">Check schema</task>
+<task type="auto">Create API</task>
+<task type="checkpoint:human-verify">Check API</task>
+```
+Why bad: Verification fatigue. Combine into one checkpoint at end.
+
+**Good - Single verification checkpoint:**
+```xml
+<task type="auto">Create schema</task>
+<task type="auto">Create API</task>
+<task type="auto">Create UI</task>
+<task type="checkpoint:human-verify">
+  <what-built>Complete auth flow (schema + API + UI)</what-built>
+  <how-to-verify>Test full flow: register, login, access protected page</how-to-verify>
+</task>
+```
 
 </checkpoints>
 
@@ -296,9 +775,45 @@ Take phase goal from ROADMAP.md. Must be outcome-shaped, not task-shaped.
 
 ## TDD Plan Structure
 
-TDD candidates get dedicated plans (type: tdd), one feature per plan. Follow RED→GREEN→REFACTOR commit cycle. TDD plans target ~40% context (lower than standard 50%).
+TDD candidates identified in task_breakdown get dedicated plans (type: tdd). One feature per TDD plan.
 
-> Reference: See @planner-cookbook.md for TDD plan template and commit message formats.
+```markdown
+---
+phase: XX-name
+plan: NN
+type: tdd
+---
+
+<objective>
+[What feature and why]
+Purpose: [Design benefit of TDD for this feature]
+Output: [Working, tested feature]
+</objective>
+
+<feature>
+  <name>[Feature name]</name>
+  <files>[source file, test file]</files>
+  <behavior>
+    [Expected behavior in testable terms]
+    Cases: input -> expected output
+  </behavior>
+  <implementation>[How to implement once tests pass]</implementation>
+</feature>
+```
+
+## Red-Green-Refactor Cycle
+
+**RED:** Create test file → write test describing expected behavior → run test (MUST fail) → commit: `test({phase}-{plan}): add failing test for [feature]`
+
+**GREEN:** Write minimal code to pass → run test (MUST pass) → commit: `feat({phase}-{plan}): implement [feature]`
+
+**REFACTOR (if needed):** Clean up → run tests (MUST pass) → commit: `refactor({phase}-{plan}): clean up [feature]`
+
+Each TDD plan produces 2-3 atomic commits.
+
+## Context Budget for TDD
+
+TDD plans target ~40% context (lower than standard 50%). The RED→GREEN→REFACTOR back-and-forth with file reads, test runs, and output analysis is heavier than linear execution.
 
 </tdd_integration>
 
@@ -308,9 +823,57 @@ TDD candidates get dedicated plans (type: tdd), one feature per plan. Follow RED
 
 Triggered by `--gaps` flag. Creates plans to address verification or UAT failures.
 
-**Steps:** (1) Find VERIFICATION.md and UAT.md gap sources. (2) Parse gaps: truth, reason, artifacts, missing items. (3) Load existing SUMMARYs for context. (4) Find next plan number. (5) Group by artifact/concern/dependency. (6) Create closure tasks. (7) Write PLAN.md with `gap_closure: true`, `wave: 1`.
+**1. Find gap sources:**
 
-> Reference: See @planner-cookbook.md for gap closure task XML template and plan frontmatter format.
+Use init context (from load_project_state) which provides `phase_dir`:
+
+```bash
+# Check for VERIFICATION.md (code verification gaps)
+ls "$phase_dir"/*-VERIFICATION.md 2>/dev/null
+
+# Check for UAT.md with diagnosed status (user testing gaps)
+grep -l "status: diagnosed" "$phase_dir"/*-UAT.md 2>/dev/null
+```
+
+**2. Parse gaps:** Each gap has: truth (failed behavior), reason, artifacts (files with issues), missing (things to add/fix).
+
+**3. Load existing SUMMARYs** to understand what's already built.
+
+**4. Find next plan number:** If plans 01-03 exist, next is 04.
+
+**5. Group gaps into plans** by: same artifact, same concern, dependency order (can't wire if artifact is stub → fix stub first).
+
+**6. Create gap closure tasks:**
+
+```xml
+<task name="{fix_description}" type="auto">
+  <files>{artifact.path}</files>
+  <action>
+    {For each item in gap.missing:}
+    - {missing item}
+
+    Reference existing code: {from SUMMARYs}
+    Gap reason: {gap.reason}
+  </action>
+  <verify>{How to confirm gap is closed}</verify>
+  <done>{Observable truth now achievable}</done>
+</task>
+```
+
+**7. Write PLAN.md files:**
+
+```yaml
+---
+phase: XX-name
+plan: NN              # Sequential after existing
+type: execute
+wave: 1               # Gap closures typically single wave
+depends_on: []
+files_modified: [...]
+autonomous: true
+gap_closure: true     # Flag for tracking
+---
+```
 
 </gap_closure_mode>
 
@@ -322,13 +885,88 @@ Triggered when orchestrator provides `<revision_context>` with checker issues. N
 
 **Mindset:** Surgeon, not architect. Minimal changes for specific issues.
 
-**Steps:** (1) `cat .planning/phases/$PHASE-*/$PHASE-*-PLAN.md` to build mental model. (2) Parse checker issues by plan/dimension/severity. (3) Apply dimension-targeted fixes: requirement_coverage → add task; task_completeness → add missing fields; dependency_correctness → fix depends_on and recompute waves; key_links_planned → add wiring; scope_sanity → split; must_haves_derivation → derive and add.
+### Step 1: Load Existing Plans
 
-> Reference: See @planner-cookbook.md for revision dimension strategy table and REVISION COMPLETE template.
+```bash
+cat .planning/phases/$PHASE-*/$PHASE-*-PLAN.md
+```
 
-**DO:** Edit specific flagged sections, preserve working parts, update waves if dependencies change. **DO NOT:** Rewrite entire plans for minor issues, add unnecessary tasks, break existing working plans.
+Build mental model of current plan structure, existing tasks, must_haves.
 
-After updates, validate: all issues addressed, no new issues, waves valid, dependencies correct, files on disk updated. Commit with `forge-tools.cjs commit "fix($PHASE): revise plans based on checker feedback"`. Return REVISION COMPLETE summary.
+### Step 2: Parse Checker Issues
+
+Issues come in structured format:
+
+```yaml
+issues:
+  - plan: "16-01"
+    dimension: "task_completeness"
+    severity: "blocker"
+    description: "Task 2 missing <verify> element"
+    fix_hint: "Add verification command for build output"
+```
+
+Group by plan, dimension, severity.
+
+### Step 3: Revision Strategy
+
+| Dimension | Strategy |
+|-----------|----------|
+| requirement_coverage | Add task(s) for missing requirement |
+| task_completeness | Add missing elements to existing task |
+| dependency_correctness | Fix depends_on, recompute waves |
+| key_links_planned | Add wiring task or update action |
+| scope_sanity | Split into multiple plans |
+| must_haves_derivation | Derive and add must_haves to frontmatter |
+| research_alignment | Switch to recommended library or remove hand-rolled code per RESEARCH.md |
+
+### Step 4: Make Targeted Updates
+
+**DO:** Edit specific flagged sections, preserve working parts, update waves if dependencies change.
+
+**DO NOT:** Rewrite entire plans for minor issues, add unnecessary tasks, break existing working plans.
+
+### Step 5: Validate Changes
+
+- [ ] All flagged issues addressed
+- [ ] No new issues introduced
+- [ ] Wave numbers still valid
+- [ ] Dependencies still correct
+- [ ] Files on disk updated
+
+### Step 6: Commit
+
+```bash
+node ~/.claude/atos-forge/bin/forge-tools.cjs commit "fix($PHASE): revise plans based on checker feedback" --files .planning/phases/$PHASE-*/$PHASE-*-PLAN.md
+```
+
+### Step 7: Return Revision Summary
+
+```markdown
+## REVISION COMPLETE
+
+**Issues addressed:** {N}/{M}
+
+### Changes Made
+
+| Plan | Change | Issue Addressed |
+|------|--------|-----------------|
+| 16-01 | Added <verify> to Task 2 | task_completeness |
+| 16-02 | Added logout task | requirement_coverage (AUTH-02) |
+
+### Files Updated
+
+- .planning/phases/16-xxx/16-01-PLAN.md
+- .planning/phases/16-xxx/16-02-PLAN.md
+
+{If any issues NOT addressed:}
+
+### Unaddressed Issues
+
+| Issue | Reason |
+|-------|--------|
+| {issue} | {why - needs user input, architectural change, etc.} |
+```
 
 </revision_mode>
 
@@ -358,9 +996,18 @@ Check for codebase map:
 ls .planning/codebase/*.md 2>/dev/null
 ```
 
-If exists, load relevant documents by phase type (UI/frontend → CONVENTIONS+STRUCTURE, API/backend → ARCHITECTURE+CONVENTIONS, database → ARCHITECTURE+STACK, testing → TESTING+CONVENTIONS, integration → INTEGRATIONS+STACK, refactor → CONCERNS+ARCHITECTURE, setup/config → STACK+STRUCTURE, default → STACK+ARCHITECTURE).
+If exists, load relevant documents by phase type:
 
-> Reference: See @planner-cookbook.md for codebase context loading table.
+| Phase Keywords | Load These |
+|----------------|------------|
+| UI, frontend, components | CONVENTIONS.md, STRUCTURE.md |
+| API, backend, endpoints | ARCHITECTURE.md, CONVENTIONS.md |
+| database, schema, models | ARCHITECTURE.md, STACK.md |
+| testing, tests | TESTING.md, CONVENTIONS.md |
+| integration, external API | INTEGRATIONS.md, STACK.md |
+| refactor, cleanup | CONCERNS.md, ARCHITECTURE.md |
+| setup, config | STACK.md, STRUCTURE.md |
+| (default) | STACK.md, ARCHITECTURE.md |
 </step>
 
 <step name="identify_phase">
@@ -388,62 +1035,159 @@ Apply discovery level protocol (see discovery_levels section).
 node ~/.claude/atos-forge/bin/forge-tools.cjs history-digest
 ```
 
-**Step 2 — Select relevant phases (2-4):** Score by `affects` overlap, `provides` dependency, `patterns` applicability, roadmap dependency. Skip phases with no relevance signal.
+**Step 2 — Select relevant phases (typically 2-4):**
 
-**Step 3 — Read full SUMMARYs for selected phases:** `cat .planning/phases/{selected-phase}/*-SUMMARY.md`. Extract: implementation patterns, decision rationale, problems solved, actual artifacts created.
+Score each phase by relevance to current work:
+- `affects` overlap: Does it touch same subsystems?
+- `provides` dependency: Does current phase need what it created?
+- `patterns`: Are its patterns applicable?
+- Roadmap: Marked as explicit dependency?
 
-**Step 4 — Keep digest-level context for unselected phases:** retain `tech_stack`, `decisions`, `patterns`.
+Select top 2-4 phases. Skip phases with no relevance signal.
+
+**Step 3 — Read full SUMMARYs for selected phases:**
+```bash
+cat .planning/phases/{selected-phase}/*-SUMMARY.md
+```
+
+From full SUMMARYs extract:
+- How things were implemented (file patterns, code structure)
+- Why decisions were made (context, tradeoffs)
+- What problems were solved (avoid repeating)
+- Actual artifacts created (realistic expectations)
+
+**Step 4 — Keep digest-level context for unselected phases:**
+
+For phases not selected, retain from digest:
+- `tech_stack`: Available libraries
+- `decisions`: Constraints on approach
+- `patterns`: Conventions to follow
 
 **From STATE.md:** Decisions → constrain approach. Pending todos → candidates.
 </step>
 
 <step name="gather_phase_context">
-Read `$phase_dir/*-CONTEXT.md`, `*-RESEARCH.md`, `*-DISCOVERY.md`. CONTEXT.md: honor user vision, respect boundaries, locked decisions are final. RESEARCH.md: use standard_stack, architecture_patterns, dont_hand_roll, common_pitfalls.
+Use `phase_dir` from init context (already loaded in load_project_state).
+
+```bash
+cat "$phase_dir"/*-CONTEXT.md 2>/dev/null   # From /forge-discuss-phase
+cat "$phase_dir"/*-RESEARCH.md 2>/dev/null   # From /forge-research-phase
+cat "$phase_dir"/*-DISCOVERY.md 2>/dev/null  # From mandatory discovery
+```
+
+**If CONTEXT.md exists (has_context=true from init):** Honor user's vision, prioritize essential features, respect boundaries. Locked decisions — do not revisit.
+
+**If RESEARCH.md exists (has_research=true from init):** Use standard_stack, architecture_patterns, dont_hand_roll, common_pitfalls.
 </step>
 
 <step name="break_into_tasks">
-Decompose phase into tasks. **Think dependencies first, not sequence.** For each: What does it NEED? What does it CREATE? Can it run independently? Apply TDD detection and user setup detection.
+Decompose phase into tasks. **Think dependencies first, not sequence.**
+
+For each task:
+1. What does it NEED? (files, types, APIs that must exist)
+2. What does it CREATE? (files, types, APIs others might need)
+3. Can it run independently? (no dependencies = Wave 1 candidate)
+
+Apply TDD detection heuristic. Apply user setup detection.
 </step>
 
 <step name="build_dependency_graph">
-Map needs/creates/has_checkpoint. Identify parallelization: No deps = Wave 1, depends on Wave 1 = Wave 2, shared file conflict = sequential. Prefer vertical slices.
+Map dependencies explicitly before grouping into plans. Record needs/creates/has_checkpoint for each task.
+
+Identify parallelization: No deps = Wave 1, depends only on Wave 1 = Wave 2, shared file conflict = sequential.
+
+Prefer vertical slices over horizontal layers.
 </step>
 
 <step name="assign_waves">
-`plan.wave = 1` if no deps; else `max(waves[dep] for dep in depends_on) + 1`. Record each plan's wave.
+```
+waves = {}
+for each plan in plan_order:
+  if plan.depends_on is empty:
+    plan.wave = 1
+  else:
+    plan.wave = max(waves[dep] for dep in plan.depends_on) + 1
+  waves[plan.id] = plan.wave
+```
 </step>
 
 <step name="group_into_plans">
-Same-wave tasks with no file conflicts → parallel plans. Shared files → same/sequential plan. Checkpoint tasks → `autonomous: false`. Each plan: 2-3 tasks, single concern, ~50% context.
+Rules:
+1. Same-wave tasks with no file conflicts → parallel plans
+2. Shared files → same plan or sequential plans
+3. Checkpoint tasks → `autonomous: false`
+4. Each plan: 2-3 tasks, single concern, ~50% context target
 </step>
 
 <step name="derive_must_haves">
-Goal-backward: state goal → derive 3-7 observable truths → derive artifacts → derive wiring → identify key links.
+Apply goal-backward methodology (see goal_backward section):
+1. State the goal (outcome, not task)
+2. Derive observable truths (3-7, user perspective)
+3. Derive required artifacts (specific files)
+4. Derive required wiring (connections)
+5. Identify key links (critical connections)
 </step>
 
 <step name="estimate_scope">
-Verify 2-3 tasks, ~50% context target. Split if necessary.
+Verify each plan fits context budget: 2-3 tasks, ~50% target. Split if necessary. Check depth setting.
 </step>
 
 <step name="confirm_breakdown">
-Present breakdown with wave structure. Wait for confirmation (interactive) or auto-approve (yolo mode).
+Present breakdown with wave structure. Wait for confirmation in interactive mode. Auto-approve in yolo mode.
 </step>
 
 <step name="write_phase_prompt">
-**Use Write tool only** (never `Bash cat << 'EOF'`). Write to `.planning/phases/XX-name/{phase}-{NN}-PLAN.md`. Include all frontmatter fields.
+Use template structure for each PLAN.md.
+
+**ALWAYS use the Write tool to create files** — never use `Bash(cat << 'EOF')` or heredoc commands for file creation.
+
+Write to `.planning/phases/XX-name/{phase}-{NN}-PLAN.md`
+
+Include all frontmatter fields.
 </step>
 
 <step name="validate_plan">
+Validate each created PLAN.md using forge-tools:
+
 ```bash
 VALID=$(node ~/.claude/atos-forge/bin/forge-tools.cjs frontmatter validate "$PLAN_PATH" --schema plan)
-STRUCTURE=$(node ~/.claude/atos-forge/bin/forge-tools.cjs verify plan-structure "$PLAN_PATH")
 ```
 
-Fix if `valid=false` (required fields: `phase`, `plan`, `type`, `wave`, `depends_on`, `files_modified`, `autonomous`, `must_haves`). Fix structure errors (missing `<name>`/`<action>`, checkpoint/autonomous mismatch) before committing.
+Returns JSON: `{ valid, missing, present, schema }`
+
+**If `valid=false`:** Fix missing required fields before proceeding.
+
+Required plan frontmatter fields:
+- `phase`, `plan`, `type`, `wave`, `depends_on`, `files_modified`, `autonomous`, `must_haves`
 
 ### Locked Decisions & Verification Must-Check
 
-Extract 3-5 key decisions into `locked_decisions` frontmatter (enforced during execution) and `verification_must_check` items (verified by engine Layer 6). Format: list of strings describing what must and must not exist in code.
+After creating each plan, extract 3-5 key technical decisions and list them in the frontmatter as:
+
+```yaml
+locked_decisions:
+  - "Key decision 1 (e.g., Use JWT for auth, not sessions)"
+  - "Key decision 2 (e.g., PostgreSQL as database)"
+verification_must_check:
+  - "What to verify exists in code (e.g., JWT token generation)"
+  - "What should NOT exist (e.g., No session-based auth)"
+```
+
+These locked decisions will be enforced during execution — agents cannot deviate from them.
+The `verification_must_check` items are verified by the engine's behavioral layer (Layer 6) against changed files.
+
+Also validate plan structure:
+
+```bash
+STRUCTURE=$(node ~/.claude/atos-forge/bin/forge-tools.cjs verify plan-structure "$PLAN_PATH")
+```
+
+Returns JSON: `{ valid, errors, warnings, task_count, tasks }`
+
+**If errors exist:** Fix before committing:
+- Missing `<name>` in task → add name element
+- Missing `<action>` → add action element
+- Checkpoint/autonomous mismatch → update `autonomous: false`
 </step>
 
 <step name="update_roadmap">
@@ -457,7 +1201,17 @@ Update ROADMAP.md to finalize phase placeholders:
 - `[To be planned]` → derive from CONTEXT.md > RESEARCH.md > phase description
 - If Goal already has real content → leave it
 
-**Plans** (always update): update count (`**Plans:** {N} plans`) and plan list (checkboxes with brief objectives). Write updated ROADMAP.md.
+**Plans** (always update):
+- Update count: `**Plans:** {N} plans`
+
+**Plan list** (always update):
+```
+Plans:
+- [ ] {phase}-01-PLAN.md — {brief objective}
+- [ ] {phase}-02-PLAN.md — {brief objective}
+```
+
+4. Write updated ROADMAP.md
 </step>
 
 <step name="git_commit">
@@ -474,14 +1228,91 @@ Return structured planning outcome to orchestrator.
 
 <structured_returns>
 
-Return structured planning outcomes to the orchestrator. Use "PLANNING COMPLETE" format for standard mode (wave structure table + plans created table + next steps), "GAP CLOSURE PLANS CREATED" for gap mode, and follow checkpoint/revision_mode templates for those modes.
+## Planning Complete
 
-> Reference: See @planner-cookbook.md for exact structured return templates.
+```markdown
+## PLANNING COMPLETE
+
+**Phase:** {phase-name}
+**Plans:** {N} plan(s) in {M} wave(s)
+
+### Wave Structure
+
+| Wave | Plans | Autonomous |
+|------|-------|------------|
+| 1 | {plan-01}, {plan-02} | yes, yes |
+| 2 | {plan-03} | no (has checkpoint) |
+
+### Plans Created
+
+| Plan | Objective | Tasks | Files |
+|------|-----------|-------|-------|
+| {phase}-01 | [brief] | 2 | [files] |
+| {phase}-02 | [brief] | 3 | [files] |
+
+### Next Steps
+
+Execute: `/forge-execute-phase {phase}`
+
+<sub>`/clear` first - fresh context window</sub>
+```
+
+## Gap Closure Plans Created
+
+```markdown
+## GAP CLOSURE PLANS CREATED
+
+**Phase:** {phase-name}
+**Closing:** {N} gaps from {VERIFICATION|UAT}.md
+
+### Plans
+
+| Plan | Gaps Addressed | Files |
+|------|----------------|-------|
+| {phase}-04 | [gap truths] | [files] |
+
+### Next Steps
+
+Execute: `/forge-execute-phase {phase} --gaps-only`
+```
+
+## Checkpoint Reached / Revision Complete
+
+Follow templates in checkpoints and revision_mode sections respectively.
 
 </structured_returns>
 
 <success_criteria>
 
-> Reference: See @planner-cookbook.md for full success criteria checklists (Standard Mode and Gap Closure Mode).
+## Standard Mode
+
+Phase planning complete when:
+- [ ] STATE.md read, project history absorbed
+- [ ] Mandatory discovery completed (Level 0-3)
+- [ ] Prior decisions, issues, concerns synthesized
+- [ ] Dependency graph built (needs/creates for each task)
+- [ ] Tasks grouped into plans by wave, not by sequence
+- [ ] PLAN file(s) exist with XML structure
+- [ ] Each plan: depends_on, files_modified, autonomous, must_haves in frontmatter
+- [ ] Each plan: user_setup declared if external services involved
+- [ ] Each plan: Objective, context, tasks, verification, success criteria, output
+- [ ] Each plan: 2-3 tasks (~50% context)
+- [ ] Each task: Type, Files (if auto), Action, Verify, Done
+- [ ] Checkpoints properly structured
+- [ ] Wave structure maximizes parallelism
+- [ ] PLAN file(s) committed to git
+- [ ] User knows next steps and wave structure
+
+## Gap Closure Mode
+
+Planning complete when:
+- [ ] VERIFICATION.md or UAT.md loaded and gaps parsed
+- [ ] Existing SUMMARYs read for context
+- [ ] Gaps clustered into focused plans
+- [ ] Plan numbers sequential after existing
+- [ ] PLAN file(s) exist with gap_closure: true
+- [ ] Each plan: tasks derived from gap.missing items
+- [ ] PLAN file(s) committed to git
+- [ ] User knows to run `/forge-execute-phase {X}` next
 
 </success_criteria>

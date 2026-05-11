@@ -721,6 +721,86 @@ async function main() {
       break;
     }
 
+    case 'hash-lock': {
+      const subcmd = args[1];
+      const lockPath = path.join(cwd, '.forge', 'hash-locks.json');
+
+      function loadLocks() {
+        try { return JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch { return {}; }
+      }
+      function saveLocks(locks) {
+        const dir = path.dirname(lockPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(lockPath, JSON.stringify(locks, null, 2) + '\n');
+      }
+
+      if (subcmd === 'lock') {
+        const planPath = args[2];
+        if (!planPath) { console.error('Usage: forge-tools hash-lock lock <planPath>'); process.exit(1); }
+        const crypto = require('crypto');
+        const content = fs.readFileSync(planPath, 'utf8');
+        const testFilesMatch = content.match(/test_files?:\s*\n((?:\s+-\s+.+\n?)*)/);
+        const planId = path.basename(planPath, '.md');
+        const entries = [];
+        if (testFilesMatch) {
+          const testFiles = testFilesMatch[1].split('\n').map(l => l.replace(/^\s+-\s+/, '').trim()).filter(Boolean);
+          for (const tf of testFiles) {
+            const fullPath = path.join(cwd, tf);
+            if (fs.existsSync(fullPath)) {
+              const hash = crypto.createHash('sha256').update(fs.readFileSync(fullPath, 'utf8')).digest('hex');
+              entries.push({ type: 'test_file', path: tf, sha256: hash });
+            }
+          }
+        }
+        const locks = loadLocks();
+        locks[planId] = entries;
+        saveLocks(locks);
+        console.log('Locked ' + entries.length + ' files for plan ' + planId);
+      } else if (subcmd === 'check') {
+        const planPath = args[2];
+        const crypto = require('crypto');
+        const locks = loadLocks();
+        const planId = planPath ? path.basename(planPath, '.md') : null;
+        let violations = 0;
+        const entriesToCheck = planId && locks[planId] ? { [planId]: locks[planId] } : locks;
+        for (const [pid, entries] of Object.entries(entriesToCheck)) {
+          if (!Array.isArray(entries)) continue;
+          for (const entry of entries) {
+            if (entry.type === 'test_file') {
+              const fullPath = path.join(cwd, entry.path);
+              if (!fs.existsSync(fullPath)) continue;
+              const hash = crypto.createHash('sha256').update(fs.readFileSync(fullPath, 'utf8')).digest('hex');
+              if (hash !== entry.sha256) {
+                console.error('TAMPERED: ' + entry.path + ' (plan: ' + pid + ')');
+                violations++;
+              }
+            }
+          }
+        }
+        if (violations === 0) { console.log('All hash locks intact'); }
+        else { console.error(violations + ' violation(s) found'); process.exit(1); }
+      } else if (subcmd === 'list') {
+        const locks = loadLocks();
+        const plans = Object.keys(locks);
+        if (plans.length === 0) { console.log('No active hash locks'); }
+        else {
+          for (const pid of plans) {
+            const entries = locks[pid] || [];
+            console.log(pid + ': ' + entries.length + ' locked file(s)');
+            for (const e of entries) { console.log('  ' + e.type + ': ' + e.path); }
+          }
+        }
+      } else if (subcmd === 'clear') {
+        const planId = args[2];
+        const locks = loadLocks();
+        if (planId) { delete locks[planId]; saveLocks(locks); console.log('Cleared locks for ' + planId); }
+        else { saveLocks({}); console.log('Cleared all hash locks'); }
+      } else {
+        console.log('Usage: forge-tools hash-lock <lock|check|list|clear> [args]');
+      }
+      break;
+    }
+
     default:
       error(`Unknown command: ${command}`);
   }

@@ -91,6 +91,7 @@ const DEFAULTS = {
   },
   verification: {
     layers: {
+      hash_lock: true,
       structural: true,
       type_check: true,
       interface_contracts: true,
@@ -98,15 +99,42 @@ const DEFAULTS = {
       tests: true,
       behavioral: true,
       contract: true,
+      semantic: false,
       architectural: false,
       browser: false,
       key_links: true,
+      mutation: false,
     },
     auto_fix: true,
     max_fix_loops: 3,
     test_command: null,
     type_check_command: null,
     test_timeout: 300,
+    regression: {
+      enabled: true,
+      fail_on_regression: true,
+      baseline_path: '.forge/test-baseline.json',
+    },
+    coverage: {
+      enabled: false,
+      min_line_coverage: 80,
+      min_branch_coverage: 60,
+      fail_below_threshold: false,
+      tool: 'auto',
+      report_path: '.forge/coverage-report.json',
+    },
+    mutation: {
+      operators: ['negate_condition', 'flip_boolean', 'remove_return', 'boundary', 'arithmetic'],
+      max_mutants_per_file: 10,
+      timeout_multiplier: 2,
+      min_score: 0.70,
+    },
+    entropy: {
+      enabled: true,
+      auto_snapshot: true,
+      thresholds: { warn_percent: 10, block_percent: 25 },
+      large_file_loc: 500,
+    },
   },
   knowledge: {
     enabled: true,
@@ -164,6 +192,69 @@ const DEFAULTS = {
     max_injected_agents: 2,    // Max specialist agents to inject per task
     max_body_chars: 1500,      // Max chars of expertise excerpt per injected agent
     capability_map: {},        // Override / extend auto-computed capability → agent mapping
+  },
+  requirements: {
+    impact_tracking: { enabled: true, baseline_path: '.forge/requirements-baseline.json', warn_on_change: true },
+  },
+  architecture: {
+    enabled: true,
+    approval_required: true,
+    style: 'flexible',
+    grilling_depth: 'relentless',
+    glossary_auto_capture: true,
+    register_in_graph: true,
+  },
+  repeated_error_detection: {
+    enabled: true,
+    max_identical_errors: 3,
+  },
+  context_monitoring: {
+    enabled: true,
+    log_to_ledger: true,
+    kill_at_percentage: 85,
+  },
+  constitution: {
+    enabled: true,
+    path: '.forge/constitution.md',
+    enforcement: 'strict',
+  },
+  hash_lock: {
+    enabled: true,
+    lock_test_files: true,
+    lock_must_haves: true,
+    lock_verification_steps: true,
+  },
+  guard: {
+    enabled: true,
+    block_env_writes: true,
+    block_locked_test_writes: true,
+    block_secrets: true,
+  },
+  drift: {
+    enabled: true,
+    thresholds: { green_max: 0.10, yellow_max: 0.25 },
+    block_on_red: true,
+    report_path: '.forge/drift-report.json',
+  },
+  browser: {
+    ports: [3000, 5173, 4200, 8080, 8000],
+    viewports: [
+      { name: 'mobile', width: 375, height: 812 },
+      { name: 'tablet', width: 768, height: 1024 },
+      { name: 'desktop', width: 1024, height: 768 },
+      { name: 'wide', width: 1440, height: 900 },
+    ],
+    diff_threshold: 0.05,
+    fail_diff_threshold: 0.15,
+    screenshots: true,
+    accessibility: true,
+  },
+  ci: {
+    provider: 'github',
+    pr_creation: true,
+    comment_results: true,
+    junit_output: false,
+    annotations: true,
   },
   // Legacy compat sections (for .planning/config.json backward compatibility)
   workflow: {

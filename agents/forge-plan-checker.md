@@ -263,6 +263,8 @@ issue:
 
 **Only check if CONTEXT.md was provided in the verification context.**
 
+**If skipped:** Report in skipped_dimensions: `{ dimension: "context_compliance", reason: "CONTEXT.md not provided", impact: "User decisions from /forge-discuss-phase not validated against plans" }`
+
 **Process:**
 1. Parse CONTEXT.md sections: Phase Boundary, Upstream Decisions, Decisions, Claude's Discretion, Specific Ideas, Deferred Ideas
 2. Verify plans stay within Phase Boundary scope
@@ -281,7 +283,30 @@ issue:
 - Task implements something from Deferred Ideas
 - Plan ignores user's stated preference
 
-> Reference: See @verifier-cookbook.md for worked examples (contradiction and scope creep issue formats).
+**Example — contradiction:**
+```yaml
+issue:
+  dimension: context_compliance
+  severity: blocker
+  description: "Plan contradicts locked decision: user specified 'card layout' but Task 2 implements 'table layout'"
+  plan: "01"
+  task: 2
+  user_decision: "Layout: Cards (from Decisions section)"
+  plan_action: "Create DataTable component with rows..."
+  fix_hint: "Change Task 2 to implement card-based layout per user decision"
+```
+
+**Example — scope creep:**
+```yaml
+issue:
+  dimension: context_compliance
+  severity: blocker
+  description: "Plan includes deferred idea: 'search functionality' was explicitly deferred"
+  plan: "02"
+  task: 1
+  deferred_idea: "Search/filtering (Deferred Ideas section)"
+  fix_hint: "Remove search task - belongs in future phase per user decision"
+```
 
 ## Dimension 8: Test Coverage
 
@@ -306,13 +331,30 @@ issue:
 
 **Severity:** `blocker` for plans with testable business logic / API endpoints. `warning` for plans with simple CRUD / UI-only components.
 
-> Reference: See @verifier-cookbook.md for test coverage issue example and valid exemption format.
+**Example issue:**
+```yaml
+issue:
+  dimension: test_coverage
+  severity: blocker
+  description: "Plan 01 creates API endpoint src/api/billing/route.ts but has no test task"
+  plan: "01"
+  testable_files: ["src/api/billing/route.ts", "src/lib/billing.ts"]
+  fix_hint: "Add test task creating src/api/billing/route.test.ts and src/lib/billing.test.ts"
+```
+
+**Example — valid exemption:**
+```yaml
+# No issue raised for:
+# has_tests: false  # Only modifies docker-compose.yml and .env
+```
 
 ## Dimension 9: Architectural Fitness (if codebase map exists)
 
 **Question:** Do plans respect established architecture and conventions?
 
 **Only check if `.planning/codebase/ARCHITECTURE.md` or `.planning/codebase/CONVENTIONS.md` exists.** Skip gracefully if neither file exists (greenfield project or map not yet run).
+
+**If skipped:** Report in skipped_dimensions: `{ dimension: "architectural_fitness", reason: "ARCHITECTURE.md / CONVENTIONS.md not found", impact: "Layer boundary and naming convention violations not detected" }`
 
 **Process:**
 1. Read `.planning/codebase/ARCHITECTURE.md` for layer boundaries and patterns
@@ -332,7 +374,143 @@ issue:
 - File naming doesn't match project conventions (e.g., camelCase vs kebab-case)
 - Error handling inconsistent with documented patterns
 
-> Reference: See @verifier-cookbook.md for architectural fitness issue examples (naming convention and layer violation formats).
+**Example issue:**
+```yaml
+issue:
+  dimension: architectural_fitness
+  severity: suggestion
+  description: "Plan creates src/utils/authHelper.ts but CONVENTIONS.md specifies kebab-case for utility files"
+  plan: "01"
+  task: 2
+  convention: "File naming: kebab-case for all files (CONVENTIONS.md)"
+  fix_hint: "Rename to src/utils/auth-helper.ts"
+```
+
+**Example — layer violation:**
+```yaml
+issue:
+  dimension: architectural_fitness
+  severity: suggestion
+  description: "Task 3 creates a React component that imports from src/database/queries.ts — violates layer boundary"
+  plan: "02"
+  task: 3
+  architecture_rule: "UI layer must access data through API layer only (ARCHITECTURE.md)"
+  fix_hint: "Create an API route and have the component fetch from it instead"
+```
+
+## Dimension 10: Research Alignment
+
+**Question:** Do plans follow the phase researcher's recommendations?
+
+**Process:**
+1. If RESEARCH.md exists for this phase, read it
+2. Extract "Standard Stack" / recommended libraries from RESEARCH.md
+3. Extract "Don't Hand-Roll" warnings from RESEARCH.md
+4. For each plan task `<action>`, check:
+   a) Does it use a different library than recommended? → warning (not blocker) with note
+   b) Does it hand-roll something RESEARCH.md said not to? → BLOCKER
+   c) Does it contradict a "Pitfall" warning from RESEARCH.md? → warning
+
+**Red flags:**
+- Plan uses jsonwebtoken when RESEARCH.md recommended jose
+- Plan implements custom form validation when RESEARCH.md said "use Zod"
+- Plan creates custom auth flow when RESEARCH.md said "use next-auth"
+
+**Example issue:**
+```yaml
+issue:
+  dimension: research_alignment
+  severity: warning
+  description: "Task 2 uses jsonwebtoken but RESEARCH.md recommends jose for Edge runtime compatibility"
+  plan: "16-01"
+  task: 2
+  fix_hint: "Switch to jose library as recommended in RESEARCH.md Standard Stack section"
+```
+
+**Example blocker:**
+```yaml
+issue:
+  dimension: research_alignment
+  severity: blocker
+  description: "Task 1 hand-rolls JWT verification. RESEARCH.md Don't Hand-Roll section explicitly warns against this"
+  plan: "16-01"
+  task: 1
+  fix_hint: "Use jose library for JWT operations as specified in RESEARCH.md"
+```
+
+**Skip this dimension if:** No RESEARCH.md exists for the phase (research was optional).
+
+**If skipped:** Report in skipped_dimensions: `{ dimension: "research_alignment", reason: "RESEARCH.md not found for this phase", impact: "Library and approach recommendations not checked against plans" }`
+
+## Dimension 11: Security Anti-Patterns Detection
+
+**Question:** Do task actions contain known-bad security patterns?
+
+**Process:**
+1. For each plan's `<task>` elements, extract the `<action>` text
+2. Check action text against the anti-pattern checklist below
+3. Flag matches with appropriate severity
+
+**Anti-pattern checklist:**
+
+| Category | Pattern to detect | Severity | Rationale |
+|----------|------------------|----------|-----------|
+| Password storage | SHA-256, SHA-512, SHA-1, MD5 used for password hashing | blocker | Fast hashes are not password hashes. Use bcrypt/Argon2id. |
+| Password storage | "store password" / "save password" without mention of hashing | blocker | Implies plaintext storage. |
+| Token storage | localStorage or sessionStorage for auth tokens/JWT | warning | Vulnerable to XSS. Use HttpOnly cookies. |
+| Injection | eval() with user input, string concatenation in SQL queries | blocker | Code injection and SQL injection vectors. |
+| Injection | Template literals in SQL (backtick SELECT ... ${variable}) | blocker | SQL injection via string interpolation. |
+| Crypto | "custom encryption", "hand-rolled crypto", DES, 3DES, RC4, ECB mode | blocker | Broken or deprecated cryptographic primitives. |
+| Auth | Hardcoded secrets, API keys, or passwords in source code | warning | Secrets belong in environment variables or secret managers. |
+| Auth | No HTTPS requirement for auth endpoints in production | warning | Credentials transmitted in cleartext. |
+| CORS | Access-Control-Allow-Origin: * with credentials | warning | Allows any origin to steal authenticated data. |
+| Sessions | No session expiry or unlimited session lifetime | info | Sessions should have absolute and idle timeouts. |
+
+**This is deterministic pattern matching on task `<action>` text.** Only flag when the specific term or phrase appears. Do not infer intent beyond what the text says.
+
+**Example issue:**
+```yaml
+issue:
+  dimension: security_anti_patterns
+  severity: blocker
+  description: "Task 2 uses SHA-256 for password hashing. SHA-256 is a fast hash, not a password hash. Use bcrypt (cost 12+) or Argon2id."
+  plan: "16-01"
+  task: 2
+  fix_hint: "Replace SHA-256 with bcrypt (cost 12) or Argon2id for password hashing"
+```
+
+**Skip this dimension if:** No tasks contain security-related actions (no auth, password, token, session, encryption, or CORS references in any task action).
+
+**If skipped:** Report in skipped_dimensions: `{ dimension: "security_anti_patterns", reason: "No security-related task actions detected", impact: "Security correctness of plan actions not validated" }`
+
+## Dimension 12: Cross-Plan File Overlap
+
+**Question:** Do multiple plans in this phase modify the same file, creating merge conflict risk?
+
+**Process:**
+1. For each plan in the phase, collect the `files_modified` list from frontmatter
+2. Build a file-to-plans map: `{ "src/lib/auth.ts": ["01", "03"], ... }`
+3. Flag files appearing in 2+ plans
+
+**Severity rules:**
+- File in exactly 2 plans: `warning` — the second execution may overwrite the first's changes. Consider consolidating or adding explicit dependency.
+- File in 3+ plans: `blocker` — high probability of lost work. Refactor plans to isolate file ownership.
+- **Exception:** Configuration files (`package.json`, `tsconfig.json`, `prisma/schema.prisma`, `.env.example`) in exactly 2 plans are `info` (typically additive changes). 3+ plans is still `warning`.
+
+**Example issue:**
+```yaml
+issue:
+  dimension: cross_plan_file_overlap
+  severity: warning
+  description: "src/lib/auth.ts is modified by both Plan 01 and Plan 03"
+  plans: ["01", "03"]
+  file: "src/lib/auth.ts"
+  fix_hint: "Move all auth.ts changes to Plan 01 or add depends_on: ['01'] to Plan 03"
+```
+
+**Skip this dimension if:** Only one plan exists for the phase.
+
+**If skipped:** Report in skipped_dimensions: `{ dimension: "cross_plan_file_overlap", reason: "Single plan in phase", impact: "No cross-plan conflict possible" }`
 
 </verification_dimensions>
 
@@ -492,9 +670,51 @@ If either file exists:
 
 This dimension produces **suggestions only** — it never blocks execution.
 
-## Step 11: Determine Overall Status
+## Step 11: Check Research Alignment (if RESEARCH.md exists)
 
-**passed:** All requirements covered, all tasks complete, dependency graph valid, key links planned, scope within budget, must_haves properly derived.
+```bash
+# Check if phase research exists
+ls "$phase_dir"/*-RESEARCH.md 2>/dev/null
+```
+
+If RESEARCH.md exists:
+1. Extract "Standard Stack" / recommended libraries
+2. Extract "Don't Hand-Roll" warnings
+3. Extract "Pitfall" warnings
+4. For each plan task `<action>`, check against research recommendations
+5. Flag hand-rolling of warned items as **blockers**, library mismatches as **warnings**
+
+Skip this step entirely if no RESEARCH.md exists for the phase.
+
+## Step 12: Check Security Anti-Patterns
+
+For each plan's `<task>` elements, extract `<action>` text and check against the anti-pattern table (Dimension 11).
+
+```bash
+for plan in "$PHASE_DIR"/*-PLAN.md; do
+  echo "=== $plan ==="
+  grep -A20 "<action>" "$plan" | grep -B1 -iE "sha-256|sha-512|sha-1|md5|bcrypt|argon|password|localStorage|sessionStorage|eval\(|string concat.*sql|custom encrypt|hand-roll|DES|3DES|RC4|ECB|hardcoded.*secret|api.key|Access-Control-Allow-Origin|session.*expir"
+done
+```
+
+1. If no security-related keywords found in any action text, skip dimension and record in skipped_dimensions
+2. For each match, determine category and severity from the anti-pattern table
+3. Report issues with specific task number, matched pattern, and fix hint
+
+## Step 13: Check Cross-Plan File Overlap
+
+If multiple plans exist for this phase:
+
+1. Collect `files_modified` from each plan's frontmatter
+2. Build a file → plan-id map
+3. Flag files in 2+ plans as warning, 3+ as blocker
+4. Apply config file exception (package.json, tsconfig.json, prisma/schema.prisma in 2 plans = info)
+
+Skip if only one plan exists for the phase.
+
+## Step 14: Determine Overall Status
+
+**passed:** All requirements covered, all tasks complete, dependency graph valid, key links planned, scope within budget, must_haves properly derived, no security anti-patterns, no unresolved file overlaps.
 
 **issues_found:** One or more blockers or warnings. Plans need revision.
 
@@ -504,7 +724,40 @@ Severities: `blocker` (must fix), `warning` (should fix), `info` (suggestions).
 
 <examples>
 
-> Reference: See @verifier-cookbook.md for worked examples of every issue dimension (scope exceeded, requirement coverage, task completeness, dependency correctness, key links, context compliance, architectural fitness, test coverage).
+## Scope Exceeded (most common miss)
+
+**Plan 01 analysis:**
+```
+Tasks: 5
+Files modified: 12
+  - prisma/schema.prisma
+  - src/app/api/auth/login/route.ts
+  - src/app/api/auth/logout/route.ts
+  - src/app/api/auth/refresh/route.ts
+  - src/middleware.ts
+  - src/lib/auth.ts
+  - src/lib/jwt.ts
+  - src/components/LoginForm.tsx
+  - src/components/LogoutButton.tsx
+  - src/app/login/page.tsx
+  - src/app/dashboard/page.tsx
+  - src/types/auth.ts
+```
+
+5 tasks exceeds 2-3 target, 12 files is high, auth is complex domain → quality degradation risk.
+
+```yaml
+issue:
+  dimension: scope_sanity
+  severity: blocker
+  description: "Plan 01 has 5 tasks with 12 files - exceeds context budget"
+  plan: "01"
+  metrics:
+    tasks: 5
+    files: 12
+    estimated_context: "~80%"
+  fix_hint: "Split into: 01 (schema + API), 02 (middleware + lib), 03 (UI components)"
+```
 
 </examples>
 
@@ -568,6 +821,14 @@ Return all issues as a structured `issues:` YAML list (see dimension examples fo
 | 01   | 3     | 5     | 1    | Valid  |
 | 02   | 2     | 4     | 2    | Valid  |
 
+### Skipped Dimensions
+
+| Dimension | Reason | Impact |
+|-----------|--------|--------|
+| {name} | {why skipped} | {what's not validated} |
+
+_(Omit this section if all dimensions were active.)_
+
 Plans verified. Run `/forge-execute-phase {phase}` to proceed.
 ```
 
@@ -596,6 +857,14 @@ Plans verified. Run `/forge-execute-phase {phase}` to proceed.
 ### Structured Issues
 
 (YAML issues list using format from Issue Format above)
+
+### Skipped Dimensions
+
+| Dimension | Reason | Impact |
+|-----------|--------|--------|
+| {name} | {why skipped} | {what's not validated} |
+
+_(Omit this section if all dimensions were active.)_
 
 ### Recommendation
 
@@ -648,6 +917,16 @@ Plan verification complete when:
   - [ ] Layer boundaries respected
   - [ ] Naming conventions followed
   - [ ] Established patterns used
+- [ ] Research alignment checked (if RESEARCH.md exists):
+  - [ ] Standard stack recommendations followed
+  - [ ] No hand-rolling of warned items
+  - [ ] Pitfall warnings not contradicted
+- [ ] Security anti-patterns checked:
+  - [ ] Password hashing uses appropriate algorithms (bcrypt/Argon2id)
+  - [ ] Auth tokens not stored in localStorage/sessionStorage
+  - [ ] No SQL injection patterns (string concatenation in queries)
+  - [ ] No deprecated cryptographic primitives
+- [ ] Skipped dimensions reported (if any conditional dimensions inactive)
 - [ ] Overall status determined (passed | issues_found)
 - [ ] Structured issues returned (if any found)
 - [ ] Result returned to orchestrator

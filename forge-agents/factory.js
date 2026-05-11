@@ -91,6 +91,98 @@ function loadAgentDirectives() {
   return _agentDirectives;
 }
 
+// --- Catalog Agent Loading ---
+let _catalog;
+function loadCatalog() {
+  if (_catalog) return _catalog;
+  const catalogDir = path.join(__dirname, 'catalog');
+  _catalog = [];
+  if (!fs.existsSync(catalogDir)) return _catalog;
+  const files = fs.readdirSync(catalogDir).filter(f => f.endsWith('.md')).sort();
+  for (const file of files) {
+    const content = fs.readFileSync(path.join(catalogDir, file), 'utf8');
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    if (!fmMatch) continue;
+    try {
+      // Simple YAML parser for the catalog frontmatter
+      const rawFm = fmMatch[1];
+      const body = fmMatch[2].trim();
+      const meta = {};
+      // Parse top-level keys (name, description, priority)
+      for (const line of rawFm.split('\n')) {
+        const kvMatch = line.match(/^(\w[\w_-]*)\s*:\s*(.+)$/);
+        if (kvMatch && !line.startsWith(' ') && !line.startsWith('\t')) {
+          const key = kvMatch[1];
+          const val = kvMatch[2].trim();
+          if (/^\d+$/.test(val)) {
+            meta[key] = parseInt(val, 10);
+          } else if (val.startsWith('[') && val.endsWith(']')) {
+            meta[key] = val.slice(1, -1).split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+          } else {
+            meta[key] = val.replace(/^['"]|['"]$/g, '');
+          }
+        }
+      }
+      // Parse nested matches: section
+      const matchesBlock = rawFm.match(/^matches:\s*\n((?:[ \t]+.+\n?)*)/m);
+      if (matchesBlock) {
+        meta.matches = {};
+        for (const line of matchesBlock[1].split('\n')) {
+          const nestedKv = line.match(/^\s+(\w[\w_-]*)\s*:\s*(.+)$/);
+          if (nestedKv) {
+            const key = nestedKv[1];
+            const val = nestedKv[2].trim();
+            if (val.startsWith('[') && val.endsWith(']')) {
+              meta.matches[key] = val.slice(1, -1).split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+            } else {
+              meta.matches[key] = val.replace(/^['"]|['"]$/g, '');
+            }
+          }
+        }
+      }
+      meta.file = file;
+      meta.body = body;
+      _catalog.push(meta);
+    } catch (err) {
+      if (process.env.FORGE_DEBUG) console.error('Warning: malformed catalog file ' + file + ': ' + err.message);
+    }
+  }
+  return _catalog;
+}
+
+function matchCatalogAgents(analysis, maxAgents) {
+  if (maxAgents === undefined) maxAgents = 2;
+  const catalog = loadCatalog();
+  if (catalog.length === 0) return [];
+  // Flatten capabilities from analysis (keyed by module)
+  const allCaps = Object.values(analysis.capabilities || {}).flat();
+  const capNames = new Set(allCaps.map(c => (typeof c === 'object' ? c.capability : c)));
+  const langs = new Set(analysis.languages || []);
+  const fws = new Set(analysis.frameworks || []);
+  const scored = catalog
+    .filter(a => a.name !== 'general-executor')
+    .map(agent => {
+      const m = agent.matches || {};
+      let score = 0;
+      for (const cap of (m.capabilities || [])) {
+        if (capNames.has(cap)) score += 0.8;
+      }
+      for (const l of (m.languages || [])) {
+        if (langs.has(l)) score += 0.3;
+      }
+      for (const f of (m.frameworks || [])) {
+        if (fws.has(f)) score += 0.5;
+      }
+      // Priority only breaks ties — does not push agents past the score > 0 gate
+      const tieBreaker = (agent.priority || 1) * 0.001;
+      return { agent, score, tieBreaker };
+    })
+    .filter(s => s.score > 0)
+    .sort((a, b) => (b.score + b.tieBreaker) - (a.score + a.tieBreaker))
+    .slice(0, maxAgents);
+  return scored.map(s => s.agent);
+}
+
 const CHARS_PER_TOKEN = 4;
 
 // Context window budgets (tokens)
@@ -450,6 +542,31 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
 
   const parts = [BASE_EXECUTOR_PROMPT];
 
+  // Constitution injection — project-specific non-negotiable rules
+  const constitutionPath = path.join(analysis.cwd || process.cwd(), '.forge', 'constitution.md');
+  if (fs.existsSync(constitutionPath)) {
+    try {
+      const constitution = fs.readFileSync(constitutionPath, 'utf8').trim();
+      if (constitution) parts.push('\n## Constitution (Non-Negotiable Rules)\n' + constitution + '\n');
+    } catch {}
+  }
+
+  // Glossary injection — domain terminology from .forge/glossary.md and .forge-system/glossary.md
+  const _glossaryCwd = analysis.cwd || process.cwd();
+  const glossaryPaths = [
+    path.join(_glossaryCwd, '.forge-system', 'glossary.md'),
+    path.join(_glossaryCwd, '.forge', 'glossary.md'),
+  ];
+  const glossaryParts = [];
+  for (const gp of glossaryPaths) {
+    if (fs.existsSync(gp)) {
+      try { glossaryParts.push(fs.readFileSync(gp, 'utf8').trim()); } catch {}
+    }
+  }
+  if (glossaryParts.length > 0) {
+    parts.push('\n## Domain Glossary\n' + glossaryParts.join('\n\n') + '\n');
+  }
+
   // Archetype behavior
   parts.push(ARCHETYPE_PROMPTS[archetypeResult.archetype] || ARCHETYPE_PROMPTS[ARCHETYPE.GENERAL]);
 
@@ -521,6 +638,28 @@ function composeSystemPrompt(analysis, archetypeResult, sessionContext) {
       }
     }
   } catch { /* registry not available — proceed without specialist context */ }
+
+  // Catalog specialist expertise injection
+  // Loads matching specialist definitions from forge-agents/catalog/*.md and injects
+  // their expertise bodies (checklists, patterns, rules) into the agent system prompt.
+  try {
+    const _catalogConfig = analysis.cwd
+      ? (() => { try { return forgeConfig().getAgentRegistry(analysis.cwd); } catch { return null; } })()
+      : null;
+    const _maxInjected = (_catalogConfig && _catalogConfig.max_injected_agents) ? _catalogConfig.max_injected_agents : 2;
+    const _maxBodyChars = (_catalogConfig && _catalogConfig.max_body_chars) ? _catalogConfig.max_body_chars : 1500;
+    const _catalogMatched = matchCatalogAgents(analysis, _maxInjected);
+    if (_catalogMatched.length > 0) {
+      const expertiseParts = ['\n## Catalog Specialist Expertise\n'];
+      for (const agent of _catalogMatched) {
+        const body = agent.body && agent.body.length > _maxBodyChars
+          ? agent.body.slice(0, _maxBodyChars) + '\n...(truncated)'
+          : (agent.body || '');
+        expertiseParts.push('### ' + (agent.name || agent.file) + '\n' + body + '\n');
+      }
+      parts.push(expertiseParts.join(''));
+    }
+  } catch { /* catalog not available — proceed without catalog specialist context */ }
 
   // Graph context summary
   if (analysis.graphContext) {
@@ -1647,6 +1786,10 @@ module.exports = {
   ARCHETYPE,
   CAPABILITY_CONFIDENCE_MIN,
   CAPABILITY_VERIFICATION_MAP,
+
+  // Catalog helpers
+  loadCatalog,
+  matchCatalogAgents,
 };
 
 // Run CLI if executed directly
