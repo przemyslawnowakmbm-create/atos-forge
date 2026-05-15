@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Forge — E2E Test Report</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+         margin: 0; padding: 24px; background: #fafafa; color: #111; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0b0b0b; color: #e5e5e5; }
+    section.project { background: #161616; border-color: #222; }
+    pre { background: #0e0e0e; border-color: #222; }
+    .meta { color: #888; }
+    .step .detail { color: #888; }
+  }
+  h1 { margin: 0 0 8px; font-size: 26px; }
+  .meta { color: #555; margin-bottom: 18px; }
+  .summary-card { padding: 18px 22px; border-radius: 12px;
+                  background: #16a34a22;
+                  border: 1px solid #16a34a44;
+                  margin-bottom: 18px; display: flex; gap: 28px; flex-wrap: wrap; }
+  .summary-card .stat { font-size: 28px; font-weight: 600; }
+  .summary-card .label { display: block; font-size: 11px;
+                         text-transform: uppercase; letter-spacing: 1px; color: #666; }
+  .chip { display: inline-block; padding: 4px 10px; margin: 2px 4px 2px 0;
+          background: #2e3a4f; color: #fff; border-radius: 12px; font-size: 11px; }
+  section.project { background: #fff; border: 1px solid #e5e5e5;
+                    border-radius: 10px; padding: 16px 18px;
+                    margin: 12px 0; }
+  section.project header { display: flex; align-items: center;
+                           gap: 12px; flex-wrap: wrap; }
+  section.project h2 { margin: 0; font-size: 17px; }
+  .badge { padding: 3px 10px; border-radius: 6px; color: #fff;
+           font-size: 11px; letter-spacing: 1px; font-weight: 600; }
+  .counts { font-size: 12px; color: #666; }
+  .dur { margin-left: auto; font-size: 12px; color: #999; }
+  ol.steps { list-style: none; padding: 0; margin: 12px 0 0; }
+  .step { display: grid;
+          grid-template-columns: 56px 1fr;
+          gap: 10px; padding: 6px 0; border-top: 1px dotted #e5e5e5; align-items: start; }
+  .step.pass .step-status { color: #16a34a; }
+  .step.fail .step-status { color: #dc2626; font-weight: 600; }
+  .step-status { font-size: 11px; padding-top: 2px; }
+  .step-name { font-family: ui-monospace, "SF Mono", monospace; font-size: 13px; }
+  .step .detail { color: #666; font-size: 12px; grid-column: 2; }
+  .step pre { background: #f6f6f6; border: 1px solid #eee; border-radius: 6px;
+              padding: 6px 8px; font-size: 12px; max-height: 240px; overflow: auto; }
+  details { grid-column: 2; }
+  footer { margin-top: 24px; font-size: 11px; color: #999; text-align: center; }
+</style>
+</head>
+<body>
+<h1>Forge — End-to-End Test Report</h1>
+<div class="meta">
+  Generated 2026-05-15T18:19:38.887Z  · forge-cli v1.20.4
+</div>
+
+<div class="summary-card">
+  <div><span class="label">Projects</span>
+       <span class="stat">5/5</span></div>
+  <div><span class="label">Assertions</span>
+       <span class="stat">35</span></div>
+  <div><span class="label">Failures</span>
+       <span class="stat">0</span></div>
+  <div><span class="label">Verdict</span>
+       <span class="stat" style="color:#16a34a">PASS</span></div>
+</div>
+
+<div class="meta">Improvements covered: </div>
+
+<section class="project pass">
+    <header>
+      <h2>project1-node-lib</h2>
+      <span class="badge" style="background:#16a34a">PASS</span><span class="counts">4 pass / 0 fail</span>
+      <span class="dur">83 ms</span>
+    </header>
+    <ol class="steps"><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">sbom:run</span>
+      <div class="detail">code=0</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">sbom:verify-shape</span>
+      <div class="detail">components=1</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">logger:redacts-secrets</span>
+      <div class="detail">secret never leaked</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">exec:rejects-missing-binary</span>
+      
+      
+    </li></ol>
+  </section>
+<section class="project pass">
+    <header>
+      <h2>project2-rest-api</h2>
+      <span class="badge" style="background:#16a34a">PASS</span><span class="counts">7 pass / 0 fail</span>
+      <span class="dur">255 ms</span>
+    </header>
+    <ol class="steps"><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">identity:resolves</span>
+      <div class="detail">actor=e2e@forge.test</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">redactor:scrubs-secrets</span>
+      <div class="detail">anthropic + gh PAT redacted</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">audit:append-tail</span>
+      <div class="detail">tail=2</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">audit:hash-chain-verifies</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">actions:log-action+observation</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">actions:tail-roundtrips</span>
+      <div class="detail">lines=2</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">actions:replay-renders-pair</span>
+      
+      
+    </li></ol>
+  </section>
+<section class="project pass">
+    <header>
+      <h2>project3-python-pipeline</h2>
+      <span class="badge" style="background:#16a34a">PASS</span><span class="counts">5 pass / 0 fail</span>
+      <span class="dur">34 ms</span>
+    </header>
+    <ol class="steps"><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">capabilities:resolves-write-src+tests</span>
+      <div class="detail">tools=6 egress=off</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">capabilities:write-path-allowlist</span>
+      <div class="detail">src/* allowed, /etc/passwd denied</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">capabilities:reports-unknown</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scope-env:allowlist-enforced</span>
+      <div class="detail">allowlisted survives, non-allowlisted dropped</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">containers:hardened-flags</span>
+      <div class="detail">cap-drop ALL + no-new-privileges + read-only + network none</div>
+      
+    </li></ol>
+  </section>
+<section class="project pass">
+    <header>
+      <h2>project4-ts-web-app</h2>
+      <span class="badge" style="background:#16a34a">PASS</span><span class="counts">5 pass / 0 fail</span>
+      <span class="dur">36 ms</span>
+    </header>
+    <ol class="steps"><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">tokenizer:estimates-tokens</span>
+      <div class="detail">name=heuristic est(&quot;Hello, world!&quot;) = 4</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">verify:cache-hit</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">metrics:batcher-flushes</span>
+      <div class="detail">units=2</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">verify:layer-structural-fails-on-conflict</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">verify:layer-structural-passes-clean</span>
+      
+      
+    </li></ol>
+  </section>
+<section class="project pass">
+    <header>
+      <h2>project5-polyglot-ops</h2>
+      <span class="badge" style="background:#16a34a">PASS</span><span class="counts">14 pass / 0 fail</span>
+      <span class="dur">813 ms</span>
+    </header>
+    <ol class="steps"><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">agents-md:generate</span>
+      <div class="detail">bytes=3691</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">agents-md:check-after-generate</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">agents-md:diff-detects-drift</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">runtimes:list-includes-all-4</span>
+      <div class="detail">runtimes=6</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">runtimes:claude-code-shape</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">runtimes:codex-shape</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">runtimes:openhands-shape</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">runtimes:gemini-shape</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">mcp:resources-list</span>
+      <div class="detail">resources=4</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">mcp:tools-list</span>
+      <div class="detail">tools=7</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">skills:add-file-ref</span>
+      <div class="detail">installed: forge-test-skill → /private/var/folders/jn/hlrfc41x2dq2z9fdbmqr3xh80000gp/T/forge-e2e-polyglot-ops-Y9WTar/.forge/skills/forge-test-skill</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">skills:list-shows-installed</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">skills:info-roundtrips</span>
+      
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">skills:remove-cleans-up</span>
+      
+      
+    </li></ol>
+  </section>
+
+<footer>Forge E2E suite · 2026-05-15T18:19:38.887Z</footer>
+</body>
+</html>

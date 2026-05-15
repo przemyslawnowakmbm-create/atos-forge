@@ -1,0 +1,49 @@
+{
+  "name": "project4-ts-web-app",
+  "started_at": "2026-05-15T18:19:38.028Z",
+  "finished_at": "2026-05-15T18:19:38.064Z",
+  "pass": 5,
+  "fail": 0,
+  "steps": [
+    {
+      "name": "tokenizer:estimates-tokens",
+      "status": "pass",
+      "detail": "name=heuristic est(\"Hello, world!\") = 4",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-15T18:19:38.059Z"
+    },
+    {
+      "name": "verify:cache-hit",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-15T18:19:38.060Z"
+    },
+    {
+      "name": "metrics:batcher-flushes",
+      "status": "pass",
+      "detail": "units=2",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-15T18:19:38.060Z"
+    },
+    {
+      "name": "verify:layer-structural-fails-on-conflict",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-15T18:19:38.064Z"
+    },
+    {
+      "name": "verify:layer-structural-passes-clean",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-15T18:19:38.064Z"
+    }
+  ]
+}
