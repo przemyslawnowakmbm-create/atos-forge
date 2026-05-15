@@ -335,6 +335,53 @@ function collectOutput(claudeResult, config, startTime) {
   else if (claudeResult.exitCode !== 0) status = 'error';
   else if (patchContent.trim().length === 0 && filesModified.length === 0) status = 'no_changes';
 
+  // P4: RBAC pre-flight write check — verify every modified file is allowed
+  // by the agent's declared capabilities (write_paths globs).
+  //
+  // Modes:
+  //   off     — skip entirely
+  //   warn    — record violations in warnings, allow patch
+  //   enforce — record violations, force status=error, downgrade patch
+  let rbacViolations = [];
+  try {
+    const rbac = config.rbac || null;
+    if (rbac && Array.isArray(rbac.writePaths) && filesModified.length > 0) {
+      // Lazy-load capabilities; works in container if module is mounted, else no-op
+      let caps;
+      try { caps = require('/forge-modules/forge-agents/capabilities'); }
+      catch {
+        try { caps = require('../forge-agents/capabilities'); }
+        catch { caps = null; }
+      }
+      if (caps && typeof caps.isWriteAllowed === 'function') {
+        for (const f of filesModified) {
+          const check = caps.isWriteAllowed(f, rbac.writePaths);
+          if (!check.allowed) {
+            rbacViolations.push({ file: f, reason: check.reason });
+          }
+        }
+      }
+    }
+    if (rbacViolations.length > 0) {
+      const mode = (config.rbac && config.rbac.enforcement) || 'warn';
+      const msg = `RBAC: ${rbacViolations.length} file(s) written outside declared capabilities`;
+      log(`  WARN: ${msg}`);
+      learnings.warnings = learnings.warnings || [];
+      learnings.warnings.push({
+        type: 'rbac_violation',
+        message: msg,
+        violations: rbacViolations,
+        mode,
+      });
+      if (mode === 'enforce') {
+        log('  RBAC enforce: downgrading status to error.');
+        status = 'error';
+      }
+    }
+  } catch (err) {
+    log(`  WARN: rbac check failed: ${err.message?.split('\n')[0]}`);
+  }
+
   // Build result
   const result = {
     task_id: config.agent_id || process.env.FORGE_TASK_ID || 'unknown',
@@ -347,6 +394,7 @@ function collectOutput(claudeResult, config, startTime) {
     warnings: learnings.warnings || [],
     discoveries: learnings.discoveries || [],
     learnings,
+    rbac_violations: rbacViolations,
   };
 
   // If Claude errored, include stderr excerpt

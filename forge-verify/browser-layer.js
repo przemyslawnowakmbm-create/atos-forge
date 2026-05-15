@@ -18,7 +18,8 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const { spawn, execSync } = require('child_process');
+const { spawn } = require('child_process');
+const { execFileSafe, safePath } = require('../forge-cli/lib/exec');
 
 // ============================================================
 // Default Configuration
@@ -436,9 +437,8 @@ function runExistingE2eTests(cwd) {
 
   const start = Date.now();
   try {
-    const output = execSync(`npx playwright test --reporter=line ${testDir}`, {
+    const output = execFileSafe('npx', ['playwright', 'test', '--reporter=line', safePath(testDir)], {
       cwd,
-      encoding: 'utf8',
       timeout: 120000,
       stdio: 'pipe',
     });

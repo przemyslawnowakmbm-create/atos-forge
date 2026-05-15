@@ -4,7 +4,18 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execFileSafe } = require('../forge-cli/lib/exec');
+// scope-env is loaded lazily so this file is usable before P3 lands.
+let _scopeEnv = null;
+function loadScopeEnv() {
+  if (_scopeEnv !== null) return _scopeEnv;
+  try {
+    _scopeEnv = require('./scope-env');
+  } catch {
+    _scopeEnv = { scopeEnvForAgent: null };
+  }
+  return _scopeEnv;
+}
 
 const PROVIDERS = {
   claude: {
@@ -79,11 +90,11 @@ function findProviderBinary(providerName) {
   if (!provider) return null;
 
   try {
-    const which = execSync(`which ${provider.binary}`, {
+    const which = execFileSafe('which', [provider.binary], {
       stdio: 'pipe',
       timeout: 5000,
-      encoding: 'utf8',
-    }).trim();
+      allowFailure: true,
+    });
     if (which) return which;
   } catch { /* not in PATH */ }
 
@@ -113,11 +124,11 @@ function checkProvider(providerName) {
   }
 
   try {
-    const version = execSync(`"${binaryPath}" --version 2>/dev/null`, {
-      stdio: 'pipe',
+    const version = execFileSafe(binaryPath, ['--version'], {
+      stdio: ['pipe', 'pipe', 'ignore'],
       timeout: 10000,
-      encoding: 'utf8',
-    }).trim();
+      allowFailure: true,
+    });
     return {
       name: providerName,
       label: provider.label,
@@ -149,51 +160,68 @@ function resolveProvider(cwd, opts = {}) {
 
 function buildInvocation(providerName, prompt, opts = {}) {
   const outputFile = opts.outputFile || null;
-  const model = opts.model || null;
+  const secretsScope = Array.isArray(opts.secrets_scope) ? opts.secrets_scope : [];
+  const envScopeEnabled = opts.env_allowlist_enabled === true;
 
+  const buildEnv = (extras) => {
+    const base = { ...process.env, ...(extras || {}) };
+    if (!envScopeEnabled) return base;
+    const { scopeEnvForAgent } = loadScopeEnv();
+    if (typeof scopeEnvForAgent !== 'function') return base;
+    return scopeEnvForAgent(process.env, secretsScope, extras || {});
+  };
+
+  // P8: delegate argv/env construction to the runtime adapter.
+  let runtimes = null;
+  try { runtimes = require('../forge-runtimes'); }
+  catch { runtimes = null; }
+
+  // Map legacy provider names → runtime adapter names.
+  const runtimeKey = providerName === 'claude' ? 'claude-code' : providerName;
+  const adapter = runtimes && runtimes.get && runtimes.get(runtimeKey);
+
+  if (adapter && typeof adapter.build === 'function') {
+    const built = adapter.build(prompt, { ...opts, outputFile });
+    return {
+      args: built.args,
+      stdin: built.stdin == null ? null : built.stdin,
+      outputFile,
+      env: buildEnv(built.env || {}),
+    };
+  }
+
+  // Fallback (runtime adapter unavailable — should not happen post-P8).
   if (providerName === 'codex') {
+    const model = opts.model || null;
     const args = ['exec', '--full-auto', '--skip-git-repo-check'];
     if (model) args.push('-m', model);
     if (outputFile) args.push('-o', outputFile);
     args.push('-');
-    return {
-      args,
-      stdin: prompt,
-      outputFile,
-      env: {
-        ...process.env,
-        TERM: 'dumb',
-      },
-    };
+    return { args, stdin: prompt, outputFile, env: buildEnv({ TERM: 'dumb' }) };
   }
-
-  // Optionally extend allowedTools with 'Agent' when delegation is enabled.
-  // This lets spawned Claude sessions use Agent(subagent_type=<name>) to
-  // delegate sub-tasks to specialists from ~/.claude/agents/.
-  // Opt-in only: agent_registry.delegate_to_agents must be true in config.
-  const baseTools = opts.allowedTools || 'Bash,Read,Write,Edit,Glob,Grep';
+  const baseTools = Array.isArray(opts.allowedTools)
+    ? opts.allowedTools.join(',')
+    : (opts.allowedTools || 'Bash,Read,Write,Edit,Glob,Grep');
   const finalTools = opts.delegate_to_agents === true
     ? `${baseTools},Agent`
     : baseTools;
-
-  const args = [
-    '--print',
-    '--dangerously-skip-permissions',
-    '-p', prompt,
-    '--allowedTools', finalTools,
-  ];
-  if (model && model !== 'inherit') {
-    args.splice(3, 0, '--model', model);
+  const useDangerous = opts.dangerously_skip_permissions !== false;
+  const args = ['--print'];
+  if (useDangerous) args.push('--dangerously-skip-permissions');
+  args.push('-p', prompt, '--allowedTools', finalTools);
+  if (Array.isArray(opts.disallowedTools) && opts.disallowedTools.length > 0) {
+    args.push('--disallowedTools', opts.disallowedTools.join(','));
   }
+  const model = opts.model || null;
+  if (model && model !== 'inherit') args.splice(1, 0, '--model', model);
   return {
     args,
     stdin: null,
     outputFile,
-    env: {
-      ...process.env,
+    env: buildEnv({
       TERM: 'dumb',
       CLAUDE_CODE_ENTRYPOINT: opts.entrypoint || process.env.CLAUDE_CODE_ENTRYPOINT,
-    },
+    }),
   };
 }
 

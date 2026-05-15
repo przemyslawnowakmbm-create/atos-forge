@@ -55,12 +55,18 @@
     "yaml": "^2.6.0"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0"
+    "@types/node": "^20.11.30",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.4.5"
   },
   "scripts": {
     "build:hooks": "node scripts/build-hooks.js",
     "test": "node --test forge-cli/bin/forge-tools.test.cjs tests/*.test.cjs",
     "test:cli": "node --test forge-cli/bin/forge-tools.test.cjs",
-    "test:unit": "node --test tests/*.test.cjs"
+    "test:unit": "node --test tests/*.test.cjs",
+    "test:e2e": "node tests/e2e/run-all.cjs",
+    "typecheck": "tsc -p tsconfig.check.json --noEmit",
+    "sbom": "node scripts/sbom.js",
+    "release:prepare": "bash scripts/release.sh"
   }
 }

@@ -41,6 +41,12 @@ class SystemQuery {
   open() {
     const Database = require('better-sqlite3');
     this.db = new Database(this.dbPath, { readonly: true });
+    // P5: tune for large multi-repo system graphs.
+    try { this.db.pragma('journal_mode = WAL'); } catch { /* readonly may reject */ }
+    try { this.db.pragma('cache_size = -65536'); } catch { /* ignore */ }
+    try { this.db.pragma('mmap_size  = 268435456'); } catch { /* ignore */ }
+    try { this.db.pragma('temp_store = MEMORY'); } catch { /* ignore */ }
+    try { this.db.pragma('synchronous = NORMAL'); } catch { /* ignore */ }
     return this;
   }
 

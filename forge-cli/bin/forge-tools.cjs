@@ -703,6 +703,54 @@ async function main() {
       break;
     }
 
+    case 'audit': {
+      const { handleAudit } = require('./lib/audit.cjs');
+      await handleAudit(cwd, args.slice(1), raw);
+      break;
+    }
+
+    case 'identity': {
+      const { handleIdentity } = require('./lib/identity.cjs');
+      await handleIdentity(cwd, args.slice(1), raw);
+      break;
+    }
+
+    case 'capabilities': {
+      const { handleCapabilities } = require('./lib/capabilities.cjs');
+      await handleCapabilities(cwd, args.slice(1));
+      break;
+    }
+
+    case 'agents-md': {
+      const { handleCli: handleAgentsMd } = require('./lib/agents-md.cjs');
+      handleAgentsMd(args.slice(1));
+      break;
+    }
+
+    case 'actions': {
+      const { handleCli: handleActions } = require('./lib/actions.cjs');
+      handleActions(cwd, args.slice(1));
+      break;
+    }
+
+    case 'skills': {
+      const { handleCli: handleSkills } = require('./lib/skills.cjs');
+      handleSkills(cwd, args.slice(1));
+      break;
+    }
+
+    case 'mcp': {
+      const { handleCli: handleMcp } = require('./lib/mcp.cjs');
+      handleMcp(cwd, args.slice(1));
+      break;
+    }
+
+    case 'runtimes': {
+      const { handleCli: handleRuntimes } = require('./lib/runtimes.cjs');
+      handleRuntimes(cwd, args.slice(1));
+      break;
+    }
+
     case 'impact': {
       const { handleImpact } = require('./lib/impact.cjs');
       await handleImpact(cwd, args.slice(1), raw);

@@ -28,6 +28,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { resolveProvider } = require('../forge-agents/provider');
 const { execSync, spawnSync } = require('child_process');
+const { git } = require('../forge-cli/lib/exec');
 
 // ============================================================
 // Chalk — graceful fallback
@@ -556,7 +557,7 @@ function runDirectFix(agentConfig, cwd, timeout) {
   // Capture resulting diff
   let patches = '';
   try {
-    patches = execSync('git diff', { cwd, encoding: 'utf8', timeout: 10000 });
+    patches = git(['diff'], { cwd, timeout: 10000, allowFailure: true });
   } catch { /* ignore */ }
 
   return Promise.resolve({
@@ -578,9 +579,9 @@ function runDirectFix(agentConfig, cwd, timeout) {
  */
 function revertChanges(cwd) {
   try {
-    execSync('git checkout -- .', { cwd, stdio: 'pipe', timeout: 30000 });
+    git(['checkout', '--', '.'], { cwd, stdio: 'pipe', timeout: 30000, allowFailure: true });
     // Also clean untracked files added by the fix agent
-    execSync('git clean -fd', { cwd, stdio: 'pipe', timeout: 30000 });
+    git(['clean', '-fd'], { cwd, stdio: 'pipe', timeout: 30000, allowFailure: true });
     return true;
   } catch {
     return false;
@@ -863,7 +864,7 @@ async function verifyLoop(opts) {
 
     // Snapshot current state for potential revert
     let preFixDiff = '';
-    try { preFixDiff = execSync('git diff HEAD', { cwd, encoding: 'utf8', timeout: 10000 }); } catch { /* ignore */ }
+    try { preFixDiff = git(['diff', 'HEAD'], { cwd, timeout: 10000, allowFailure: true }); } catch { /* ignore */ }
 
     // Run fix agent
     const fixResult = opts.noAgent
@@ -976,8 +977,8 @@ async function verifyLoop(opts) {
   if (loopResult.verification_passed && opts.commit) {
     const message = opts.commitMessage || 'feat: verified changes [forge:verified]';
     try {
-      execSync('git add -A', { cwd, stdio: 'pipe', timeout: 30000 });
-      execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { cwd, stdio: 'pipe', timeout: 30000 });
+      git(['add', '-A'], { cwd, stdio: 'pipe', timeout: 30000 });
+      git(['commit', '-m', String(message)], { cwd, stdio: 'pipe', timeout: 30000 });
       loopResult.committed = true;
       if (!opts.silent) {
         log(chalk.dim('  ') + chalk.green('\u2705 Committed'));

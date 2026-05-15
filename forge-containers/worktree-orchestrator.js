@@ -5,7 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
-const { execSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
+const { git, safeId, safeBranch, safePath } = require('../forge-cli/lib/exec');
 
 const { resolveConfig, formatMemory } = require('./config');
 const { ResourceManager } = require('./resource-manager');
@@ -70,7 +71,7 @@ function startSupervision(taskCtx, hardTimeoutMs) {
   timers.idle = setInterval(() => {
     try {
       const cwd = taskCtx.worktreePath || taskCtx.cwd || '.';
-      const diff = require('child_process').execSync('git diff --stat HEAD 2>/dev/null', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+      const diff = git(['diff', '--stat', 'HEAD'], { cwd, timeout: 5000, allowFailure: true }).trim();
       if (diff) lastActivity = Date.now();
       if (Date.now() - lastActivity > IDLE_MAX_MS) {
         console.log(`[supervision] Idle timeout for ${taskCtx.taskId || 'task'}`);
@@ -120,12 +121,12 @@ function checkCodex() {
  * Create an isolated git worktree for an agent.
  */
 function createWorktree(repoRoot, taskId) {
+  const safeTaskId = safeId(String(taskId));
   const suffix = crypto.randomBytes(3).toString('hex');
-  const worktreePath = path.join(os.tmpdir(), `forge-wt-${taskId}-${suffix}`);
-  const branch = `forge-work/${taskId}-${suffix}`;
+  const worktreePath = path.join(os.tmpdir(), `forge-wt-${safeTaskId}-${suffix}`);
+  const branch = safeBranch(`forge-work/${safeTaskId}-${suffix}`);
 
-  execSync(
-    `git worktree add "${worktreePath}" -b "${branch}" HEAD`,
+  git(['worktree', 'add', worktreePath, '-b', branch, 'HEAD'],
     { cwd: repoRoot, stdio: 'pipe', timeout: 30000 }
   );
 
@@ -137,16 +138,16 @@ function createWorktree(repoRoot, taskId) {
  */
 function removeWorktree(repoRoot, worktreePath, branch) {
   try {
-    execSync(`git worktree remove "${worktreePath}" --force`, {
+    git(['worktree', 'remove', safePath(worktreePath), '--force'], {
       cwd: repoRoot, stdio: 'pipe', timeout: 30000,
     });
   } catch {
     try { fs.rmSync(worktreePath, { recursive: true, force: true }); } catch { /* ignore */ }
-    try { execSync('git worktree prune', { cwd: repoRoot, stdio: 'pipe' }); } catch { /* ignore */ }
+    try { git(['worktree', 'prune'], { cwd: repoRoot, stdio: 'pipe', allowFailure: true }); } catch { /* ignore */ }
   }
   // Clean up branch
   if (branch) {
-    try { execSync(`git branch -D "${branch}"`, { cwd: repoRoot, stdio: 'pipe', timeout: 10000 }); } catch { /* ignore */ }
+    try { git(['branch', '-D', safeBranch(branch)], { cwd: repoRoot, stdio: 'pipe', timeout: 10000, allowFailure: true }); } catch { /* ignore */ }
   }
 }
 
@@ -227,16 +228,15 @@ function prepareWorktree(worktreePath, cwd, agentConfig) {
 
   // Git identity for the worktree
   try {
-    execSync('git config user.email "forge-agent@localhost"', { cwd: worktreePath, stdio: 'pipe' });
-    execSync('git config user.name "Forge Agent"', { cwd: worktreePath, stdio: 'pipe' });
+    git(['config', 'user.email', 'forge-agent@localhost'], { cwd: worktreePath, stdio: 'pipe', allowFailure: true });
+    git(['config', 'user.name', 'Forge Agent'], { cwd: worktreePath, stdio: 'pipe', allowFailure: true });
   } catch { /* ignore */ }
 
   // Create baseline commit marker for clean diff
   try {
-    execSync('git add -A', { cwd: worktreePath, stdio: 'pipe', timeout: 30000 });
-    execSync('git commit --allow-empty -m "forge: baseline for agent work"', {
-      cwd: worktreePath, stdio: 'pipe', timeout: 10000,
-    });
+    git(['add', '-A'], { cwd: worktreePath, stdio: 'pipe', timeout: 30000, allowFailure: true });
+    git(['commit', '--allow-empty', '-m', 'forge: baseline for agent work'],
+      { cwd: worktreePath, stdio: 'pipe', timeout: 10000, allowFailure: true });
   } catch { /* may fail if clean */ }
 
   return configPath;
@@ -383,6 +383,12 @@ function invokeProvider(prompt, worktreePath, opts = {}) {
       entrypoint: 'forge-worktree-agent',
       model: opts.model,
       delegate_to_agents: delegateToAgents,
+      // P4: capability-scoped permissions propagated by launch()
+      allowedTools: opts.allowedTools || null,
+      disallowedTools: opts.disallowedTools || null,
+      secrets_scope: opts.secrets_scope || null,
+      env_allowlist_enabled: opts.env_allowlist_enabled === true,
+      dangerously_skip_permissions: opts.dangerously_skip_permissions,
     });
 
     const proc = spawn(provider.path, invocation.args, {
@@ -480,11 +486,11 @@ function collectWorktreeOutput(worktreePath, outputDir) {
   // Capture git diff (all changes since baseline)
   try {
     // Stage everything first to include new files
-    execSync('git add -A', { cwd: worktreePath, stdio: 'pipe', timeout: 30000 });
+    git(['add', '-A'], { cwd: worktreePath, stdio: 'pipe', timeout: 30000, allowFailure: true });
 
-    const diff = execSync('git diff --cached', {
-      cwd: worktreePath, stdio: 'pipe', timeout: 60000, maxBuffer: 50 * 1024 * 1024,
-    }).toString();
+    const diff = git(['diff', '--cached'], {
+      cwd: worktreePath, stdio: 'pipe', timeout: 60000, maxBuffer: 50 * 1024 * 1024, allowFailure: true,
+    });
 
     if (diff.trim().length > 0) {
       const patchPath = path.join(outputDir, 'patches', 'changes.patch');
@@ -521,6 +527,41 @@ function collectWorktreeOutput(worktreePath, outputDir) {
   try { result.stderr = fs.existsSync(stderrPath) ? fs.readFileSync(stderrPath, 'utf8') : ''; } catch { /* ignore */ }
 
   return result;
+}
+
+/**
+ * P4: Parse a collected patch and check each file against the agent's
+ * declared `writePaths` capability globs.
+ *
+ * @param {object|null} rbac  agentConfig.rbac (or null if not declared)
+ * @param {object} collection collectWorktreeOutput() result
+ * @returns {{ violations: { file: string, reason: string }[] }}
+ */
+function checkRbacViolations(rbac, collection) {
+  if (!rbac || !Array.isArray(rbac.writePaths) || rbac.writePaths.length === 0) {
+    return { violations: [] };
+  }
+  let caps;
+  try { caps = require('../forge-agents/capabilities'); }
+  catch { return { violations: [] }; }
+
+  const files = new Set();
+  for (const patch of (collection.patches || [])) {
+    const content = patch.content || '';
+    // Standard git diff headers: 'diff --git a/<path> b/<path>'
+    for (const line of content.split(/\r?\n/)) {
+      const m = line.match(/^diff --git a\/(.+) b\/(.+)$/);
+      if (m) {
+        files.add(m[2]);
+      }
+    }
+  }
+  const violations = [];
+  for (const f of files) {
+    const check = caps.isWriteAllowed(f, rbac.writePaths);
+    if (!check.allowed) violations.push({ file: f, reason: check.reason });
+  }
+  return { violations };
 }
 
 // ============================================================
@@ -594,10 +635,25 @@ async function launch(agentConfig, params) {
     const prompt = buildPrompt(agentConfig);
 
     // 6. Invoke agent CLI
+    // P4: propagate RBAC-resolved tool/secret scope (if the plan declared
+    // capabilities via factory.js) so the Claude Code subprocess gets the
+    // correct --allowedTools/--disallowedTools and env scope.
+    const rbac = agentConfig?.rbac || null;
     result.status = 'running';
     const invokeResult = await invokeProvider(prompt, worktreePath, {
       timeout: config.timeout_seconds,
       outputDir,
+      allowedTools: rbac?.allowedTools || null,
+      disallowedTools: rbac?.disallowedTools || null,
+      secrets_scope: rbac?.secretsScope || null,
+      env_allowlist_enabled: (() => {
+        try {
+          const cfg = require(path.join(path.dirname(__dirname), 'forge-config', 'config'));
+          const { config: c } = cfg.loadConfig(cwd);
+          return !!(c.security && c.security.env_allowlist && c.security.env_allowlist.enabled);
+        } catch { return false; }
+      })(),
+      dangerously_skip_permissions: rbac && rbac.enforcement === 'enforce' ? false : undefined,
     });
 
     result.provider = invokeResult.provider || resolveProvider(cwd, opts).name;
@@ -614,6 +670,28 @@ async function launch(agentConfig, params) {
     result.agentResult = collection.agentResult;
     if (collection.errors.length > 0) {
       result.errors.push(...collection.errors);
+    }
+
+    // 7b. P4 RBAC pre-flight write check — examine files modified by the agent
+    // and reject those outside the plan's declared write_paths.
+    const rbacResult = checkRbacViolations(rbac, collection);
+    if (rbacResult.violations.length > 0) {
+      result.rbacViolations = rbacResult.violations;
+      const enforcementMode = (rbac && rbac.enforcement) || 'warn';
+      result.errors.push(
+        `RBAC: ${rbacResult.violations.length} write(s) outside declared capabilities (mode=${enforcementMode})`
+      );
+      ledgerLog('logWarning', cwd, {
+        type: 'rbac_violation',
+        text: `Agent ${taskId} wrote ${rbacResult.violations.length} file(s) outside declared capabilities`,
+        files: rbacResult.violations.map(v => v.file),
+        enforcement: enforcementMode,
+      });
+      if (enforcementMode === 'enforce') {
+        // Refuse to apply patches that violate RBAC.
+        result.status = 'rbac_violation';
+        collection.patches = [];
+      }
     }
 
     // 8. Apply patches to main repo
@@ -774,7 +852,7 @@ function cleanup(cwd) {
 
   // Prune orphan git worktrees
   try {
-    execSync('git worktree prune', { cwd: cwd || process.cwd(), stdio: 'pipe', timeout: 10000 });
+    git(['worktree', 'prune'], { cwd: cwd || process.cwd(), stdio: 'pipe', timeout: 10000, allowFailure: true });
   } catch { /* ignore */ }
 
   // Remove forge worktree temp dirs
@@ -801,9 +879,9 @@ function cleanup(cwd) {
 
   // Count remaining worktrees
   try {
-    const wt = execSync('git worktree list --porcelain', {
-      cwd: cwd || process.cwd(), stdio: 'pipe', timeout: 10000,
-    }).toString();
+    const wt = git(['worktree', 'list', '--porcelain'], {
+      cwd: cwd || process.cwd(), stdio: 'pipe', timeout: 10000, allowFailure: true,
+    });
     const forgeWt = wt.split('\n').filter(l => l.includes('forge-'));
     removed.worktrees = forgeWt.length;
   } catch { /* ignore */ }
@@ -933,6 +1011,9 @@ module.exports = {
 
   // Patch collection
   collectWorktreeOutput,
+
+  // P4: RBAC pre-flight write check
+  checkRbacViolations,
 
   // Auto-detection
   autoDetect,

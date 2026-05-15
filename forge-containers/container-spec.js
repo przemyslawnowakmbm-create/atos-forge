@@ -93,7 +93,7 @@ function buildSpec(params) {
   }
 
   // Environment variables
-  const env = {
+  const baseEnv = {
     FORGE_TASK_ID: taskId,
     FORGE_CONTAINER_ID: containerId,
     FORGE_REPO_PATH: '/repo',
@@ -106,6 +106,25 @@ function buildSpec(params) {
     HOME: '/home/forge',
     ...(opts.env || {}),
   };
+
+  // P3 / 4.1.1: Env allowlist for container subprocesses.
+  // When `security.env_allowlist.enabled` is true, the host env is filtered
+  // down to the allowlist + plan-declared secrets_scope before any pass-through
+  // happens. Otherwise we keep current behavior (only forge-injected env).
+  let env = baseEnv;
+  try {
+    const scope = require('../forge-agents/scope-env');
+    if (scope.isEnabled(cwd)) {
+      const planFm = (agentConfig && agentConfig.plan_frontmatter) || {};
+      const scoped = scope.scopeEnvForAgent(
+        process.env,
+        Array.isArray(planFm.secrets_scope) ? planFm.secrets_scope : [],
+        baseEnv,
+        { cwd }
+      );
+      env = scoped;
+    }
+  } catch { /* default behaviour */ }
 
   return {
     id: containerId,
@@ -125,6 +144,7 @@ function buildSpec(params) {
       outputDir,
       configDir,
       createdAt: new Date().toISOString(),
+      planFrontmatter: (agentConfig && agentConfig.plan_frontmatter) || {},
     },
   };
 }
@@ -159,8 +179,13 @@ function selectImage(cwd, dockerfileName) {
 
 /**
  * Convert a ContainerSpec into `docker run` arguments.
+ *
+ * @param {object} spec
+ * @param {object} [hardening] optional hardening profile (P3 / 4.1.2).
+ *   { hardened: bool, profile: 'minimal'|'build'|'net', egress: 'off'|'allowlist'|'passthrough',
+ *     seccompPath?: string, network?: string }
  */
-function toDockerArgs(spec) {
+function toDockerArgs(spec, hardening = {}) {
   const args = [
     'run',
     '--rm',
@@ -171,6 +196,45 @@ function toDockerArgs(spec) {
     // Run as host user so mounted volume permissions match
     '--user', `${process.getuid()}:${process.getgid()}`,
   ];
+
+  // ── Container hardening (P3 / 4.1.2) ────────────────────────────────
+  if (hardening.hardened) {
+    const profile = hardening.profile || 'minimal';
+    args.push(
+      '--cap-drop', 'ALL',
+      '--security-opt', 'no-new-privileges',
+      '--pids-limit', '512',
+    );
+    if (profile === 'minimal') {
+      args.push('--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE');
+    } else if (profile === 'build') {
+      args.push(
+        '--cap-add', 'CHOWN',
+        '--cap-add', 'DAC_OVERRIDE',
+        '--cap-add', 'FOWNER',
+        '--cap-add', 'SETGID',
+        '--cap-add', 'SETUID',
+      );
+    } else if (profile === 'net') {
+      args.push(
+        '--cap-add', 'CHOWN',
+        '--cap-add', 'DAC_OVERRIDE',
+        '--cap-add', 'NET_BIND_SERVICE',
+      );
+    }
+    // Read-only rootfs + writable tmpfs
+    args.push('--read-only', '--tmpfs', '/tmp:rw,size=512m,exec', '--tmpfs', '/run:rw,size=64m');
+    // Seccomp profile (only if explicitly provided; Docker default works otherwise)
+    if (hardening.seccompPath && fs.existsSync(hardening.seccompPath)) {
+      args.push('--security-opt', `seccomp=${hardening.seccompPath}`);
+    }
+    // Egress / network
+    if (hardening.egress === 'off') {
+      args.push('--network', 'none');
+    } else if (hardening.egress === 'allowlist' && hardening.network) {
+      args.push('--network', hardening.network);
+    }
+  }
 
   // Volumes
   for (const v of spec.volumes) {
@@ -200,6 +264,27 @@ function toDockerArgs(spec) {
 }
 
 /**
+ * Load hardening profile from config + plan frontmatter overrides.
+ */
+function loadHardening(cwd, planFrontmatter = {}) {
+  let cfg = {};
+  try {
+    const { config } = require('../forge-config/config').loadConfig(cwd);
+    cfg = config || {};
+  } catch { /* defaults */ }
+  const containers = cfg.containers || {};
+  const planOverride = planFrontmatter && planFrontmatter.container ? planFrontmatter.container : {};
+  return {
+    hardened: planOverride.hardened !== undefined ? planOverride.hardened : containers.hardened === true,
+    profile: planOverride.profile || containers.profile || 'minimal',
+    egress: (containers.egress && containers.egress.mode) || planOverride.egress || 'passthrough',
+    seccompPath: containers.seccomp_path
+      || path.join(__dirname, 'profiles', 'default.seccomp.json'),
+    network: containers.egress && containers.egress.network || 'forge-egress',
+  };
+}
+
+/**
  * Build the Dockerfile path for a given template name.
  */
 function dockerfilePath(templateName) {
@@ -215,4 +300,5 @@ module.exports = {
   selectImage,
   toDockerArgs,
   dockerfilePath,
+  loadHardening,
 };

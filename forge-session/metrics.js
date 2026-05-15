@@ -27,7 +27,45 @@ function initMetrics(cwd) {
   return existing;
 }
 
+// P5: optional batcher. Reads `session.metrics.batched = true` in config.
+function _batcherEnabled(cwd) {
+  try {
+    const cfg = require('../forge-config/config');
+    const { config } = cfg.loadConfig(cwd);
+    return !!(config.session && config.session.metrics && config.session.metrics.batched);
+  } catch { return false; }
+}
+
+let _batcher = null;
+function _loadBatcher() {
+  if (_batcher !== null) return _batcher;
+  try { _batcher = require('./metrics-batcher'); _batcher.installExitHandlers(); }
+  catch { _batcher = false; }
+  return _batcher;
+}
+
 function snapshotUnitMetrics(cwd, unitData) {
+  // Fast path: enqueue via batcher (250 ms flush).
+  if (_batcherEnabled(cwd)) {
+    const b = _loadBatcher();
+    if (b) {
+      b.snapshot(cwd, unitData);
+      // Return the normalized unit for callers that read the value.
+      return {
+        type: unitData.type || 'unknown',
+        id: unitData.id || 'unknown',
+        model: unitData.model || 'unknown',
+        started_at: unitData.started_at || Date.now(),
+        finished_at: unitData.finished_at || Date.now(),
+        tokens: unitData.tokens || { input: 0, output: 0, cache_read: 0, cache_write: 0, total: 0 },
+        cost_usd: unitData.cost_usd || 0,
+        phase: unitData.phase || 'execution',
+        tool_calls: unitData.tool_calls || 0,
+      };
+    }
+  }
+
+  // Default path: legacy synchronous read-modify-write.
   const metrics = loadMetrics(cwd);
   const unit = {
     type: unitData.type || 'unknown',
@@ -46,6 +84,12 @@ function snapshotUnitMetrics(cwd, unitData) {
 }
 
 function getProjectTotals(cwd) {
+  // Drain any pending batched writes before computing totals so we don't
+  // under-count cost/tokens.
+  if (_batcherEnabled(cwd)) {
+    const b = _loadBatcher();
+    if (b && typeof b.flushOne === 'function') b.flushOne(String(cwd));
+  }
   const metrics = loadMetrics(cwd);
   const totals = { total_cost: 0, total_tokens: 0, unit_count: metrics.units.length, by_phase: {}, by_model: {} };
 

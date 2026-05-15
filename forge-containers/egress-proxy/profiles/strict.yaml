@@ -1,0 +1,7 @@
+mode: strict
+allow:
+  - api.anthropic.com
+  - api.openai.com
+deny:
+  - 169.254.169.254
+  - metadata.google.internal

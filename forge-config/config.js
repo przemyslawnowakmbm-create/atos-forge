@@ -69,6 +69,15 @@ const DEFAULTS = {
     output_base: path.join(os.tmpdir(), 'forge-output'),
     cleanup_on_success: true,
     cleanup_on_failure: false,
+    hardened: false,                        // P3 / 4.1.2 (opt-in v1, on v2)
+    profile: 'minimal',                     // minimal | build | net
+    seccomp_path: null,                     // null = use forge-containers/profiles/default.seccomp.json
+    egress: {
+      mode: 'passthrough',                  // off | allowlist | passthrough
+      network: 'forge-egress',              // Docker user-defined bridge
+      proxy_port: 8228,
+      profile: 'strict',                    // strict | build | research
+    },
   },
   agents: {
     factory_enabled: true,
@@ -157,6 +166,63 @@ const DEFAULTS = {
     ledger_max_tokens: 8000,
     auto_compact: true,
     archive_on_phase_complete: true,
+    redaction: {
+      enabled: true,
+      patterns: [],   // additional user patterns (string regexes)
+      allowlist: [],  // substrings to skip redaction for (e.g. test fixtures)
+    },
+    metrics: {
+      batched: false,                         // P5: enable 250ms batcher
+    },
+  },
+  assess: {
+    tokenizer: 'heuristic',                   // P5: heuristic|anthropic|tiktoken|auto
+  },
+  verify: {
+    cache: {
+      enabled: true,                          // P5: verification result cache
+      ttl_ms: 120000,                         //      2 minutes
+    },
+    incremental: {
+      enabled: false,                         // P5: coalesced graph updates
+      window_ms: 60000,
+    },
+  },
+  log: {
+    level: 'info',                            // P6: debug|info|warn|error
+    json: false,                              // P6: emit JSON lines on stderr
+  },
+  telemetry: {
+    otel: {
+      endpoint: '',                           // P6: OTLP HTTP endpoint (empty = off)
+      service_name: 'forge',
+      headers: {},
+    },
+  },
+  actions: {
+    log: {
+      enabled: true,                          // P6/P7: action-observation log
+      dir: '.forge/actions',
+    },
+  },
+  audit: {
+    enabled: true,
+    sign: true,        // sign every record with project identity (Ed25519)
+    require_sig: false, // strict mode: refuse appends without identity
+  },
+  identity: {
+    adapter: 'local',  // 'local' | 'oidc' | 'saml' | custom module name
+    auto_create: true, // generate keypair on first /forge-init
+  },
+  security: {
+    env_allowlist: {
+      enabled: false,                       // opt-in for v1 (true in v3)
+      policy_path: '.forge/policy/secrets.allowlist.yaml',
+      warn_on_missing_scope: true,
+    },
+    capabilities: {
+      enforce: false,                       // P4: enforce capability → tool mapping
+    },
   },
   display: {
     rich_output: true,

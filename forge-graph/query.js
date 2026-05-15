@@ -27,6 +27,18 @@ try {
   chalk = noColorChalk;
 }
 
+// P5: Apply SQLite tuning pragmas to a freshly opened Database connection.
+// Cache 64 MB, mmap 256 MB, MEMORY temp store, NORMAL fsync (safe in WAL).
+function _applyPragmas(db) {
+  try {
+    db.pragma('journal_mode = WAL');
+    db.pragma('cache_size = -65536');
+    db.pragma('mmap_size  = 268435456');
+    db.pragma('temp_store = MEMORY');
+    db.pragma('synchronous = NORMAL');
+  } catch { /* pragmas are best-effort; defaults are still fine */ }
+}
+
 /**
  * Check display.rich_output config and disable chalk if false.
  * Called once at CLI startup with the resolved cwd.
@@ -109,7 +121,8 @@ class GraphQuery {
     }
     const Database = require('better-sqlite3');
     this.db = new Database(this.dbPath, { readonly: true });
-    this.db.pragma('journal_mode = WAL');
+    // P5: SQLite tuning — defaults are too small for large repos.
+    _applyPragmas(this.db);
     return this;
   }
 
@@ -489,6 +502,7 @@ class GraphQuery {
     if (this.db) this.db.close();
     const Database = require('better-sqlite3');
     this.db = new Database(this.dbPath);
+    _applyPragmas(this.db);
     this.db.prepare(`
       INSERT INTO warnings (module, file, warning_text, severity, source)
       VALUES (?, ?, ?, ?, ?)
@@ -503,6 +517,7 @@ class GraphQuery {
     if (this.db) this.db.close();
     const Database = require('better-sqlite3');
     this.db = new Database(this.dbPath);
+    _applyPragmas(this.db);
     this.db.prepare(`
       INSERT INTO agent_learnings (agent_id, module, learning_type, content)
       VALUES (?, ?, ?, ?)
@@ -1149,6 +1164,7 @@ class GraphQuery {
 
     const Database = require('better-sqlite3');
     const baseDb = new Database(baseDbPath, { readonly: true });
+    _applyPragmas(baseDb);
 
     try {
       // --- File diff ---

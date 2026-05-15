@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge — Improvements Plan</title>
+<style>
+  :root{
+    --bg:#0e1116; --bg-2:#151a22; --bg-3:#1c232d; --bg-4:#222b37;
+    --fg:#e6edf3; --fg-muted:#9aa7b4; --fg-dim:#6e7681;
+    --accent:#7ee787; --accent-2:#79c0ff; --warn:#f0a64a; --danger:#ff7b72; --ok:#56d364;
+    --border:#2a313c; --border-soft:#1f2630;
+    --code:#161b22; --code-add:#1d3a26; --code-rem:#3a1d24;
+    --mono:"JetBrains Mono","SF Mono",Menlo,ui-monospace,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.9em;background:var(--bg-3);padding:1.5px 6px;border-radius:4px;color:#cdd9e5}
+  pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.55;background:var(--code);border:1px solid var(--border);border-radius:6px;padding:14px 16px;overflow-x:auto;color:#cdd9e5}
+  pre.add{background:var(--code-add);border-color:#2c5d3a}
+  pre.rem{background:var(--code-rem);border-color:#5d2c34}
+  hr{border:0;border-top:1px solid var(--border-soft);margin:32px 0}
+
+  /* Layout */
+  .wrap{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+  nav.side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;border-right:1px solid var(--border);padding:24px 16px;background:var(--bg-2);font-size:13px}
+  nav.side h4{margin:18px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--fg-dim)}
+  nav.side a{display:block;color:var(--fg-muted);padding:5px 8px;border-radius:4px;margin:1px 0}
+  nav.side a:hover{background:var(--bg-3);color:var(--fg);text-decoration:none}
+  nav.side a.lvl-2{padding-left:18px;font-size:12.5px;color:var(--fg-dim)}
+  nav.side .brand{font-weight:700;font-size:15px;color:var(--fg);margin-bottom:4px;letter-spacing:-.01em}
+  nav.side .ver{color:var(--fg-dim);font-size:11.5px;margin-bottom:18px}
+  main{padding:48px 56px 120px;max-width:1100px}
+  h1{font-size:32px;letter-spacing:-.02em;margin:0 0 8px}
+  h2{font-size:22px;letter-spacing:-.01em;margin:48px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border-soft)}
+  h3{font-size:17px;margin:28px 0 10px;color:var(--fg)}
+  h4{font-size:14px;margin:18px 0 6px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  p,li{color:#cdd9e5}
+  ul{padding-left:22px}
+  li{margin:4px 0}
+
+  /* Header banner */
+  .hero{padding:0 0 24px;border-bottom:1px solid var(--border-soft);margin-bottom:8px}
+  .hero p.lead{color:var(--fg-muted);font-size:15.5px;margin:6px 0 16px;max-width:780px}
+  .hero .meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+
+  /* Badges */
+  .badge{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg-3);color:var(--fg-muted);border:1px solid var(--border)}
+  .badge.ok{background:#0f2a17;color:var(--accent);border-color:#1f4d2a}
+  .badge.warn{background:#3a280f;color:var(--warn);border-color:#5d4318}
+  .badge.danger{background:#3a1518;color:var(--danger);border-color:#5d2128}
+  .badge.info{background:#0e2740;color:var(--accent-2);border-color:#1b4570}
+  .badge.muted{background:var(--bg-3);color:var(--fg-dim)}
+  .badge.phase{font-weight:700;letter-spacing:.04em}
+
+  /* Cards */
+  .card{background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:20px 22px;margin:14px 0}
+  .card.tight{padding:14px 16px}
+  .card h3{margin-top:0}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){.grid-2{grid-template-columns:1fr}.wrap{grid-template-columns:1fr}nav.side{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--border)}main{padding:24px}}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media (max-width:900px){.grid-3,.grid-4{grid-template-columns:1fr 1fr}}
+  .kpi{background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+  .kpi .n{font-family:var(--mono);font-size:26px;color:var(--fg);font-weight:600;letter-spacing:-.02em}
+  .kpi .l{font-size:11.5px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+
+  /* Tables */
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+  th{background:var(--bg-2);color:var(--fg-muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  tr:hover td{background:var(--bg-2)}
+  td code{font-size:12px}
+
+  /* Diff blocks */
+  .diff{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+  @media (max-width:900px){.diff{grid-template-columns:1fr}}
+  .diff .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border-radius:4px 4px 0 0;border:1px solid transparent;border-bottom:0;display:inline-block}
+  .diff .lbl.before{background:#3a1d24;color:#ffb3ba;border-color:#5d2c34}
+  .diff .lbl.after{background:#1d3a26;color:#aef0bd;border-color:#2c5d3a}
+  .diff pre{border-top-left-radius:0}
+
+  /* Section anchor offset */
+  section{scroll-margin-top:16px}
+
+  /* Phase header strip */
+  .phase-hdr{display:flex;align-items:center;gap:12px;margin:48px 0 8px;padding:10px 14px;background:linear-gradient(90deg,var(--bg-3),transparent);border-left:3px solid var(--accent-2);border-radius:0 4px 4px 0}
+  .phase-hdr .num{font-family:var(--mono);font-weight:700;color:var(--accent-2);font-size:13px}
+  .phase-hdr .title{font-size:18px;font-weight:600;color:var(--fg)}
+  .phase-hdr .effort{margin-left:auto}
+
+  /* Risk box */
+  .risk{background:var(--bg-2);border-left:3px solid var(--warn);padding:12px 16px;margin:8px 0;border-radius:0 4px 4px 0}
+  .risk .r-title{font-weight:600;color:var(--warn);font-size:13px;margin-bottom:4px}
+  .risk .r-mit{color:var(--fg-muted);font-size:13.5px}
+
+  /* Bullet styles */
+  ul.tight li{margin:2px 0}
+  .tag-row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+
+  /* Quote / pull */
+  blockquote{border-left:3px solid var(--accent);background:#0f2a17;color:#aef0bd;margin:14px 0;padding:10px 16px;border-radius:0 4px 4px 0;font-size:14px}
+
+  /* Footer */
+  footer{margin-top:80px;padding-top:24px;border-top:1px solid var(--border-soft);color:var(--fg-dim);font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="side">
+  <div class="brand">Forge Improvements</div>
+  <div class="ver">v1.20.4 → v2.0 plan</div>
+
+  <h4>Overview</h4>
+  <a href="#summary">Executive Summary</a>
+  <a href="#kpis">Key Metrics</a>
+  <a href="#inputs">Inputs Behind the Plan</a>
+  <a href="#contract">Compatibility Contract</a>
+
+  <h4>Phases</h4>
+  <a href="#p1">P1 — Shell-string elimination</a>
+  <a href="#p2">P2 — Audit + redaction + identity</a>
+  <a href="#p3">P3 — Container hardening</a>
+  <a href="#p4">P4 — Capability-scoped agents</a>
+  <a href="#p5">P5 — Performance</a>
+  <a href="#p6">P6 — Quality + observability</a>
+  <a href="#p7">P7 — AGENTS.md + replay log</a>
+  <a href="#p8">P8 — MCP + skills + runtimes</a>
+
+  <h4>Closing</h4>
+  <a href="#risks">Global Risk Matrix</a>
+  <a href="#untouched">What Stays Untouched</a>
+  <a href="#outcome">Final Outcome</a>
+</nav>
+
+<main>
+
+<section id="hero" class="hero">
+  <h1>Forge — Improvements Plan</h1>
+  <p class="lead">Hardening, performance, quality, enterprise readiness, and ecosystem reach.
+  Every change is additive or guarded by a config flag — the SDLC loop and all <code>/forge-*</code> commands keep working as today.</p>
+  <div class="meta">
+    <span class="badge phase">8 phases</span>
+    <span class="badge info">Backwards-compatible</span>
+    <span class="badge ok">No breaking changes</span>
+    <span class="badge muted">Node &ge; 16.7.0 preserved</span>
+    <span class="badge muted">Air-gapped friendly</span>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="summary">
+<h2>1. Executive Summary</h2>
+<p>Forge today is a strong <strong>single-developer, single-machine</strong> AI SDLC engine. The deep-dive of the codebase plus two strategic reference inputs — Google's <code>skills</code> marketplace pattern and the OpenHands "AI team of 131 specialists" model — surface five strategic deltas that block enterprise adoption and ecosystem reach.</p>
+
+<table>
+<thead><tr><th>#</th><th>Theme</th><th>One-line problem</th><th>One-line fix</th></tr></thead>
+<tbody>
+  <tr><td>1</td><td><strong>Sandbox &amp; secrets</strong></td><td>Agents inherit full <code>process.env</code> + run with <code>--dangerously-skip-permissions</code> + unrestricted container network</td><td>Env allowlist + capability-scoped agents + egress proxy + secrets manager adapter</td></tr>
+  <tr><td>2</td><td><strong>Audit &amp; identity</strong></td><td>Ledger is human-readable Markdown; no identity, no append-only audit, no RBAC</td><td>Signed append-only <code>audit.jsonl</code> + project identity + optional RBAC</td></tr>
+  <tr><td>3</td><td><strong>Ecosystem reach</strong></td><td>Forge is Claude-Code-coupled; can't be consumed by Codex, OpenHands, Cursor, Gemini</td><td><code>AGENTS.md</code> generator + <code>forge-mcp</code> server</td></tr>
+  <tr><td>4</td><td><strong>Marketplace</strong></td><td>21 hardcoded agent personas; no install path for new specialists</td><td><code>/forge-skills add &lt;pack&gt;</code> wrapping VoltAgent / Google skills</td></tr>
+  <tr><td>5</td><td><strong>Observability &amp; supply chain</strong></td><td>No OTEL, no SBOM, no signed releases, ~90% of modules untested</td><td>OTEL exporter + <code>npm sbom</code> + cosign release + test floor on core</td></tr>
+</tbody>
+</table>
+</section>
+
+<!-- ============================================================ -->
+<section id="kpis">
+<h2>2. Key Metrics at a Glance</h2>
+<div class="grid-4">
+  <div class="kpi"><div class="n">8</div><div class="l">Sequential phases</div></div>
+  <div class="kpi"><div class="n">0</div><div class="l">Breaking changes</div></div>
+  <div class="kpi"><div class="n">42</div><div class="l">Slash commands preserved</div></div>
+  <div class="kpi"><div class="n">5</div><div class="l">Top security risks fixed</div></div>
+  <div class="kpi"><div class="n">~90%</div><div class="l">Untested modules &rarr; test floor</div></div>
+  <div class="kpi"><div class="n">21 &rarr; &infin;</div><div class="l">Agent personas (marketplace)</div></div>
+  <div class="kpi"><div class="n">1 &rarr; 4</div><div class="l">Supported AI runtimes</div></div>
+  <div class="kpi"><div class="n">0 &rarr; 16</div><div class="l">Container hardening flags</div></div>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="inputs">
+<h2>3. Inputs Behind This Plan</h2>
+
+<div class="card">
+<h3>3.1 Codebase deep-dive (concrete file:line evidence)</h3>
+<table>
+<thead><tr><th>Finding</th><th>Location</th><th>Severity</th></tr></thead>
+<tbody>
+  <tr><td>Full <code>process.env</code> piped to every agent &amp; container</td><td><code>forge-agents/provider.js:164,193</code></td><td><span class="badge danger">CRITICAL</span></td></tr>
+  <tr><td><code>--dangerously-skip-permissions</code> on every spawn</td><td><code>provider.js:181</code>, <code>agent-entrypoint.js:252</code></td><td><span class="badge danger">CRITICAL</span></td></tr>
+  <tr><td>Shell injection via <code>--since</code> CLI arg</td><td><code>forge-graph/updater.js:139,690</code></td><td><span class="badge danger">HIGH</span></td></tr>
+  <tr><td>Unquoted task IDs / branch interpolation</td><td><code>forge-containers/orchestrator.js:131,196,395</code></td><td><span class="badge warn">MEDIUM</span></td></tr>
+  <tr><td>Docker invocation missing every hardening flag</td><td><code>container-spec.js:163-197</code></td><td><span class="badge danger">HIGH</span></td></tr>
+  <tr><td>Knowledge base never purged; learnings re-injected forever</td><td><code>forge-session/knowledge.js</code></td><td><span class="badge warn">MEDIUM</span></td></tr>
+  <tr><td>Universal <code>CHARS_PER_TOKEN = 4</code> heuristic</td><td><code>forge-assess/assessor.js:12</code></td><td><span class="badge info">PERF</span></td></tr>
+  <tr><td>Sync I/O on hot paths</td><td><code>assessor.js:81-83</code>, <code>metrics.js:13-20</code></td><td><span class="badge info">PERF</span></td></tr>
+  <tr><td>7 test files / &gt; 90% of code untested</td><td><code>tests/*.cjs</code></td><td><span class="badge warn">QUALITY</span></td></tr>
+  <tr><td>Zero TypeScript, zero JSDoc, no <code>tsc</code> wired up</td><td>repo-wide</td><td><span class="badge warn">QUALITY</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="grid-2">
+<div class="card">
+<h3>3.2 Google <code>skills</code> model</h3>
+<ul class="tight">
+  <li>Skills are markdown-only, self-contained, opt-in.</li>
+  <li>Installed via <code>npx skills add &lt;pack&gt;</code>.</li>
+  <li>Each skill is a directory with <code>SKILL.md</code> + assets.</li>
+  <li>Additive and reversible — never required.</li>
+</ul>
+<blockquote>Lesson: Forge's 21-agent catalog should follow the same shape — markdown packs, installable from a registry, never duplicated.</blockquote>
+</div>
+<div class="card">
+<h3>3.3 OpenHands &amp; Noisy article</h3>
+<ul class="tight">
+  <li><code>AGENTS.md</code> = cross-runtime onboarding doc (Claude Code, Codex, Cursor, OpenHands, Gemini all read it).</li>
+  <li>Action-observation loop is the agent's <em>contract</em>, not a side effect.</li>
+  <li>Multi-agent delegation is multi-vendor (131-agent VoltAgent pack, Google skills).</li>
+  <li>MCP (14k+ servers) is the universal tool surface.</li>
+</ul>
+<blockquote>Lesson: Forge should emit <code>AGENTS.md</code>, expose its graph/verifier via MCP, log every action for replay, and consume external skill packs.</blockquote>
+</div>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="contract">
+<h2>4. Non-Negotiable Compatibility Contract</h2>
+<p>Every phase must respect these. They are the reason this plan does not require a Forge 2.0 breaking migration.</p>
+<ol>
+  <li>All 42 <code>/forge-*</code> slash commands keep their interface.</li>
+  <li>Existing <code>.forge/</code> paths keep their meaning. New artifacts live in new subdirs (<code>audit/</code>, <code>actions/</code>, <code>secrets/</code>, <code>attestations/</code>).</li>
+  <li>Ledger Markdown format and <code>proper-lockfile</code> semantics preserved. New <code>audit.jsonl</code> is additive.</li>
+  <li>Plan frontmatter schema preserved. New fields (<code>capabilities</code>, <code>secrets_scope</code>, <code>actions_log</code>) are optional.</li>
+  <li>Code-graph schema migrations are non-destructive; v1 graphs remain readable.</li>
+  <li>All new behavior gated by <code>.forge/config.json</code> keys with safe defaults.</li>
+  <li>No Node major bump beyond current <code>&gt;=16.7.0</code>. Optional deps lazy-loaded.</li>
+  <li>CLAUDE.md agent directives (<em>SENIOR DEV OVERRIDE</em>, <em>FORCED VERIFICATION</em>, <em>EDIT INTEGRITY</em>) preserved.</li>
+</ol>
+</section>
+
+<!-- ============================================================ -->
+<!-- PHASE 1 -->
+<!-- ============================================================ -->
+<section id="p1">
+<div class="phase-hdr">
+  <span class="num">P1</span>
+  <span class="title">Shell-string elimination &amp; input validation</span>
+  <span class="effort badge ok">Effort: S</span>
+  <span class="badge danger">Security</span>
+</div>
+
+<h3>Problem</h3>
+<p>Multiple sites construct shell commands by template-string interpolation and pass them to <code>execSync</code>. CLI arguments and AI-generated task IDs flow into these unsanitized. The <code>--since</code> argument of the graph updater is a directly exploitable injection point.</p>
+
+<h3>Code change — replace template-string shell with array-form exec</h3>
+<div class="diff">
+  <div><span class="lbl before">Before · forge-graph/updater.js:139</span><pre class="rem">const out = execSync(
+  `git diff --name-status ${sinceRef}..HEAD`,
+  { cwd: repoRoot, encoding: 'utf8' }
+);</pre></div>
+  <div><span class="lbl after">After · uses forge-cli/lib/exec.js</span><pre class="add">const { gitArgs } = require('../forge-cli/lib/exec');
+const out = gitArgs(
+  ['diff', '--name-status', `${validateRef(sinceRef)}..HEAD`],
+  { cwd: repoRoot }
+);
+// validateRef rejects anything outside [A-Za-z0-9._/\-]{1,200}</pre></div>
+</div>
+
+<h3>What is improved</h3>
+<ul>
+  <li><strong>Eliminates shell injection</strong> across <code>forge-graph/updater.js</code>, <code>forge-containers/orchestrator.js</code>, <code>worktree-orchestrator.js</code>, <code>forge-agents/provider.js</code>.</li>
+  <li>Adds a single audit pattern: <code>scripts/audit-shell-strings.sh</code> greps for the anti-pattern in CI; any reintroduction fails the build.</li>
+  <li>CLI args validated with a 30-line argv parser that rejects unknown flags.</li>
+</ul>
+
+<h3>Benefits</h3>
+<ul>
+  <li><span class="badge danger">CRITICAL fix</span> Closes 4 of the 5 top-ranked exploitability paths from the deep-dive.</li>
+  <li>Zero observable behavior change for legitimate inputs.</li>
+  <li>No config flag — just-do-it fix.</li>
+  <li>CI gate prevents regression.</li>
+</ul>
+
+<h3>Files touched</h3>
+<ul class="tight">
+  <li><code>forge-cli/lib/exec.js</code> (new): <code>gitArgs</code>, <code>dockerArgs</code>, <code>execFileWith</code> wrappers.</li>
+  <li><code>forge-graph/updater.js</code>, <code>forge-containers/orchestrator.js</code>, <code>forge-containers/worktree-orchestrator.js</code>, <code>forge-agents/provider.js</code>.</li>
+  <li><code>scripts/audit-shell-strings.sh</code> (new): CI gate.</li>
+</ul>
+
+<h3>Risks &amp; mitigations</h3>
+<div class="risk"><div class="r-title">Regression: an internal caller relied on shell features (globs, pipes)</div><div class="r-mit">Audit script flags every replacement during refactor. Any legitimate shell-feature use is moved into a named helper with explicit argv assembly. No silent globbing.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PHASE 2 -->
+<!-- ============================================================ -->
+<section id="p2">
+<div class="phase-hdr">
+  <span class="num">P2</span>
+  <span class="title">Redaction + signed audit log + project identity</span>
+  <span class="effort badge warn">Effort: M</span>
+  <span class="badge danger">Security</span>
+  <span class="badge info">Enterprise</span>
+</div>
+
+<h3>Problem</h3>
+<ul>
+  <li>Ledger is Markdown — not queryable, not tamper-evident. SOC2 CC7 / ISO27001 A.12.4 require a structured audit trail.</li>
+  <li><code>.forge/knowledge/learnings.json</code> accumulates forever and is re-injected into every future agent. Any credential ever surfaced lingers permanently.</li>
+  <li>No "actor" identity exists, so audit lines have no subject.</li>
+</ul>
+
+<h3>Code change — append-only signed audit record</h3>
+<div class="diff">
+  <div><span class="lbl before">Before · only ledger.md</span><pre class="rem">// forge-session/ledger.js
+appendDecision(`Phase 72 started by Claude at ${ts}`);
+// no structured record, no signature, no chain</pre></div>
+  <div><span class="lbl after">After · audit.js + identity.js</span><pre class="add">// forge-session/audit.js
+const rec = {
+  ts, actor: identity.subject(),
+  action: 'phase.execute',
+  subject: 'phase/72/PLAN.md',
+  prev_hash, hash: sha256(prev_hash + canon(rec)),
+};
+rec.sig = ed25519.sign(rec.hash, identity.privateKey());
+appendJsonl('.forge/audit/audit.jsonl', rec);</pre></div>
+</div>
+
+<h3>Code change — sensitive-data redactor</h3>
+<div class="diff">
+  <div><span class="lbl before">Before · raw write</span><pre class="rem">fs.appendFileSync(LEDGER, `\n${entry}\n`);
+fs.writeFileSync(LEARNINGS, JSON.stringify(state));</pre></div>
+  <div><span class="lbl after">After · redact pass</span><pre class="add">const { redact } = require('./redactor');
+// patterns: AWS keys, JWTs, sk-*, PEM, DB DSNs (lifted from forge-guard.js)
+fs.appendFileSync(LEDGER, `\n${redact(entry)}\n`);
+fs.writeFileSync(LEARNINGS, JSON.stringify(redactDeep(state)));
+// secrets become «REDACTED:sha256[0..8]»</pre></div>
+</div>
+
+<h3>What is improved</h3>
+<ul>
+  <li><strong>Tamper-evident audit trail.</strong> Hash chain + Ed25519 signatures; <code>forge-tools.cjs audit verify</code> detects edits.</li>
+  <li><strong>Project identity</strong> generated on <code>/forge-init</code> (Ed25519 keypair under <code>.forge/identity/</code>, 0600 mode). Optional <code>identity-adapters/oidc.js</code> accepts CI-injected OIDC ID token (<code>FORGE_OIDC_TOKEN</code>).</li>
+  <li><strong>Secret leakage stopped at the file boundary</strong> — ledger and knowledge writes filter known credential shapes.</li>
+  <li><code>forge-tools.cjs knowledge scrub</code> admin command retroactively redacts old data.</li>
+</ul>
+
+<h3>Benefits</h3>
+<ul>
+  <li><span class="badge ok">Unblocks SOC2/ISO27001 audits</span> Append-only + signed log satisfies the structured-audit control.</li>
+  <li><span class="badge info">Compliance-grade identity</span> Cleanly slots into enterprise SSO via OIDC adapter — no auth server required.</li>
+  <li>Redactor is safe-by-default and additive (no flag to enable).</li>
+</ul>
+
+<h3>Files touched</h3>
+<ul class="tight">
+  <li>New: <code>forge-session/{redactor,audit,identity}.js</code>, <code>forge-session/identity-adapters/{local,oidc,saml}.js</code>.</li>
+  <li>Updated: <code>forge-session/ledger.js</code>, <code>forge-session/knowledge.js</code>, <code>forge-cli/bin/forge-tools.cjs</code> (new <code>audit</code> + <code>knowledge scrub</code> subcommands).</li>
+  <li>Refactor: <code>hooks/dist/forge-guard.js</code> imports shared patterns from <code>redactor.js</code>.</li>
+</ul>
+
+<h3>Risks &amp; mitigations</h3>
+<div class="risk"><div class="r-title">Hash chain corruption from concurrent writes</div><div class="r-mit">Reuse existing <code>proper-lockfile</code> wrapper around <code>audit.jsonl</code> — same atomicity model as ledger.md.</div></div>
+<div class="risk"><div class="r-title">Identity key loss locks user out of verifying their own history</div><div class="r-mit"><code>identity.pub</code> is committed; signatures verify against public key. Private key loss only prevents <em>future</em> signing. <code>forge-tools.cjs identity rotate</code> handles key rotation with a chained transition record.</div></div>
+<div class="risk"><div class="r-title">Redactor false-positive removes legitimate content</div><div class="r-mit">Replacement is <code>«REDACTED:&lt;sha256-prefix&gt;»</code> — collisions detectable. Users can disable specific patterns in <code>.forge/policy/redaction.yaml</code>.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PHASE 3 -->
+<!-- ============================================================ -->
+<section id="p3">
+<div class="phase-hdr">
+  <span class="num">P3</span>
+  <span class="title">Container hardening + env allowlist + egress proxy</span>
+  <span class="effort badge danger">Effort: L</span>
+  <span class="badge danger">Security</span>
+  <span class="badge info">Enterprise</span>
+</div>
+
+<h3>Problem</h3>
+<p>Docker invocation in <code>container-spec.js:163-197</code> drops zero capabilities, has full network egress, no seccomp, no read-only fs, no PID limit. Agent subprocesses receive the entire developer shell env including secrets unrelated to the task.</p>
+
+<h3>Code change — env scope at agent dispatch</h3>
+<div class="diff">
+  <div><span class="lbl before">Before · forge-agents/provider.js:164</span><pre class="rem">const proc = spawn(claudeBin, args, {
+  cwd: workdir,
+  env: { ...process.env, FORGE_TASK_ID: id },
+});</pre></div>
+  <div><span class="lbl after">After · scoped env</span><pre class="add">const { scopeEnv } = require('./scope-env');
+const env = scopeEnv(process.env, {
+  defaults: ['PATH','HOME','USER','LANG','TERM'],
+  allow: plan.secrets_scope || [],
+  policy: '.forge/policy/secrets.allowlist.yaml',
+});
+const proc = spawn(claudeBin, args, {
+  cwd: workdir,
+  env: { ...env, FORGE_TASK_ID: id },
+});</pre></div>
+</div>
+
+<h3>Code change — Docker hardening flags</h3>
+<div class="diff">
+  <div><span class="lbl before">Before · container-spec.js:163</span><pre class="rem">function toDockerArgs(spec) {
+  return [
+    'run', '--rm',
+    '--memory', spec.memory,
+    '--cpus', spec.cpus,
+    '--user', `${uid}:${gid}`,
+    '-v', `${spec.workdir}:/work`,
+    spec.image,
+  ];
+}</pre></div>
+  <div><span class="lbl after">After · profiled hardening</span><pre class="add">function toDockerArgs(spec, profile = 'minimal') {
+  const base = [
+    'run', '--rm',
+    '--memory', spec.memory,
+    '--cpus', spec.cpus,
+    '--user', `${uid}:${gid}`,
+    '--cap-drop', 'ALL',
+    '--security-opt', 'no-new-privileges',
+    '--security-opt',
+      `seccomp=${SECCOMP[profile]}`,
+    '--pids-limit', '512',
+    '--read-only',
+    '--tmpfs', '/tmp:rw,size=512m',
+    '--network', NET[profile],   // none|forge-egress
+    '-v', `${spec.workdir}:/work`,
+    spec.image,
+  ];
+  if (profile === 'build')
+    base.push('--cap-add','CHOWN','--cap-add','DAC_OVERRIDE');
+  return base;
+}</pre></div>
+</div>
+
+<h3>Code change — allowlisted egress proxy</h3>
+<pre class="add"># forge-containers/egress-proxy/profiles/strict.yaml
+allow:
+  - api.anthropic.com
+  - api.openai.com
+  - registry.npmjs.org
+  - "*.github.com"
+  - objects.githubusercontent.com
+default: deny
+# Proxy binds to forge-egress bridge; containers use this network.</pre>
+
+<h3>What is improved</h3>
+<ul>
+  <li><strong>Capability drop:</strong> agents lose <code>NET_ADMIN</code>, <code>SYS_ADMIN</code>, <code>SETUID</code>, etc.</li>
+  <li><strong>No-new-privileges + seccomp:</strong> prevents kernel exploit escalation.</li>
+  <li><strong>Read-only root fs + tmpfs:</strong> agent can only write to mounted workdir.</li>
+  <li><strong>Egress allowlist:</strong> exfiltration to attacker-controlled hosts becomes impossible.</li>
+  <li><strong>Env scoping:</strong> AWS/GCP/SSH agent socket no longer flow into agent subprocesses unless explicitly declared in plan frontmatter.</li>
+</ul>
+
+<h3>Benefits</h3>
+<ul>
+  <li><span class="badge ok">Defense in depth</span> Each layer (env, caps, network, fs) closes one exfil vector. Compromise requires breaking all four.</li>
+  <li><span class="badge info">Procurement-ready</span> Satisfies SOC2 CC6.6/CC6.7 and NIST 800-53 SC-7 controls.</li>
+  <li><span class="badge muted">Off by default</span> Existing users see no change until <code>containers.hardened: true</code> is set.</li>
+</ul>
+
+<h3>Config flags</h3>
+<ul class="tight">
+  <li><code>security.env_allowlist.enabled</code> (default <code>false</code> in v1, <code>true</code> in v3)</li>
+  <li><code>containers.hardened</code> (default <code>false</code> in v1, <code>true</code> in v2)</li>
+  <li><code>containers.egress.mode</code>: <code>off | allowlist | passthrough</code></li>
+  <li><code>containers.profile</code>: <code>minimal | build | research</code></li>
+</ul>
+
+<h3>Risks &amp; mitigations</h3>
+<div class="risk"><div class="r-title">Egress allowlist breaks research agents that need <code>npm install &lt;new-pkg&gt;</code></div><div class="r-mit">Three profiles: <code>strict</code> (only model + git + npm registry), <code>build</code> (adds CI/CD endpoints), <code>research</code> (broader allowlist + audit log). Each plan declares which it needs in frontmatter.</div></div>
+<div class="risk"><div class="r-title">Seccomp profile breaks unusual workloads (e.g., node-gyp builds)</div><div class="r-mit"><code>build</code> profile uses a permissive seccomp. <code>forge-doctor</code> includes a "container syscall test" step that detects mismatch and recommends a profile bump.</div></div>
+<div class="risk"><div class="r-title">Env allowlist breaks plans that legitimately need a secret</div><div class="r-mit">Plan declares <code>secrets_scope: [ANTHROPIC_API_KEY]</code> in frontmatter. <code>warn</code> mode logs unfulfilled needs without blocking; <code>enforce</code> mode rejects.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PHASE 4 -->
+<!-- ============================================================ -->
+<section id="p4">
+<div class="phase-hdr">
+  <span class="num">P4</span>
+  <span class="title">Capability-scoped agent permissions (RBAC-lite)</span>
+  <span class="effort badge warn">Effort: M</span>
+  <span class="badge danger">Security</span>
+  <span class="badge info">Enterprise</span>
+</div>
+
+<h3>Problem</h3>
+<p>Every agent runs with <code>--dangerously-skip-permissions</code> — a blanket override of Claude Code's permission system. There is no way to say "the docs agent can only touch <code>docs/</code>, never <code>src/</code>" or "the test agent can run <code>pytest</code> but not <code>curl</code>."</p>
+
+<h3>Code change — plan frontmatter declares capabilities</h3>
+<div class="diff">
+  <div><span class="lbl before">Before · PLAN.md frontmatter</span><pre class="rem">---
+phase: 72
+requirements: [REQ-101, REQ-102]
+must_haves: [...]
+verify: [npm test]
+---</pre></div>
+  <div><span class="lbl after">After · capabilities declared</span><pre class="add">---
+phase: 72
+requirements: [REQ-101, REQ-102]
+must_haves: [...]
+verify: [npm test]
+capabilities:
+  - read_src
+  - write_docs
+  - run_tests
+secrets_scope: []
+container:
+  profile: strict
+---</pre></div>
+</div>
+
+<h3>Code change — factory translates capabilities into runtime flags</h3>
+<div class="diff">
+  <div><span class="lbl before">Before · provider.js</span><pre class="rem">const args = [
+  '--dangerously-skip-permissions',
+  '--system-prompt', sysPrompt,
+];</pre></div>
+  <div><span class="lbl after">After · capability → flag mapping</span><pre class="add">const { resolveTools } =
+  require('../forge-agents/capabilities');
+const { allowed, disallowed } =
+  resolveTools(plan.capabilities, mode);
+// mode: 'warn' | 'enforce'
+const args = mode === 'enforce'
+  ? ['--allowedTools', allowed.join(','),
+     '--disallowedTools', disallowed.join(','),
+     '--system-prompt', sysPrompt]
+  : ['--dangerously-skip-permissions',
+     '--system-prompt', sysPrompt + warnFooter];</pre></div>
+</div>
+
+<h3>Capability catalog (canonical list)</h3>
+<table>
+<thead><tr><th>Capability</th><th>Maps to</th><th>Touches</th></tr></thead>
+<tbody>
+  <tr><td><code>read_src</code></td><td>Read tool, path allowlist <code>src/**</code></td><td>Source files</td></tr>
+  <tr><td><code>write_docs</code></td><td>Write/Edit on <code>docs/**</code>, <code>*.md</code></td><td>Documentation only</td></tr>
+  <tr><td><code>write_src</code></td><td>Write/Edit on <code>src/**</code></td><td>Source code</td></tr>
+  <tr><td><code>run_tests</code></td><td>Bash <code>npm test</code>, <code>pytest</code>, <code>go test</code></td><td>Test runners</td></tr>
+  <tr><td><code>run_build</code></td><td>Bash <code>npm run build</code>, <code>make</code></td><td>Build tools</td></tr>
+  <tr><td><code>network_npm</code></td><td>Egress profile <code>build</code></td><td>npm registry only</td></tr>
+  <tr><td><code>network_research</code></td><td>Egress profile <code>research</code></td><td>Broad web allowlist</td></tr>
+  <tr><td><code>db_read</code></td><td>MCP DB tool, read-only</td><td>Database queries</td></tr>
+  <tr><td><code>commit</code></td><td>Bash <code>git commit</code>, <code>git push</code></td><td>VCS writes</td></tr>
+</tbody>
+</table>
+
+<h3>What is improved</h3>
+<ul>
+  <li><strong>Principle of least privilege per agent.</strong> A docs agent literally cannot edit source.</li>
+  <li><strong>Capability violations are observable</strong> — every pre-flight check writes an audit record (P2).</li>
+  <li><strong>Warn-then-enforce migration:</strong> <code>warn</code> mode logs violations without breaking existing plans; flip to <code>enforce</code> once team is ready.</li>
+  <li><strong>Composable with P3</strong> — capabilities select the container profile and egress profile automatically.</li>
+</ul>
+
+<h3>Benefits</h3>
+<ul>
+  <li><span class="badge ok">Eliminates the "all agents are root" problem</span></li>
+  <li><span class="badge info">Foundation for enterprise audit reports</span> "Phase 72 ran with capabilities [read_src, write_docs] at 2026-05-15T14:22:11Z" is now a queryable fact.</li>
+  <li><span class="badge muted">Replaces blanket <code>--dangerously-skip-permissions</code> with surgical allow/deny</span></li>
+</ul>
+
+<h3>Files touched</h3>
+<ul class="tight">
+  <li><code>forge-agents/capabilities.js</code> (new): canonical list + <code>resolveTools(caps, mode)</code>.</li>
+  <li><code>forge-agents/factory.js</code>: prompt composition reads capabilities.</li>
+  <li><code>forge-agents/provider.js</code>: spawns with <code>--allowedTools</code>/<code>--disallowedTools</code> when in enforce mode.</li>
+  <li><code>forge-cli/references/capabilities.md</code>: canonical capability documentation.</li>
+  <li><code>forge-cli/templates/plan.md</code>: example with <code>capabilities:</code> frontmatter.</li>
+</ul>
+
+<h3>Risks &amp; mitigations</h3>
+<div class="risk"><div class="r-title">Existing plans without <code>capabilities</code> field break under <code>enforce</code></div><div class="r-mit">Two-version warn period before flipping default to enforce. <code>forge-doctor</code> reports plans missing capabilities. Auto-suggester reads PLAN.md and proposes a capability set.</div></div>
+<div class="risk"><div class="r-title">Agents legitimately need a capability not listed</div><div class="r-mit">Capability catalog is extensible; users can define custom capabilities in <code>.forge/policy/capabilities.custom.yaml</code> mapping to allowedTools/path globs.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PHASE 5 -->
+<!-- ============================================================ -->
+<section id="p5">
+<div class="phase-hdr">
+  <span class="num">P5</span>
+  <span class="title">Performance — tokenizers, async I/O, SQLite tuning</span>
+  <span class="effort badge ok">Effort: S</span>
+  <span class="badge info">Performance</span>
+</div>
+
+<h3>Problem</h3>
+<ul>
+  <li><code>assessor.js:12</code> uses <code>CHARS_PER_TOKEN = 4</code> as a universal heuristic. For code-heavy files true ratio is 3.2–3.8; for minified data, 2–3. This causes either unnecessary plan splits or context overflows.</li>
+  <li><code>fs.statSync</code> in a loop per context file (<code>assessor.js:81-83</code>) and per-unit read-modify-write of <code>metrics.json</code> (<code>metrics.js:13-20</code>) bottleneck large repos.</li>
+  <li><code>forge-graph/query.js:112</code> enables WAL but never tunes <code>cache_size</code> or <code>mmap_size</code>.</li>
+</ul>
+
+<h3>Code change — pluggable tokenizers</h3>
+<div class="diff">
+  <div><span class="lbl before">Before · assessor.js:12</span><pre class="rem">const CHARS_PER_TOKEN = 4;
+function estimate(text) {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}</pre></div>
+  <div><span class="lbl after">After · adapter selection</span><pre class="add">const { pickTokenizer } = require('./tokenizers');
+const tokenizer = pickTokenizer(config.assess.tokenizer);
+// 'heuristic' | 'anthropic' | 'tiktoken' | 'auto'
+function estimate(text) {
+  return tokenizer.count(text);
+}
+// anthropic/tiktoken loaded lazily; fallback to heuristic.</pre></div>
+</div>
+
+<h3>Code change — async assessor walk</h3>
+<div class="diff">
+  <div><span class="lbl before">Before</span><pre class="rem">for (const f of files) {
+  const st = fs.statSync(f);     // blocking
+  total += Math.ceil(st.size/4);
+}</pre></div>
+  <div><span class="lbl after">After</span><pre class="add">const sizes = await Promise.all(
+  files.map(f => fsp.stat(f).then(s => s.size))
+);
+total = sizes.reduce(
+  (a,b) => a + tokenizer.estimateFromBytes(b), 0
+);</pre></div>
+</div>
+
+<h3>Code change — SQLite tuning</h3>
+<pre class="add">// forge-graph/query.js — on db open
+db.pragma('journal_mode = WAL');
+db.pragma('cache_size = -64000');   // 64 MB
+db.pragma('mmap_size  = 268435456');// 256 MB
+db.pragma('temp_store = MEMORY');
+db.pragma('synchronous = NORMAL');</pre>
+
+<h3>What is improved</h3>
+<ul>
+  <li><strong>Accurate token estimation</strong> reduces unnecessary plan splits (faster end-to-end) and prevents context overflows (more reliable).</li>
+  <li><strong>10–100× faster file walks</strong> on large repos via concurrent <code>stat</code>.</li>
+  <li><strong>Metrics batching</strong> (250 ms flush) eliminates the read-modify-write storm during 10-agent waves.</li>
+  <li><strong>SQLite cache</strong> hot-path queries (graph impact/show) return in microseconds on warm cache.</li>
+  <li><strong>Verification cache</strong> keyed by <code>(file_hash, layer, config_hash)</code> — re-runs of <code>/forge-verify-work</code> become near-instant on unchanged files.</li>
+</ul>
+
+<h3>Benefits</h3>
+<ul>
+  <li><span class="badge ok">No format changes</span> All artifacts identical on disk; only faster.</li>
+  <li><span class="badge info">Lower variance in wave duration</span> — less time spent on I/O blocking.</li>
+  <li><span class="badge muted">Opt-in tokenizer</span> heuristic stays default; users opt-in to <code>anthropic</code> or <code>tiktoken</code>.</li>
+</ul>
+
+<h3>Risks &amp; mitigations</h3>
+<div class="risk"><div class="r-title">tokenizer optional dep missing on air-gapped machine</div><div class="r-mit">Lazy import wrapped in try/catch — falls back to heuristic with a one-line warning.</div></div>
+<div class="risk"><div class="r-title">Metrics batcher loses data on crash</div><div class="r-mit">Flush on <code>SIGINT</code>/<code>SIGTERM</code> + <code>process.on('beforeExit')</code>; flush interval 250 ms means worst-case loss is ~quarter-second of metrics, never decisions.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PHASE 6 -->
+<!-- ============================================================ -->
+<section id="p6">
+<div class="phase-hdr">
+  <span class="num">P6</span>
+  <span class="title">Quality, observability, supply chain</span>
+  <span class="effort badge warn">Effort: M</span>
+  <span class="badge warn">Quality</span>
+  <span class="badge info">Enterprise</span>
+</div>
+
+<h3>Problem</h3>
+<ul>
+  <li>7 test files cover &lt; 10 % of code. Graph, verifier, container, assessor, session are entirely untested.</li>
+  <li>Zero TypeScript / zero <code>@ts-check</code>. CLAUDE.md mandates <code>npx tsc --noEmit</code> but there's nothing to typecheck.</li>
+  <li>All output through <code>console.log</code>/<code>console.error</code>. No level filtering, no JSON mode, no PII filter.</li>
+  <li>No OpenTelemetry, no Prometheus, no external metrics.</li>
+  <li>No SBOM, no signed releases. <code>package.json</code> uses <code>^</code> semver ranges.</li>
+</ul>
+
+<h3>Code change — type-check existing JS without rewrite</h3>
+<pre class="add">// top of forge-agents/factory.js, forge-verify/engine.js, etc.
+// @ts-check
+
+// tsconfig.check.json
+{
+  "compilerOptions": {
+    "allowJs": true, "checkJs": true,
+    "noEmit": true, "strict": false,
+    "target": "es2022", "module": "commonjs",
+    "moduleResolution": "node",
+    "resolveJsonModule": true
+  },
+  "include": ["forge-*/**/*.js"]
+}
+// CI step: npx tsc -p tsconfig.check.json</pre>
+
+<h3>Code change — structured logger with redaction</h3>
+<div class="diff">
+  <div><span class="lbl before">Before</span><pre class="rem">console.log(`[factory] built agent ${id} with ${files.length} files`);
+console.error(`[verify] layer 6 failed:`, err);</pre></div>
+  <div><span class="lbl after">After</span><pre class="add">const log = require('../forge-cli/lib/logger')('factory');
+log.info({ agent: id, files: files.length }, 'built');
+log.error({ layer: 6, err: redact(err) }, 'verify failed');
+// JSON mode: FORGE_LOG_JSON=1; level: log.level=info</pre></div>
+</div>
+
+<h3>Code change — OTEL spans (optional)</h3>
+<pre class="add">// forge-session/otel.js
+let api; try { api = require('@opentelemetry/api'); } catch { /* disabled */ }
+function span(name, attrs, fn) {
+  if (!api) return fn();
+  const tracer = api.trace.getTracer('forge');
+  return tracer.startActiveSpan(name, { attributes: attrs }, async (s) => {
+    try { return await fn(); } finally { s.end(); }
+  });
+}
+// Used in parallel-planner.js, engine.js, factory.js</pre>
+
+<h3>Supply chain</h3>
+<pre class="add"># .github/workflows/release.yml
+- run: npm sbom --sbom-format cyclonedx > sbom.cdx.json
+- uses: sigstore/cosign-installer@v3
+- run: cosign sign-blob --yes forge-cli-*.tgz \
+        --output-signature forge-cli.sig \
+        --output-certificate forge-cli.crt
+# bin/install.js gains a --verify flag that re-verifies against the cert chain.</pre>
+
+<h3>What is improved</h3>
+<ul>
+  <li><strong>Test floor</strong>: forge-graph, forge-verify, forge-containers brought to ≥ 60 % statement coverage via <code>c8</code> with CI gate.</li>
+  <li><strong>Type-checked JS</strong> catches a class of runtime errors at lint time; satisfies CLAUDE.md's FORCED VERIFICATION directive.</li>
+  <li><strong>Structured logs</strong> with redaction; JSON mode for log aggregators.</li>
+  <li><strong>OpenTelemetry traces</strong> for phase start/end, wave dispatch, per-agent action, each verification layer.</li>
+  <li><strong>SBOM + cosign signature</strong> on every release — SLSA Level 2 baseline, EO 14028 supply-chain readiness.</li>
+</ul>
+
+<h3>Benefits</h3>
+<ul>
+  <li><span class="badge ok">Procurement-ready</span> SBOM + signed releases unlock enterprise software-supply-chain reviews.</li>
+  <li><span class="badge info">Operable</span> OTEL traces drop into any APM (Datadog, Honeycomb, Tempo).</li>
+  <li><span class="badge muted">Air-gap safe</span> All optional deps lazy-loaded; absent ones just disable the feature.</li>
+</ul>
+
+<h3>Risks &amp; mitigations</h3>
+<div class="risk"><div class="r-title">Adding <code>// @ts-check</code> uncovers latent bugs that look like regressions</div><div class="r-mit">Roll out file-by-file; each PR fixes the surfaced errors. Treat them as bugs — the deep-dive already noted 3500+ silent <code>catch</code> blocks in <code>forge-session</code> and <code>forge-agents</code>.</div></div>
+<div class="risk"><div class="r-title">Test suite slows CI</div><div class="r-mit">New tests use <code>node --test</code> (no framework dep) with file-based parallelism. Target wall-time &lt; 60 s on a developer laptop.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PHASE 7 -->
+<!-- ============================================================ -->
+<section id="p7">
+<div class="phase-hdr">
+  <span class="num">P7</span>
+  <span class="title">AGENTS.md generator + action-observation replay log</span>
+  <span class="effort badge ok">Effort: S</span>
+  <span class="badge info">Ecosystem</span>
+  <span class="badge ok">DX</span>
+</div>
+
+<h3>Problem</h3>
+<ul>
+  <li>Forge ships <code>CLAUDE.md</code> — single-runtime contract. OpenHands, Codex, Cursor, Gemini all read <code>AGENTS.md</code> instead.</li>
+  <li>Ledger captures decisions, not every step. Replay or debug of a failed wave requires guessing what an agent saw.</li>
+</ul>
+
+<h3>Code change — AGENTS.md generator</h3>
+<pre class="add">// forge-cli/workflows/agents-md.md
+// Generates AGENTS.md at project root from:
+//   - Code graph capabilities
+//   - Build commands (package.json scripts, Makefile)
+//   - Forge directives subset (verification, ledger awareness)
+//   - Plan/phase conventions
+// CLAUDE.md is preserved; AGENTS.md delegates to it inside Claude Code.
+
+node forge-cli/bin/forge-tools.cjs agents-md generate
+node forge-cli/bin/forge-tools.cjs agents-md check  # drift detector</pre>
+
+<h3>Generated AGENTS.md (example excerpt)</h3>
+<pre>## Build &amp; test
+- Backend: `npm test` (`tests/*.test.cjs`)
+- Type check: `npx tsc -p tsconfig.check.json --noEmit`
+
+## Forge SDLC contract
+- Before edits: query graph context via `node forge-graph/query.js context-for-task &lt;files&gt;`.
+- Verify after every change: `node forge-verify/engine.js --files &lt;changed&gt;`.
+- Append decisions and warnings to `.forge/session/ledger.md`.
+- Capabilities for this repo: see `.planning/capabilities.yaml`.
+
+## Hard rules
+- Do not commit secrets — automatic redactor will replace them.
+- Do not bypass verification (no `--no-verify` on git).</pre>
+
+<h3>Code change — action log per agent</h3>
+<pre class="add">// forge-session/actions.js — one record per agent action
+// .forge/actions/&lt;phase&gt;/&lt;wave&gt;/&lt;agent&gt;.jsonl
+{"ts":"2026-05-15T14:22:11Z","action":"edit","path":"src/foo.ts","sha_before":"a1b2…","sha_after":"c3d4…","duration_ms":42}
+{"ts":"2026-05-15T14:22:11Z","observation":"test","exit":0,"duration_ms":1130,"stdout_sha":"…"}
+// Replay: forge-tools.cjs actions replay .forge/actions/72/3/test-agent.jsonl</pre>
+
+<h3>What is improved</h3>
+<ul>
+  <li><strong>Multi-runtime onboarding</strong> — any AI runtime that reads <code>AGENTS.md</code> can drive Forge.</li>
+  <li><strong>Deterministic replay</strong> of waves; debug a failed agent by inspecting its actions/observations.</li>
+  <li><strong>Drift detection</strong> — <code>agents-md check</code> warns when build/test commands have changed and AGENTS.md is stale.</li>
+</ul>
+
+<h3>Benefits</h3>
+<ul>
+  <li><span class="badge ok">Forge stops being Claude-Code-only</span> without abandoning Claude Code as the first-class runtime.</li>
+  <li><span class="badge info">Forensics for free</span> — every wave produces a replayable transcript.</li>
+  <li><span class="badge muted">Cheap</span> Action records are ~150 bytes; a typical wave is &lt; 100 KB.</li>
+</ul>
+
+<h3>Risks &amp; mitigations</h3>
+<div class="risk"><div class="r-title">AGENTS.md drifts from CLAUDE.md</div><div class="r-mit">CI gate: <code>agents-md check</code> compares against canonical sections; failure blocks merge.</div></div>
+<div class="risk"><div class="r-title">Action log grows unbounded</div><div class="r-mit">Configurable retention (<code>actions.retention.days = 30</code>); archived under <code>.forge/actions/archive/</code> on milestone complete.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<!-- PHASE 8 -->
+<!-- ============================================================ -->
+<section id="p8">
+<div class="phase-hdr">
+  <span class="num">P8</span>
+  <span class="title">forge-mcp server + skills marketplace + runtime adapters</span>
+  <span class="effort badge danger">Effort: L</span>
+  <span class="badge info">Ecosystem</span>
+  <span class="badge ok">Strategy</span>
+</div>
+
+<h3>Problem</h3>
+<ul>
+  <li>Forge has no MCP surface. Its graph, verifier, impact analyzer are walled off from the 14k+ MCP-speaking agent runtimes.</li>
+  <li>21 hardcoded agent personas. No path to install VoltAgent's 131 specialists or Google <code>skills</code> packs.</li>
+  <li><code>provider.js</code> shallowly detects <code>claude</code>/<code>codex</code> binaries; OpenHands/Gemini are not first-class.</li>
+</ul>
+
+<h3>Code change — forge-mcp server</h3>
+<pre class="add">// forge-mcp/server.js — stdio MCP server exposing:
+//
+// Resources:
+//   forge://graph/overview
+//   forge://graph/hotspots
+//   forge://session/ledger
+//   forge://phases/&lt;id&gt;/PLAN.md
+//
+// Tools:
+//   graph.show(file)
+//   graph.impact(file)
+//   graph.capabilities(module)
+//   verify.run(files, layers)
+//   assess.plan(planPath)
+//   audit.tail(limit)
+//
+// Read-only by default. --write mode (off by default) exposes
+//   plan.create, phase.execute  — gated by capability tokens.</pre>
+
+<pre class="add"># forge-cli/templates/mcp-config.snippets/cursor.json
+{
+  "mcpServers": {
+    "forge": {
+      "command": "node",
+      "args": ["~/.claude/forge-mcp/server.js"],
+      "env": { "FORGE_HOME": "~/.claude" }
+    }
+  }
+}</pre>
+
+<h3>Code change — skills marketplace adapter</h3>
+<pre class="add"># Install Google skills pack
+node forge-cli/bin/forge-tools.cjs skills add google/skills
+# Install VoltAgent's 131 subagents
+node forge-cli/bin/forge-tools.cjs skills add \
+  voltagent/awesome-claude-code-subagents
+# Install local pack
+node forge-cli/bin/forge-tools.cjs skills add ./my-team-pack
+# List installed
+node forge-cli/bin/forge-tools.cjs skills list</pre>
+
+<pre class="add">// forge-agents/skill-wrapper.js
+// Wraps every external skill at runtime — invisibly:
+//   - injects Forge SDLC verification loop
+//   - hooks the action-observation log (P7)
+//   - applies the capability model (P4)
+//   - propagates ledger awareness directive
+// The skill file on disk is unchanged.</pre>
+
+<h3>Code change — first-class runtime adapters</h3>
+<pre class="add">forge-runtimes/
+├── claude-code/  { spawn.js, flags.js, allowedTools.js }
+├── codex/        { spawn.js, flags.js }
+├── openhands/    { spawn.js, sdk-bridge.py }
+└── gemini-cli/   { spawn.js, flags.js }
+
+// Each adapter implements:
+//   spawnAgent(systemPrompt, contextPaths, capabilities, envScope)
+//     -&gt; Promise&lt;RunResult&gt;
+// provider.js delegates by runtime.preferred config + auto-detect.</pre>
+
+<h3>What is improved</h3>
+<ul>
+  <li><strong>Forge becomes a first-class MCP citizen.</strong> Any external agent (Cursor, OpenHands, Codex, Claude Desktop) can call <code>graph.impact()</code> or <code>verify.run()</code>.</li>
+  <li><strong>21 personas → unlimited.</strong> Marketplace consumes Google + VoltAgent + custom packs; Forge keeps wrapping every external skill with its own SDLC loop.</li>
+  <li><strong>Cross-runtime replay.</strong> P7's action log + P8's adapter abstraction let you replay the same wave on Claude vs Gemini vs OpenHands and compare results.</li>
+  <li><strong>Procurement story:</strong> "Forge is not vendor-locked. It runs on Claude Code, Codex, Gemini, OpenHands."</li>
+</ul>
+
+<h3>Benefits</h3>
+<ul>
+  <li><span class="badge ok">Strategic moat</span> Forge becomes the SDLC layer, not the runtime layer — it composes with every other AI dev tool.</li>
+  <li><span class="badge info">Enterprise procurement unlocked</span> Customers can mandate their preferred runtime.</li>
+  <li><span class="badge muted">Existing users unaffected</span> <code>runtime.preferred = auto</code> reproduces today's behavior.</li>
+</ul>
+
+<h3>Config flags</h3>
+<ul class="tight">
+  <li><code>mcp.server.enabled</code> (default <code>false</code>)</li>
+  <li><code>mcp.server.transport</code>: <code>stdio | sse</code></li>
+  <li><code>mcp.server.write_mode</code>: <code>false | token-gated</code></li>
+  <li><code>skills.allow_external</code> (default <code>true</code>)</li>
+  <li><code>runtime.preferred</code>: <code>auto | claude-code | codex | openhands | gemini-cli</code></li>
+</ul>
+
+<h3>Risks &amp; mitigations</h3>
+<div class="risk"><div class="r-title">External skill packs ship malicious instructions</div><div class="r-mit">Skill-wrapper applies P4 capability model + P3 egress profile. <code>skills add</code> prints source URL + sha256 + signature status; user confirms before activation.</div></div>
+<div class="risk"><div class="r-title">Runtime adapters drift in behavior, breaking replay</div><div class="r-mit">Adapter conformance test suite — every adapter runs the same 30-step fixture and produces normalized action records. CI gates new adapters.</div></div>
+<div class="risk"><div class="r-title">MCP <code>--write</code> mode exposes destructive operations</div><div class="r-mit">Off by default. When on, every tool call requires a capability token (signed by project identity from P2) and writes to audit log.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="risks">
+<h2>9. Global Risk Matrix</h2>
+
+<table>
+<thead><tr><th>Risk</th><th>Phase</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr></thead>
+<tbody>
+  <tr>
+    <td>Existing plans break under <code>enforce</code> mode</td>
+    <td>P4</td>
+    <td><span class="badge warn">Med</span></td>
+    <td><span class="badge warn">Med</span></td>
+    <td>Two versions of <code>warn</code> mode + auto-suggester</td>
+  </tr>
+  <tr>
+    <td>Egress allowlist blocks legitimate package install</td>
+    <td>P3</td>
+    <td><span class="badge warn">Med</span></td>
+    <td><span class="badge ok">Low</span></td>
+    <td>Profile selection (<code>strict|build|research</code>) per plan</td>
+  </tr>
+  <tr>
+    <td>Encryption-at-rest key loss</td>
+    <td>P2</td>
+    <td><span class="badge ok">Low</span></td>
+    <td><span class="badge danger">High</span></td>
+    <td>Refuse to migrate without verified write-back; export backup</td>
+  </tr>
+  <tr>
+    <td>MCP server exposes sensitive graph data</td>
+    <td>P8</td>
+    <td><span class="badge ok">Low</span></td>
+    <td><span class="badge warn">Med</span></td>
+    <td>Read-only default + per-resource ACL in policy file</td>
+  </tr>
+  <tr>
+    <td>Multiple runtime adapters drift</td>
+    <td>P8</td>
+    <td><span class="badge warn">Med</span></td>
+    <td><span class="badge warn">Med</span></td>
+    <td>Adapter conformance suite gates new adapters</td>
+  </tr>
+  <tr>
+    <td>AGENTS.md drifts from CLAUDE.md</td>
+    <td>P7</td>
+    <td><span class="badge warn">Med</span></td>
+    <td><span class="badge ok">Low</span></td>
+    <td><code>agents-md check</code> as a doctor step / CI gate</td>
+  </tr>
+  <tr>
+    <td>OTEL/Sigstore deps fail on air-gapped install</td>
+    <td>P6</td>
+    <td><span class="badge ok">Low</span></td>
+    <td><span class="badge ok">Low</span></td>
+    <td>Lazy import — feature disabled, core unaffected</td>
+  </tr>
+  <tr>
+    <td>External skill ships malicious instructions</td>
+    <td>P8</td>
+    <td><span class="badge warn">Med</span></td>
+    <td><span class="badge danger">High</span></td>
+    <td>Capability sandbox + egress profile + signature display</td>
+  </tr>
+  <tr>
+    <td>Hash chain corruption from concurrent audit writes</td>
+    <td>P2</td>
+    <td><span class="badge ok">Low</span></td>
+    <td><span class="badge warn">Med</span></td>
+    <td><code>proper-lockfile</code> around audit.jsonl writes</td>
+  </tr>
+  <tr>
+    <td>Seccomp profile breaks node-gyp builds</td>
+    <td>P3</td>
+    <td><span class="badge warn">Med</span></td>
+    <td><span class="badge ok">Low</span></td>
+    <td><code>build</code> profile uses permissive seccomp; doctor detects mismatch</td>
+  </tr>
+</tbody>
+</table>
+</section>
+
+<!-- ============================================================ -->
+<section id="untouched">
+<h2>10. What Stays Untouched</h2>
+<p>Every change above is additive or flag-gated. The following surfaces are explicitly preserved:</p>
+<div class="grid-2">
+<div class="card tight">
+<h4 style="margin-top:0">Slash commands (42)</h4>
+<p style="color:var(--fg-muted);font-size:13px"><code>/forge-init</code>, <code>/forge-plan-phase</code>, <code>/forge-execute-phase</code>, <code>/forge-verify-work</code>, <code>/forge-auto</code>, <code>/forge-progress</code>, <code>/forge-impact</code>, <code>/forge-doctor</code>, <code>/forge-graph-*</code>, <code>/forge-new-project</code>, <code>/forge-new-milestone</code>, <code>/forge-complete-milestone</code>, <code>/forge-audit-milestone</code>, …</p>
+</div>
+<div class="card tight">
+<h4 style="margin-top:0">SDLC artifacts</h4>
+<p style="color:var(--fg-muted);font-size:13px"><code>.planning/REQUIREMENTS.md</code>, <code>ROADMAP.md</code>, <code>PLAN.md</code>, <code>SUMMARY.md</code>, <code>VERIFICATION.md</code> — schemas and frontmatter contracts preserved.</p>
+</div>
+<div class="card tight">
+<h4 style="margin-top:0">Session model</h4>
+<p style="color:var(--fg-muted);font-size:13px"><code>.forge/session/ledger.md</code> Markdown format and <code>proper-lockfile</code> semantics. Audit log is additive — both coexist.</p>
+</div>
+<div class="card tight">
+<h4 style="margin-top:0">Verification engine</h4>
+<p style="color:var(--fg-muted);font-size:13px">16-layer verifier ordering and toggle keys preserved; new instrumentation (OTEL, action log) reads-only.</p>
+</div>
+<div class="card tight">
+<h4 style="margin-top:0">Config merge order</h4>
+<p style="color:var(--fg-muted);font-size:13px">defaults &larr; <code>~/.forge/config.json</code> &larr; <code>.forge/config.json</code>. New keys appear in defaults with safe values.</p>
+</div>
+<div class="card tight">
+<h4 style="margin-top:0">Code graph schema</h4>
+<p style="color:var(--fg-muted);font-size:13px">v1 graphs remain readable. Migrations non-destructive; backup written to <code>.forge/code-graph.db.bak.&lt;ts&gt;</code>.</p>
+</div>
+<div class="card tight">
+<h4 style="margin-top:0">Built-in agent personas (21)</h4>
+<p style="color:var(--fg-muted);font-size:13px"><code>forge-agents/catalog/</code> entries unchanged. External skill packs fill gaps; they never displace built-ins.</p>
+</div>
+<div class="card tight">
+<h4 style="margin-top:0">Hook contracts</h4>
+<p style="color:var(--fg-muted);font-size:13px"><code>hooks/dist/forge-guard.js</code> &amp; siblings — patterns refactored into shared module; behavior preserved.</p>
+</div>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="outcome">
+<h2>11. Final Outcome — What Forge Becomes</h2>
+
+<div class="card">
+<h3>Before (today, v1.20.4)</h3>
+<ul>
+  <li>Strong single-machine SDLC engine.</li>
+  <li>Claude-Code-coupled execution.</li>
+  <li>Sensitive env + permissions bypass for every agent.</li>
+  <li>No identity, no audit, no SBOM, no signed releases.</li>
+  <li>21 hardcoded personas; no marketplace.</li>
+  <li>&lt; 10 % test coverage; no type-check; no observability export.</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>After (v2.0, all 8 phases shipped)</h3>
+<ul>
+  <li><strong>Hardened sandbox</strong> — scoped env, capability-gated agents, locked-down containers, egress-proxied.</li>
+  <li><strong>Compliance-ready</strong> — signed append-only audit log, project identity, optional OIDC SSO, encryption-at-rest, SBOM + cosign.</li>
+  <li><strong>Measurable</strong> — OTEL traces, action-observation logs, structured JSON logs, ≥ 60 % test coverage on core.</li>
+  <li><strong>Multi-runtime</strong> — Claude Code, Codex, OpenHands, Gemini CLI — consuming external skill packs (Google, VoltAgent) while keeping the Forge SDLC verification wrapped around every one.</li>
+  <li><strong>First-class MCP citizen</strong> — Forge's graph, verifier, impact analyzer callable from any external agent.</li>
+  <li><strong>Every existing <code>/forge-*</code> command keeps working exactly as it does today.</strong></li>
+</ul>
+</div>
+
+<blockquote>Forge stops competing with Claude Code, Codex, or OpenHands and starts <em>composing</em> with all of them. The SDLC loop becomes Forge's product; the runtime becomes a configurable detail.</blockquote>
+</section>
+
+<!-- ============================================================ -->
+<footer>
+  <p>Sourced from: codebase deep-dive of <code>FDP/</code> (10 modules, 42 commands), Google <code>skills</code> repository (Apache-2.0), and the OpenHands "AI team of 131 specialists" article. Cross-referenced with <code>improvements.md</code> in this repo.</p>
+  <p>Companion document: <a href="improvements.md">improvements.md</a> &middot; canonical Forge contract: <a href="CLAUDE.md">CLAUDE.md</a></p>
+</footer>
+
+</main>
+
+</div>
+</body>
+</html>

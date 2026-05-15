@@ -19,7 +19,7 @@ const crypto = require('crypto');
 // ============================================================
 
 // Lazy-loaded dependencies (only resolved when called)
-let _graphQuery, _ledger, _assessor, _capDetector, _containerSpec, _containerConfig, _systemQuery, _knowledge, _agentCache, _agentRegistry, _forgeConfig;
+let _graphQuery, _ledger, _assessor, _capDetector, _containerSpec, _containerConfig, _systemQuery, _knowledge, _agentCache, _agentRegistry, _forgeConfig, _capabilities;
 
 function graphQuery() {
   if (!_graphQuery) _graphQuery = require('../forge-graph/query');
@@ -64,6 +64,10 @@ function agentRegistry() {
 function forgeConfig() {
   if (!_forgeConfig) _forgeConfig = require('../forge-config/config');
   return _forgeConfig;
+}
+function capabilitiesModule() {
+  if (!_capabilities) _capabilities = require('./capabilities');
+  return _capabilities;
 }
 
 // ============================================================
@@ -1203,6 +1207,11 @@ function defineContainerParams(taskId, cwd, analysis, agentConfig) {
   }
   // else: default node (container-spec.selectImage handles it)
 
+  // P4: Propagate RBAC into container opts so provider/orchestrator can plumb
+  // them through to claude-code (--allowedTools / --disallowedTools) and
+  // env scoping (secrets_scope).
+  const rbac = agentConfig.rbac || null;
+
   return {
     taskId,
     cwd,
@@ -1213,6 +1222,13 @@ function defineContainerParams(taskId, cwd, analysis, agentConfig) {
     opts: {
       dockerfile,
       mode: 'agent',
+      allowedTools: rbac?.allowedTools || null,
+      disallowedTools: rbac?.disallowedTools || null,
+      secrets_scope: rbac?.secretsScope || null,
+      egress_profile: rbac?.egress || null,
+      // When enforcement is on and the plan declared capabilities, do NOT
+      // pass --dangerously-skip-permissions; rely on the tool allowlist.
+      dangerously_skip_permissions: rbac && rbac.enforcement === 'enforce' ? false : undefined,
     },
   };
 }
@@ -1464,6 +1480,22 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
   // Task prompt (the actual plan content)
   const taskPrompt = plan.raw;
 
+  // P4: Resolve declared capabilities (RBAC-lite) → allowedTools/disallowedTools/secretsScope/egress
+  // Plans declare `capabilities: [read_src, write_docs, run_tests]` in frontmatter.
+  // Resolution maps these to Claude tool flags, write_path globs, egress profile, and env scope.
+  let resolvedCapabilities = null;
+  const capEnforcement = (() => {
+    try { return capabilitiesModule().mode(cwd); } catch { return 'off'; }
+  })();
+  try {
+    const declared = Array.isArray(plan.frontmatter?.capabilities)
+      ? plan.frontmatter.capabilities
+      : [];
+    if (declared.length > 0 || capEnforcement !== 'off') {
+      resolvedCapabilities = capabilitiesModule().resolve(declared);
+    }
+  } catch { /* capabilities module optional */ }
+
   // Build agent JSON (matches agent-entrypoint.js expected format)
   const agentConfig = {
     task_id: taskId,
@@ -1503,13 +1535,26 @@ function buildAgentConfig(planPath, cwd, opts = {}) {
     // Verification steps
     verification_steps: verification,
 
-    // Capabilities summary
+    // Capabilities summary (from graph capability detector, not RBAC)
     capabilities: Object.entries(analysis.capabilities).reduce((acc, [mod, caps]) => {
       acc[mod] = caps
         .filter(c => c.confidence >= CAPABILITY_CONFIDENCE_MIN)
         .map(c => ({ capability: c.capability, confidence: c.confidence }));
       return acc;
     }, {}),
+
+    // P4: RBAC-lite — declared capabilities resolved into tool/path/egress policy
+    rbac: resolvedCapabilities ? {
+      declared: Array.isArray(plan.frontmatter?.capabilities) ? plan.frontmatter.capabilities : [],
+      allowedTools: resolvedCapabilities.allowedTools,
+      disallowedTools: resolvedCapabilities.disallowedTools,
+      writePaths: resolvedCapabilities.writePaths,
+      readPaths: resolvedCapabilities.readPaths,
+      egress: resolvedCapabilities.egress,
+      secretsScope: resolvedCapabilities.secretsScope,
+      unknown: resolvedCapabilities.unknown,
+      enforcement: capEnforcement,
+    } : null,
 
     // Plan metadata
     plan_meta: {
