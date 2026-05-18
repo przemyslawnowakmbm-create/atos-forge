@@ -72,15 +72,62 @@ function loadForgeConfig(cwd) {
 // Token Estimation
 // ============================================================
 
-function estimateTokens(text) {
+// P5: optional tokenizer adapter (heuristic | anthropic | tiktoken | auto).
+// The legacy chars/4 path stays the default; opting in requires
+// `assess.tokenizer != 'heuristic'` in config.
+let _tokenizers = null;
+function _tk() {
+  if (_tokenizers !== null) return _tokenizers;
+  try { _tokenizers = require('./tokenizers'); }
+  catch { _tokenizers = false; }
+  return _tokenizers;
+}
+
+function estimateTokens(text, cwd) {
+  const tk = _tk();
+  if (tk) {
+    try { return tk.estimateTokens(text || '', cwd || null); }
+    catch { /* fall back */ }
+  }
   return Math.ceil((text || '').length / CHARS_PER_TOKEN);
 }
 
-function estimateFileTokens(filePath) {
+function estimateFileTokens(filePath, cwd) {
   try {
     const stat = fs.statSync(filePath);
+    const tk = _tk();
+    if (tk) {
+      try { return tk.estimateBytes(stat.size, cwd || null); }
+      catch { /* fall back */ }
+    }
     return Math.ceil(stat.size / CHARS_PER_TOKEN);
   } catch { return 0; }
+}
+
+// P5: async sibling — useful when sizing 1000+ files in parallel.
+async function estimateFileTokensAsync(filePath, cwd) {
+  try {
+    const fsp = require('fs').promises;
+    const stat = await fsp.stat(filePath);
+    const tk = _tk();
+    if (tk) {
+      try { return tk.estimateBytes(stat.size, cwd || null); }
+      catch { /* fall back */ }
+    }
+    return Math.ceil(stat.size / CHARS_PER_TOKEN);
+  } catch { return 0; }
+}
+
+async function statAllInParallel(filePaths, cwd) {
+  const fsp = require('fs').promises;
+  const results = await Promise.all(filePaths.map(async (f) => {
+    const abs = path.isAbsolute(f) ? f : path.join(cwd || process.cwd(), f);
+    try {
+      const s = await fsp.stat(abs);
+      return { path: f, abs, exists: true, size: s.size };
+    } catch { return { path: f, abs, exists: false, size: 0 }; }
+  }));
+  return results;
 }
 
 // ============================================================
@@ -215,13 +262,18 @@ function assessPlan(planPath, cwd, opts = {}) {
   const threshold = opts.assessment_threshold || config.assessment_threshold;
 
   // Token estimation
-  const planTokens = estimateTokens(plan.raw);
+  const planTokens = estimateTokens(plan.raw, cwd);
   let fileTokens = 0;
   const fileDetails = [];
 
+  // P5: cheap dedup so we don't stat the same file twice when a plan
+  // references it through multiple task lists.
+  const seen = new Set();
   for (const f of plan.all_files) {
+    if (seen.has(f)) continue;
+    seen.add(f);
     const absPath = path.isAbsolute(f) ? f : path.join(cwd, f);
-    const tokens = estimateFileTokens(absPath);
+    const tokens = estimateFileTokens(absPath, cwd);
     fileTokens += tokens;
     fileDetails.push({ path: f, tokens, exists: fs.existsSync(absPath), is_plan_file: true });
   }
@@ -430,6 +482,8 @@ module.exports = {
   parsePlan,
   estimateTokens,
   estimateFileTokens,
+  estimateFileTokensAsync,
+  statAllInParallel,
   classifyFile,
   buildDependencyOrder,
   loadForgeConfig,

@@ -113,7 +113,39 @@ function save(cwd, data) {
     data.learnings = data.learnings.slice(-maxEntries);
   }
 
-  fs.writeFileSync(knowledgePath(cwd), JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  let toWrite = data;
+  try {
+    const { redactValue, isEnabled } = require('./redactor');
+    if (isEnabled(cwd)) toWrite = redactValue(data).value;
+  } catch { /* redactor optional */ }
+
+  fs.writeFileSync(knowledgePath(cwd), JSON.stringify(toWrite, null, 2) + '\n', 'utf-8');
+}
+
+/**
+ * Scrub the knowledge base: re-redact all existing entries against the current
+ * pattern set. Returns counts of entries changed.
+ */
+function scrub(cwd) {
+  const data = load(cwd);
+  let changed = 0;
+  try {
+    const { redactValue, isEnabled } = require('./redactor');
+    if (!isEnabled(cwd)) return { changed: 0, total: data.learnings.length, skipped: 'redaction disabled' };
+    const next = data.learnings.map(entry => {
+      const { value, changed: c } = redactValue(entry);
+      if (c) changed++;
+      return value;
+    });
+    if (changed > 0) {
+      data.learnings = next;
+      ensureDir(knowledgeDir(cwd));
+      fs.writeFileSync(knowledgePath(cwd), JSON.stringify(data, null, 2) + '\n', 'utf-8');
+    }
+  } catch (e) {
+    return { changed: 0, total: data.learnings.length, error: e.message };
+  }
+  return { changed, total: data.learnings.length };
 }
 
 /**
@@ -482,8 +514,11 @@ if (require.main === module) {
     const files = (args[2] || '').split(',').filter(Boolean);
     const results = relevantFor(cwd, modules, files);
     console.log(JSON.stringify(results, null, 2));
+  } else if (action === 'scrub') {
+    const result = scrub(cwd);
+    console.log(JSON.stringify(result, null, 2));
   } else {
-    console.error('Usage: knowledge.js <list|add|prune|promote|relevant> [options] [--root path]');
+    console.error('Usage: knowledge.js <list|add|prune|promote|relevant|scrub> [options] [--root path]');
     process.exit(1);
   }
 }
@@ -499,6 +534,7 @@ module.exports = {
   prune,
   promote,
   relevantFor,
+  scrub,
   knowledgePath,
   knowledgeDir,
   generateId,

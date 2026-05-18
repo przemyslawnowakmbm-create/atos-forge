@@ -703,6 +703,54 @@ async function main() {
       break;
     }
 
+    case 'audit': {
+      const { handleAudit } = require('./lib/audit.cjs');
+      await handleAudit(cwd, args.slice(1), raw);
+      break;
+    }
+
+    case 'identity': {
+      const { handleIdentity } = require('./lib/identity.cjs');
+      await handleIdentity(cwd, args.slice(1), raw);
+      break;
+    }
+
+    case 'capabilities': {
+      const { handleCapabilities } = require('./lib/capabilities.cjs');
+      await handleCapabilities(cwd, args.slice(1));
+      break;
+    }
+
+    case 'agents-md': {
+      const { handleCli: handleAgentsMd } = require('./lib/agents-md.cjs');
+      handleAgentsMd(args.slice(1));
+      break;
+    }
+
+    case 'actions': {
+      const { handleCli: handleActions } = require('./lib/actions.cjs');
+      handleActions(cwd, args.slice(1));
+      break;
+    }
+
+    case 'skills': {
+      const { handleCli: handleSkills } = require('./lib/skills.cjs');
+      handleSkills(cwd, args.slice(1));
+      break;
+    }
+
+    case 'mcp': {
+      const { handleCli: handleMcp } = require('./lib/mcp.cjs');
+      handleMcp(cwd, args.slice(1));
+      break;
+    }
+
+    case 'runtimes': {
+      const { handleCli: handleRuntimes } = require('./lib/runtimes.cjs');
+      handleRuntimes(cwd, args.slice(1));
+      break;
+    }
+
     case 'impact': {
       const { handleImpact } = require('./lib/impact.cjs');
       await handleImpact(cwd, args.slice(1), raw);
@@ -797,6 +845,49 @@ async function main() {
         else { saveLocks({}); console.log('Cleared all hash locks'); }
       } else {
         console.log('Usage: forge-tools hash-lock <lock|check|list|clear> [args]');
+      }
+      break;
+    }
+
+    case 'picker': {
+      // Paginated AskUserQuestion picker helper. See forge-cli/lib/picker.js.
+      const picker = require('../lib/picker.js');
+      const sub = args[1];
+      if (sub === 'paginate') {
+        // Usage:
+        //   forge-tools picker paginate --options <JSON|@path> [--page-size N]
+        //                                [--nav-label STR] [--nav-description STR]
+        // Output (stdout):
+        //   { pages: [{ options, isLast }, ...], total, pageSize }
+        let optionsArg = null;
+        let pageSize, navLabel, navDescription;
+        for (let i = 2; i < args.length; i++) {
+          const a = args[i];
+          if (a === '--options') optionsArg = args[++i];
+          else if (a === '--page-size') pageSize = parseInt(args[++i], 10);
+          else if (a === '--nav-label') navLabel = args[++i];
+          else if (a === '--nav-description') navDescription = args[++i];
+        }
+        if (!optionsArg) {
+          console.error('Usage: forge-tools picker paginate --options <JSON|@path> [--page-size N] [--nav-label STR] [--nav-description STR]');
+          process.exit(1);
+        }
+        let raw;
+        if (optionsArg.startsWith('@')) {
+          raw = fs.readFileSync(optionsArg.slice(1), 'utf8');
+        } else {
+          raw = optionsArg;
+        }
+        let parsed;
+        try { parsed = JSON.parse(raw); }
+        catch (e) {
+          console.error('picker paginate: --options is not valid JSON: ' + e.message);
+          process.exit(1);
+        }
+        const result = picker.paginate(parsed, { pageSize, navLabel, navDescription });
+        process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      } else {
+        console.log('Usage: forge-tools picker paginate --options <JSON|@path> [--page-size N] [--nav-label STR] [--nav-description STR]');
       }
       break;
     }

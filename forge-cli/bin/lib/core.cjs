@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSafe } = require('../../lib/exec');
 const { resolveProvider } = require('../../../forge-agents/provider');
 
 // ─── Model Profile Table ─────────────────────────────────────────────────────
@@ -126,7 +126,9 @@ function loadConfig(cwd) {
 
 function isGitIgnored(cwd, targetPath) {
   try {
-    execSync('git check-ignore -q -- ' + targetPath.replace(/[^a-zA-Z0-9._\-/]/g, ''), {
+    if (typeof targetPath !== 'string') return false;
+    if (/[\r\n]/.test(targetPath)) return false;
+    execFileSafe('git', ['check-ignore', '-q', '--', targetPath], {
       cwd,
       stdio: 'pipe',
     });
@@ -138,11 +140,8 @@ function isGitIgnored(cwd, targetPath) {
 
 function execGit(cwd, args) {
   try {
-    const escaped = args.map(a => {
-      if (/^[a-zA-Z0-9._\-/=:@]+$/.test(a)) return a;
-      return "'" + a.replace(/'/g, "'\\''") + "'";
-    });
-    const stdout = execSync('git ' + escaped.join(' '), {
+    const sanitized = (Array.isArray(args) ? args : []).map(a => String(a));
+    const stdout = execFileSafe('git', sanitized, {
       cwd,
       stdio: 'pipe',
       encoding: 'utf-8',
@@ -455,7 +454,7 @@ function getGraphStatus(cwd) {
   try {
     const graphDir = getForgeGraphDir();
     const queryPath = path.join(graphDir, 'query.js');
-    const out = execSync(`node "${queryPath}" meta --json --db "${graphDbPath(cwd)}"`, {
+    const out = execFileSafe('node', [queryPath, 'meta', '--json', '--db', graphDbPath(cwd)], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
     });
     return JSON.parse(out);
@@ -473,10 +472,11 @@ function getGraphContextForFiles(cwd, filePaths) {
   try {
     const graphDir = getForgeGraphDir();
     const queryPath = path.join(graphDir, 'query.js');
-    const fileArgs = filePaths.map(f => `"${f}"`).join(' ');
-    const out = execSync(`node "${queryPath}" context-for-task ${fileArgs} --db "${graphDbPath(cwd)}"`, {
-      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000,
-    });
+    const out = execFileSafe(
+      'node',
+      [queryPath, 'context-for-task', ...filePaths.map(String), '--db', graphDbPath(cwd)],
+      { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 15000 }
+    );
     return JSON.parse(out);
   } catch {
     return null;
@@ -492,10 +492,12 @@ function getGraphImpact(cwd, filePath, depth) {
   try {
     const graphDir = getForgeGraphDir();
     const queryPath = path.join(graphDir, 'query.js');
-    const depthArg = depth ? `--depth ${depth}` : '';
-    const out = execSync(`node "${queryPath}" impact "${filePath}" ${depthArg} --json --db "${graphDbPath(cwd)}"`, {
-      cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
-    });
+    const depthArgs = depth ? ['--depth', String(parseInt(depth, 10) || 0)] : [];
+    const out = execFileSafe(
+      'node',
+      [queryPath, 'impact', String(filePath), ...depthArgs, '--json', '--db', graphDbPath(cwd)],
+      { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000 }
+    );
     return JSON.parse(out);
   } catch {
     return null;
@@ -507,7 +509,8 @@ function getGraphImpact(cwd, filePath, depth) {
  */
 function collectPhaseFiles(cwd, phaseNumber) {
   try {
-    const out = execSync(`node "${path.join(path.dirname(__filename), '..', 'forge-tools.cjs')}" phase-plan-index "${phaseNumber}"`, {
+    const toolsPath = path.join(path.dirname(__filename), '..', 'forge-tools.cjs');
+    const out = execFileSafe('node', [toolsPath, 'phase-plan-index', String(phaseNumber)], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
     });
     const index = JSON.parse(out);

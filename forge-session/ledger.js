@@ -155,7 +155,15 @@ function readRaw(cwd) {
  */
 function _writeFile(cwd, content) {
   ensureDir(ledgerDir(cwd));
-  fs.writeFileSync(ledgerPath(cwd), content, 'utf-8');
+  fs.writeFileSync(ledgerPath(cwd), _redactIfEnabled(cwd, content), 'utf-8');
+}
+
+function _redactIfEnabled(cwd, content) {
+  try {
+    const { redact, isEnabled } = require('./redactor');
+    if (typeof content === 'string' && isEnabled(cwd)) return redact(content).text;
+  } catch { /* redactor optional at boot */ }
+  return content;
 }
 
 /**
@@ -194,7 +202,7 @@ function writeRaw(cwd, content) {
   if (!fs.existsSync(p)) fs.writeFileSync(p, '', 'utf-8');
   const release = _lockWithRetry(p);
   try {
-    fs.writeFileSync(p, content, 'utf-8');
+    fs.writeFileSync(p, _redactIfEnabled(cwd, content), 'utf-8');
   } finally {
     release();
   }

@@ -78,8 +78,20 @@ Use AskUserQuestion to help users think by presenting concrete options to react 
 **Bad options:**
 - Generic categories ("Technical", "Business", "Other")
 - Leading options that presume an answer
-- Too many options (2-4 is ideal)
+- Padding to hit a fixed number — pick the count the question actually needs
 - Headers longer than 12 characters (hard limit — validation will reject them)
+
+**Option count:**
+- A single AskUserQuestion call accepts **2-4 options** (`maxItems: 4`,
+  `minItems: 2`). For single-select questions, keep it that way — if you have
+  more than 4 candidates you almost always want to narrow them first.
+- For **multiSelect** pickers where the user genuinely needs to see and choose
+  from more than 4 options (e.g. gray areas in `/forge-discuss-phase`, scoping
+  per category in `/forge-new-milestone`, rewrites in
+  `/forge-enhance-requirements`), use the **paginated picker pattern** in
+  `@~/.claude/forge-cli/references/paginated-picker.md` instead of truncating.
+  The pattern is N-unbounded: it splits options into 2-4-per-page batches with
+  a "Show more options →" nav slot.
 
 **Example — vague answer:**
 User says "it should be fast"

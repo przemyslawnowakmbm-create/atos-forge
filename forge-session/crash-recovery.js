@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { git } = require('../forge-cli/lib/exec');
 
 const LOCK_FILE = 'auto.lock';
 
@@ -69,8 +69,8 @@ function synthesizeRecovery(cwd, lockData) {
   if (lockData.waveN) lines.push(`Wave: ${lockData.waveN}`);
   lines.push('');
   try {
-    const since = lockData.startedAt;
-    const log = execSync(`git log --oneline --since="${since}" 2>/dev/null`, { cwd, encoding: 'utf8' }).trim();
+    const since = String(lockData.startedAt || '');
+    const log = git(['log', '--oneline', `--since=${since}`], { cwd, allowFailure: true }).trim();
     if (log) { lines.push('### Commits made before crash:'); lines.push('```'); lines.push(log); lines.push('```'); }
     else { lines.push('### No commits were made before crash.'); }
   } catch { lines.push('### Could not read git log.'); }

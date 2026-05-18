@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { git, safeRef } = require('../forge-cli/lib/exec');
 
 const {
   GraphBuilder, discoverFiles, resolveImport, estimateComplexity,
@@ -135,9 +135,10 @@ class GraphUpdater {
     const result = { added: [], modified: [], deleted: [] };
 
     try {
-      const output = execSync(
-        `git diff --name-status --diff-filter=ACDMR ${sinceRef}..HEAD -- .`,
-        { cwd: this.repoRoot, encoding: 'utf8', timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] }
+      const validRef = safeRef(sinceRef);
+      const output = git(
+        ['diff', '--name-status', '--diff-filter=ACDMR', `${validRef}..HEAD`, '--', '.'],
+        { cwd: this.repoRoot, timeout: 30000 }
       );
 
       for (const line of output.split('\n').filter(Boolean)) {
@@ -471,9 +472,9 @@ class GraphUpdater {
         for (const { key, days } of periods) {
           const since = new Date(now - days * 86400000).toISOString().split('T')[0];
           try {
-            const output = execSync(
-              `git log --since="${since}" --oneline -- "${filePath}"`,
-              { cwd: this.repoRoot, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
+            const output = git(
+              ['log', `--since=${since}`, '--oneline', '--', filePath],
+              { cwd: this.repoRoot, timeout: 5000, allowFailure: true }
             );
             freq[key] = output.split('\n').filter(Boolean).length;
           } catch {
@@ -483,9 +484,9 @@ class GraphUpdater {
 
         // Get last_changed and top_changers
         try {
-          const output = execSync(
-            `git log --pretty=format:"%an|||%ai" -20 -- "${filePath}"`,
-            { cwd: this.repoRoot, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
+          const output = git(
+            ['log', '--pretty=format:%an|||%ai', '-20', '--', filePath],
+            { cwd: this.repoRoot, timeout: 5000, allowFailure: true }
           );
           const lines = output.split('\n').filter(Boolean);
           const authorCounts = {};
@@ -630,10 +631,9 @@ class GraphUpdater {
 
   getCurrentCommit() {
     try {
-      return execSync('git rev-parse HEAD', {
-        cwd: this.repoRoot, encoding: 'utf8', timeout: 5000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim();
+      return git(['rev-parse', 'HEAD'], {
+        cwd: this.repoRoot, timeout: 5000, allowFailure: true,
+      }) || null;
     } catch {
       return null;
     }
@@ -641,9 +641,9 @@ class GraphUpdater {
 
   getFileLastModified(filePath) {
     try {
-      const output = execSync(
-        `git log -1 --format=%aI -- "${filePath}"`,
-        { cwd: this.repoRoot, encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }
+      const output = git(
+        ['log', '-1', '--format=%aI', '--', filePath],
+        { cwd: this.repoRoot, timeout: 5000, allowFailure: true }
       );
       return output.trim().split('T')[0] || null;
     } catch {

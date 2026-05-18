@@ -596,16 +596,35 @@ For each capability mentioned:
 
 **Scope each category:**
 
-For each category, use AskUserQuestion:
+For each category, build the full option list (every Table-Stake +
+Differentiator feature, plus a final "None for v1" escape hatch) and pick the
+picker shape based on N (= total options for this category):
 
-- header: "[Category]" (max 12 chars)
-- question: "Which [category] features are in v1?"
-- multiSelect: true
-- options:
-  - "[Feature 1]" — [brief description]
-  - "[Feature 2]" — [brief description]
-  - "[Feature 3]" — [brief description]
-  - "None for v1" — Defer entire category
+- If `N <= 4`: single AskUserQuestion call.
+  - header: "[Category]" (max 12 chars)
+  - question: "Which [category] features are in v1?"
+  - multiSelect: true
+  - options:
+    - "[Feature 1]" — [brief description]
+    - "[Feature 2]" — [brief description]
+    - "[Feature 3]" — [brief description]
+    - "None for v1" — Defer entire category
+
+- If `N > 4`: use the **paginated picker pattern**
+  (`@~/.claude/forge-cli/references/paginated-picker.md`):
+  1. Print a numbered overview of every feature in the category as plain text.
+  2. Compute pages with:
+     ```bash
+     node ~/.claude/forge-cli/bin/forge-tools.cjs picker paginate \
+       --options "$OPTIONS_JSON" \
+       --nav-label "Show more features →" \
+       --nav-description "Show more features in this category"
+     ```
+  3. Call AskUserQuestion once per page (`header` constant across pages,
+     `multiSelect: true`, `options: page.options`).
+  4. Accumulate selections, treating the nav slot as "advance". Place
+     "None for v1" on the **last** page so the escape hatch is always shown
+     alongside the final batch.
 
 Track responses:
 - Selected features → v1 requirements

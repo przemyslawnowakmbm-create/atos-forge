@@ -1,0 +1,19 @@
+mode: build
+allow:
+  - api.anthropic.com
+  - api.openai.com
+  - registry.npmjs.org
+  - registry.yarnpkg.com
+  - pypi.org
+  - files.pythonhosted.org
+  - proxy.golang.org
+  - sum.golang.org
+  - rubygems.org
+  - api.github.com
+  - codeload.github.com
+  - objects.githubusercontent.com
+  - github.com
+  - raw.githubusercontent.com
+deny:
+  - 169.254.169.254
+  - metadata.google.internal

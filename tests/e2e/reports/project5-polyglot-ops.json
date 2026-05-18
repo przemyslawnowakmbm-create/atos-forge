@@ -1,0 +1,121 @@
+{
+  "name": "project5-polyglot-ops",
+  "started_at": "2026-05-18T11:22:07.031Z",
+  "finished_at": "2026-05-18T11:22:07.812Z",
+  "pass": 14,
+  "fail": 0,
+  "steps": [
+    {
+      "name": "agents-md:generate",
+      "status": "pass",
+      "detail": "bytes=3691",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.112Z"
+    },
+    {
+      "name": "agents-md:check-after-generate",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.160Z"
+    },
+    {
+      "name": "agents-md:diff-detects-drift",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.211Z"
+    },
+    {
+      "name": "runtimes:list-includes-all-4",
+      "status": "pass",
+      "detail": "runtimes=6",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.310Z"
+    },
+    {
+      "name": "runtimes:claude-code-shape",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.359Z"
+    },
+    {
+      "name": "runtimes:codex-shape",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.407Z"
+    },
+    {
+      "name": "runtimes:openhands-shape",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.458Z"
+    },
+    {
+      "name": "runtimes:gemini-shape",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.508Z"
+    },
+    {
+      "name": "mcp:resources-list",
+      "status": "pass",
+      "detail": "resources=4",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.558Z"
+    },
+    {
+      "name": "mcp:tools-list",
+      "status": "pass",
+      "detail": "tools=7",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.609Z"
+    },
+    {
+      "name": "skills:add-file-ref",
+      "status": "pass",
+      "detail": "installed: forge-test-skill → /private/var/folders/jn/hlrfc41x2dq2z9fdbmqr3xh80000gp/T/forge-e2e-polyglot-ops-TmykFs/.forge/skills/forge-test-skill",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.662Z"
+    },
+    {
+      "name": "skills:list-shows-installed",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.713Z"
+    },
+    {
+      "name": "skills:info-roundtrips",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.763Z"
+    },
+    {
+      "name": "skills:remove-cleans-up",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.812Z"
+    }
+  ]
+}

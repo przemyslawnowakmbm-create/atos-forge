@@ -1,0 +1,65 @@
+{
+  "name": "project2-rest-api",
+  "started_at": "2026-05-18T11:22:06.707Z",
+  "finished_at": "2026-05-18T11:22:06.952Z",
+  "pass": 7,
+  "fail": 0,
+  "steps": [
+    {
+      "name": "identity:resolves",
+      "status": "pass",
+      "detail": "actor=e2e@forge.test",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:06.740Z"
+    },
+    {
+      "name": "redactor:scrubs-secrets",
+      "status": "pass",
+      "detail": "anthropic + gh PAT redacted",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:06.740Z"
+    },
+    {
+      "name": "audit:append-tail",
+      "status": "pass",
+      "detail": "tail=2",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:06.741Z"
+    },
+    {
+      "name": "audit:hash-chain-verifies",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:06.741Z"
+    },
+    {
+      "name": "actions:log-action+observation",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:06.851Z"
+    },
+    {
+      "name": "actions:tail-roundtrips",
+      "status": "pass",
+      "detail": "lines=2",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:06.902Z"
+    },
+    {
+      "name": "actions:replay-renders-pair",
+      "status": "pass",
+      "detail": "",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:06.952Z"
+    }
+  ]
+}

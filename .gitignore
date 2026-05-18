@@ -17,6 +17,11 @@ animation/
 # Internal planning documents
 reports/
 RAILROAD_ARCHITECTURE.md
+# ...except the committed e2e suite report.
+!tests/e2e/reports/
+
+# Local release artifacts (SBOMs etc.) — regenerated per release.
+.github/releases/
 
 # Analysis files
 gsd2-analysis.md

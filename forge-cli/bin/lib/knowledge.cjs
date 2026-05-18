@@ -77,8 +77,19 @@ async function handleKnowledge(cwd, args, raw) {
           }
         }
       }
+    } else if (sub === 'scrub') {
+      const result = knowledge.scrub(cwd);
+      if (raw) {
+        output(result, raw);
+      } else if (result.error) {
+        console.log(`Scrub failed: ${result.error}`);
+      } else if (result.skipped) {
+        console.log(`Scrub skipped: ${result.skipped}`);
+      } else {
+        console.log(`Scrubbed ${result.changed} of ${result.total} entries.`);
+      }
     } else {
-      error('Unknown knowledge subcommand. Available: list, add, prune, promote');
+      error('Unknown knowledge subcommand. Available: list, add, prune, promote, scrub');
     }
   } catch (e) {
     error('Knowledge error: ' + e.message);

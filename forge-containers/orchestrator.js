@@ -4,11 +4,12 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execSync, spawn } = require('child_process');
+const { spawn } = require('child_process');
+const { git, docker, safeId, safeBranch, safePath } = require('../forge-cli/lib/exec');
 
 const { resolveConfig, formatMemory } = require('./config');
 const { ResourceManager } = require('./resource-manager');
-const { buildSpec, toDockerArgs, dockerfilePath } = require('./container-spec');
+const { buildSpec, toDockerArgs, dockerfilePath, loadHardening } = require('./container-spec');
 const { collectPatches, applyPatches, extractLearnings } = require('./patch-collector');
 const { resolveProvider } = require('../forge-agents/provider');
 
@@ -53,7 +54,7 @@ function startSupervision(taskCtx, hardTimeoutMs) {
   timers.idle = setInterval(() => {
     try {
       const cwd = taskCtx.worktreePath || taskCtx.cwd || '.';
-      const diff = require('child_process').execSync('git diff --stat HEAD 2>/dev/null', { cwd, encoding: 'utf8', timeout: 5000 }).trim();
+      const diff = git(['diff', '--stat', 'HEAD'], { cwd, timeout: 5000, allowFailure: true }).trim();
       if (diff) lastActivity = Date.now();
       if (Date.now() - lastActivity > IDLE_MAX_MS) {
         console.log(`[supervision] Idle timeout for ${taskCtx.taskId || 'task'}`);
@@ -94,17 +95,16 @@ function ensureImage(templateName, opts = {}) {
   // Check if image exists
   if (!opts.force) {
     try {
-      execSync(`docker image inspect ${imageName}`, { stdio: 'pipe', timeout: 10000 });
+      docker(['image', 'inspect', imageName], { stdio: 'pipe', timeout: 10000 });
       return { image: imageName, built: false, cached: true };
     } catch { /* not cached — build */ }
   }
 
   // Build image — context is forge-containers/ so COPY can reach entrypoint scripts
   const contextDir = __dirname;
-  execSync(
-    `docker build -f ${dockerfile} -t ${imageName} ${contextDir}`,
-    { stdio: 'inherit', timeout: 300000 }
-  );
+  docker(['build', '-f', dockerfile, '-t', imageName, contextDir], {
+    stdio: 'inherit', timeout: 300000,
+  });
   return { image: imageName, built: true, cached: false };
 }
 
@@ -120,15 +120,15 @@ function ensureImage(templateName, opts = {}) {
  * @returns {{ worktreePath: string, branch: string }}
  */
 function createWorktree(repoRoot, taskId) {
+  const safeTaskId = safeId(String(taskId));
   const suffix = crypto.randomBytes(3).toString('hex');
   const worktreePath = path.join(
     require('os').tmpdir(),
-    `forge-${taskId}-${suffix}`
+    `forge-${safeTaskId}-${suffix}`
   );
-  const branch = `forge-work/${taskId}-${suffix}`;
+  const branch = safeBranch(`forge-work/${safeTaskId}-${suffix}`);
 
-  execSync(
-    `git worktree add "${worktreePath}" -b "${branch}" HEAD`,
+  git(['worktree', 'add', worktreePath, '-b', branch, 'HEAD'],
     { cwd: repoRoot, stdio: 'pipe', timeout: 30000 }
   );
 
@@ -140,7 +140,7 @@ function createWorktree(repoRoot, taskId) {
  */
 function removeWorktree(repoRoot, worktreePath) {
   try {
-    execSync(`git worktree remove "${worktreePath}" --force`, {
+    git(['worktree', 'remove', safePath(worktreePath), '--force'], {
       cwd: repoRoot,
       stdio: 'pipe',
       timeout: 30000,
@@ -148,7 +148,7 @@ function removeWorktree(repoRoot, worktreePath) {
   } catch {
     // Fallback: manual cleanup
     try { fs.rmSync(worktreePath, { recursive: true, force: true }); } catch { /* ignore */ }
-    try { execSync('git worktree prune', { cwd: repoRoot, stdio: 'pipe' }); } catch { /* ignore */ }
+    try { git(['worktree', 'prune'], { cwd: repoRoot, stdio: 'pipe', allowFailure: true }); } catch { /* ignore */ }
   }
 }
 
@@ -165,7 +165,8 @@ function removeWorktree(repoRoot, worktreePath) {
  */
 function runContainer(spec, callbacks = {}) {
   return new Promise((resolve) => {
-    const args = toDockerArgs(spec);
+    const hardening = loadHardening(spec._meta && spec._meta.cwd, spec._meta && spec._meta.planFrontmatter || {});
+    const args = toDockerArgs(spec, hardening);
     const stdoutPath = path.join(spec._meta.outputDir, 'stdout.log');
     const stderrPath = path.join(spec._meta.outputDir, 'stderr.log');
     const stdoutStream = fs.createWriteStream(stdoutPath);
@@ -193,7 +194,7 @@ function runContainer(spec, callbacks = {}) {
       if (finished) return;
       timedOut = true;
       try {
-        execSync(`docker kill ${spec.id}`, { stdio: 'pipe', timeout: 10000 });
+        docker(['kill', safeId(String(spec.id))], { stdio: 'pipe', timeout: 10000 });
       } catch { /* container may have already exited */ }
     }, hardTimeoutMs);
 
@@ -392,7 +393,7 @@ async function launch(agentConfig, params) {
     if (shouldCleanup) {
       // Remove container (in case --rm didn't work)
       if (result.containerId) {
-        try { execSync(`docker rm -f ${result.containerId}`, { stdio: 'pipe', timeout: 10000 }); } catch { /* ignore */ }
+        try { docker(['rm', '-f', safeId(String(result.containerId))], { stdio: 'pipe', timeout: 10000 }); } catch { /* ignore */ }
       }
 
       // Remove worktree
@@ -490,11 +491,12 @@ function detectTemplate(cwd) {
  */
 function checkDocker() {
   try {
-    const version = execSync('docker version --format "{{.Server.Version}}"', {
+    const version = docker(['version', '--format', '{{.Server.Version}}'], {
       stdio: 'pipe',
       timeout: 5000,
-    }).toString().trim();
-    return { available: true, version };
+      allowFailure: true,
+    });
+    return { available: !!version, version: version || null };
   } catch {
     return { available: false, version: null };
   }
@@ -505,10 +507,10 @@ function checkDocker() {
  */
 function listContainers() {
   try {
-    const output = execSync(
-      'docker ps -a --filter "name=forge-" --format "{{.ID}}\\t{{.Names}}\\t{{.Status}}\\t{{.CreatedAt}}"',
-      { stdio: 'pipe', timeout: 10000 }
-    ).toString().trim();
+    const output = docker(
+      ['ps', '-a', '--filter', 'name=forge-', '--format', '{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.CreatedAt}}'],
+      { stdio: 'pipe', timeout: 10000, allowFailure: true }
+    );
     if (!output) return [];
     return output.split('\n').map(line => {
       const [id, name, status, created] = line.split('\t');
@@ -525,26 +527,26 @@ function cleanup() {
 
   // Remove stopped forge containers
   try {
-    const stopped = execSync(
-      'docker ps -a --filter "name=forge-" --filter "status=exited" -q',
-      { stdio: 'pipe', timeout: 10000 }
-    ).toString().trim();
+    const stopped = docker(
+      ['ps', '-a', '--filter', 'name=forge-', '--filter', 'status=exited', '-q'],
+      { stdio: 'pipe', timeout: 10000, allowFailure: true }
+    );
     if (stopped) {
       const ids = stopped.split('\n').filter(Boolean);
       for (const id of ids) {
-        try { execSync(`docker rm ${id}`, { stdio: 'pipe', timeout: 5000 }); removed.containers++; } catch { /* ignore */ }
+        try { docker(['rm', safeId(id)], { stdio: 'pipe', timeout: 5000 }); removed.containers++; } catch { /* ignore */ }
       }
     }
   } catch { /* ignore */ }
 
   // Remove dangling forge images
   try {
-    execSync('docker image prune -f --filter "label=forge-agent"', { stdio: 'pipe', timeout: 30000 });
+    docker(['image', 'prune', '-f', '--filter', 'label=forge-agent'], { stdio: 'pipe', timeout: 30000, allowFailure: true });
   } catch { /* ignore */ }
 
   // Prune orphan worktrees
   try {
-    execSync('git worktree prune', { stdio: 'pipe', timeout: 10000 });
+    git(['worktree', 'prune'], { stdio: 'pipe', timeout: 10000, allowFailure: true });
   } catch { /* ignore */ }
 
   return removed;
@@ -578,17 +580,17 @@ if (require.main === module) {
   const jsonOutput = args.includes('--json');
 
   if (cmd === 'status') {
-    const docker = checkDocker();
+    const dockerInfo = checkDocker();
     const config = resolveConfig(cwd);
     const containers = listContainers();
     if (jsonOutput) {
       console.log(JSON.stringify({
-        docker, system: config.system,
+        docker: dockerInfo, system: config.system,
         limits: { max_concurrent: config.max_concurrent, max_memory_per_container: config.max_memory_per_container_str, max_cpu_per_container: config.max_cpu_per_container },
         containers,
       }));
     } else {
-      console.log('Docker:', docker.available ? `v${docker.version}` : 'NOT AVAILABLE');
+      console.log('Docker:', dockerInfo.available ? `v${dockerInfo.version}` : 'NOT AVAILABLE');
       console.log(`System: ${config.system.total_cores} cores, ${config.system.total_memory_str} RAM`);
       console.log(`Limits: ${config.max_concurrent} concurrent, ${config.max_memory_per_container_str}/container, ${config.max_cpu_per_container} CPU/container`);
       console.log(`Total budget: ${config.max_total_memory_str} RAM, ${config.max_total_cpu} CPU`);
@@ -601,7 +603,6 @@ if (require.main === module) {
     }
 
   } else if (cmd === 'check-docker') {
-    // Simple Docker availability check — returns JSON
     const result = checkDocker();
     console.log(JSON.stringify(result));
 

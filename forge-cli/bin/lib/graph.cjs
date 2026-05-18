@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSafe } = require('../../lib/exec');
 const { safeReadFile, output, error, getForgeRoot, getForgeGraphDir, getForgeSystemDir,
         graphDbExists, graphDbPath, getGraphStatus, getGraphContextForFiles, getGraphImpact,
         loadConfig, pathExistsInternal, collectPhaseFiles } = require('./core.cjs');
@@ -30,7 +30,7 @@ function cmdGraphInit(cwd, args, raw) {
   const startTime = Date.now();
   let buildOutput;
   try {
-    buildOutput = execSync(`node "${builderPath}" "${rootArg}" --db "${graphDbPath(cwd)}"`, {
+    buildOutput = execFileSafe('node', [builderPath, rootArg, '--db', graphDbPath(cwd)], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 300000,
     });
   } catch (e) {
@@ -40,7 +40,7 @@ function cmdGraphInit(cwd, args, raw) {
   // Install git hooks
   let hooksInstalled = false;
   try {
-    execSync(`node "${hooksPath}" "${cwd}"`, {
+    execFileSafe('node', [hooksPath, cwd], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
     });
     hooksInstalled = true;
@@ -52,7 +52,7 @@ function cmdGraphInit(cwd, args, raw) {
   let capabilitiesDetected = 0;
   try {
     const capPath = path.join(graphDir, 'capability-detector.js');
-    execSync(`node "${capPath}" detect --root "${rootArg}" --db "${graphDbPath(cwd)}"`, {
+    execFileSafe('node', [capPath, 'detect', '--root', rootArg, '--db', graphDbPath(cwd)], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 60000,
     });
     capabilitiesDetected = 1; // success flag
@@ -106,6 +106,34 @@ function cmdGraphInit(cwd, args, raw) {
   const knowledgeDir = path.join(forgeDir, 'knowledge');
   if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true });
 
+  // Create .forge/audit/ directory and ensure project identity (Ed25519 keypair).
+  // Local adapter only; OIDC/SAML adapters skip the keypair generation entirely.
+  let identityActor = null;
+  let identityFingerprint = null;
+  let identityCreated = false;
+  try {
+    const auditDirPath = path.join(forgeDir, 'audit');
+    if (!fs.existsSync(auditDirPath)) fs.mkdirSync(auditDirPath, { recursive: true });
+    const id = require(path.join(getForgeRoot(), 'forge-session', 'identity'));
+    if (id.adapterName(cwd) === 'local') {
+      const r = id.ensureLocalKeypair(cwd);
+      identityActor = r.actor;
+      identityFingerprint = r.publicKeyFingerprint;
+      identityCreated = r.created;
+    } else {
+      identityActor = id.actor(cwd);
+    }
+    // Audit the init itself for traceability
+    try {
+      const audit = require(path.join(getForgeRoot(), 'forge-session', 'audit'));
+      audit.append(cwd, {
+        action: 'forge-init',
+        subject: path.basename(cwd),
+        payload: { fingerprint: identityFingerprint, files: meta.file_count || 0 },
+      });
+    } catch { /* non-fatal */ }
+  } catch { /* identity optional at first run */ }
+
   // Ensure .forge/ is in .gitignore (runtime data, not project code)
   let gitignoreUpdated = false;
   try {
@@ -152,7 +180,7 @@ function cmdGraphInit(cwd, args, raw) {
     } catch { /* default to true */ }
     if (autoRegen) {
       const dashGenPath = path.join(getForgeGraphDir(), 'dashboard-generator.js');
-      execSync(`node "${dashGenPath}" "${graphDbPath(cwd)}"`, {
+      execFileSafe('node', [dashGenPath, graphDbPath(cwd)], {
         cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000,
       });
       dashboardGenerated = true;
@@ -176,8 +204,13 @@ function cmdGraphInit(cwd, args, raw) {
     interfaces_path: interfacesPath,
     registry_scanned: registryScanned,
     registry_agent_count: registryAgentCount,
-    directories_created: ['session', 'snapshots', 'knowledge'],
+    directories_created: ['session', 'snapshots', 'knowledge', 'audit', 'identity'],
     db_path: graphDbPath(cwd),
+    identity: identityActor ? {
+      actor: identityActor,
+      fingerprint: identityFingerprint,
+      created: identityCreated,
+    } : null,
   };
 
   output(result, raw);
@@ -201,28 +234,28 @@ function cmdGraphStatus(cwd, raw) {
   let meta = null, hotspots = null, modules = null, capabilities = null;
 
   try {
-    const metaOut = execSync(`node "${queryPath}" meta --json --db "${graphDbPath(cwd)}"`, {
+    const metaOut = execFileSafe('node', [queryPath, 'meta', '--json', '--db', graphDbPath(cwd)], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
     });
     meta = JSON.parse(metaOut);
   } catch {}
 
   try {
-    const hotspotsOut = execSync(`node "${queryPath}" hotspots --top 5 --json --db "${graphDbPath(cwd)}"`, {
+    const hotspotsOut = execFileSafe('node', [queryPath, 'hotspots', '--top', '5', '--json', '--db', graphDbPath(cwd)], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
     });
     hotspots = JSON.parse(hotspotsOut);
   } catch {}
 
   try {
-    const modsOut = execSync(`node "${queryPath}" modules --json --db "${graphDbPath(cwd)}"`, {
+    const modsOut = execFileSafe('node', [queryPath, 'modules', '--json', '--db', graphDbPath(cwd)], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
     });
     modules = JSON.parse(modsOut);
   } catch {}
 
   try {
-    const capsOut = execSync(`node "${queryPath}" capabilities --json --db "${graphDbPath(cwd)}"`, {
+    const capsOut = execFileSafe('node', [queryPath, 'capabilities', '--json', '--db', graphDbPath(cwd)], {
       cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 10000,
     });
     capabilities = JSON.parse(capsOut);
@@ -313,29 +346,23 @@ function cmdGraphVisualize(cwd, args, raw) {
   }
 
   // Parse args
-  let outputArg = '';
   const outputIdx = args.indexOf('--output');
-  if (outputIdx >= 0 && args[outputIdx + 1]) {
-    outputArg = '--output "' + args[outputIdx + 1] + '"';
-  } else {
-    outputArg = '--output "' + path.join(cwd, '.forge', 'dashboard.html') + '"';
-  }
+  const outputPath = (outputIdx >= 0 && args[outputIdx + 1])
+    ? args[outputIdx + 1]
+    : path.join(cwd, '.forge', 'dashboard.html');
 
-  const openArg = args.includes('--open') ? '--open' : '';
+  const wantsOpen = args.includes('--open');
   const noOpen = args.includes('--no-open');
 
   try {
-    const cmdLine = 'node "' + dashboardScript + '" --root "' + cwd + '" --db "' + graphDbPath(cwd) + '" ' + outputArg + (!noOpen && !openArg ? '' : ' ' + openArg);
-    execSync(cmdLine, { cwd, encoding: 'utf-8', stdio: 'inherit', timeout: 60000 });
-
-    const dashFile = (outputIdx >= 0 && args[outputIdx + 1])
-      ? args[outputIdx + 1]
-      : path.join(cwd, '.forge', 'dashboard.html');
+    const nodeArgs = [dashboardScript, '--root', cwd, '--db', graphDbPath(cwd), '--output', outputPath];
+    if (wantsOpen && !noOpen) nodeArgs.push('--open');
+    execFileSafe('node', nodeArgs, { cwd, encoding: 'utf-8', stdio: 'inherit', timeout: 60000 });
 
     output({
       success: true,
-      dashboard_path: dashFile,
-      opened: args.includes('--open'),
+      dashboard_path: outputPath,
+      opened: wantsOpen,
     }, raw);
   } catch (e) {
     error('Dashboard generation failed: ' + (e.message || ''));
@@ -395,11 +422,12 @@ function cmdGraphQuery(cwd, command, args, raw) {
   }
   const graphDir = getForgeGraphDir();
   const queryPath = path.join(graphDir, 'query.js');
-  const extraArgs = args.filter(a => a !== command).join(' ');
-  const jsonFlag = raw ? ' --json' : '';
+  const extraArgs = args.filter(a => a !== command).map(String);
+  const jsonFlag = raw ? ['--json'] : [];
   try {
-    const result = execSync(
-      `node "${queryPath}" ${command} ${extraArgs}${jsonFlag} --db "${graphDbPath(cwd)}"`,
+    const result = execFileSafe(
+      'node',
+      [queryPath, command, ...extraArgs, ...jsonFlag, '--db', graphDbPath(cwd)],
       { cwd, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000 }
     );
     if (raw) {

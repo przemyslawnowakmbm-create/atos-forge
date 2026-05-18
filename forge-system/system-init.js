@@ -3,7 +3,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, execFile } = require('child_process');
+const { execFile } = require('child_process');
+const { execFileSafe, safeId } = require('../forge-cli/lib/exec');
 const os = require('os');
 
 // ============================================================
@@ -224,8 +225,10 @@ async function discoverFromGitHub(orgName, workspace) {
   // Use gh CLI to list repos
   let repoList;
   try {
-    const ghOutput = execSync(
-      `gh repo list ${orgName} --json name,sshUrl --limit 1000`,
+    safeId(orgName); // reject shell-meta / dash-prefix org names
+    const ghOutput = execFileSafe(
+      'gh',
+      ['repo', 'list', orgName, '--json', 'name,sshUrl', '--limit', '1000'],
       { encoding: 'utf-8', timeout: 60000 }
     );
     repoList = JSON.parse(ghOutput);
@@ -242,12 +245,16 @@ async function discoverFromGitHub(orgName, workspace) {
     if (fs.existsSync(repoDir)) {
       // Already cloned — pull latest
       try {
-        execSync('git pull --ff-only', { cwd: repoDir, encoding: 'utf-8', stdio: 'pipe', timeout: 30000 });
+        execFileSafe('git', ['pull', '--ff-only'], { cwd: repoDir, encoding: 'utf-8', stdio: 'pipe', timeout: 30000 });
       } catch { /* non-fatal */ }
     } else {
-      // Shallow clone
+      // Shallow clone — reject sshUrls or paths containing shell metas
+      if (typeof repo.sshUrl !== 'string' || /[`$;&|<>\n\r"']/.test(repo.sshUrl)) {
+        logWarn(`Skipping ${repo.name}: unsafe sshUrl`);
+        continue;
+      }
       try {
-        execSync(`git clone --depth 1 "${repo.sshUrl}" "${repoDir}"`, {
+        execFileSafe('git', ['clone', '--depth', '1', repo.sshUrl, repoDir], {
           encoding: 'utf-8', stdio: 'pipe', timeout: 120000,
         });
       } catch (e) {
@@ -330,8 +337,9 @@ async function initOneRepo(repo, opts) {
   const forgeToolsPath = resolveForgeTools();
 
   try {
-    const initOutput = execSync(
-      `node "${forgeToolsPath}" graph init --root "${repoPath}" --raw`,
+    const initOutput = execFileSafe(
+      'node',
+      [forgeToolsPath, 'graph', 'init', '--root', repoPath, '--raw'],
       {
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'pipe'],

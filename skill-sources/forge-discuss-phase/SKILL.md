@@ -16,6 +16,7 @@ allowed-tools:
 @~/.claude/forge-cli/references/agent-directives.md
 @~/.claude/forge-cli/workflows/discuss-phase.md
 @~/.claude/forge-cli/templates/context.md
+@~/.claude/forge-cli/references/paginated-picker.md
 </execution_context>
 
 <objective>
@@ -70,7 +71,7 @@ Gray areas depend on what's being built. Analyze the phase goal:
 - Something users READ → structure, tone, depth, flow
 - Something being ORGANIZED → criteria, grouping, naming, exceptions
 
-Generate as many **phase-specific** gray areas as the phase actually needs (typically 2-6) — don't pad or cut to hit a fixed number.
+Generate as many **phase-specific** gray areas as the phase actually needs (typically 2-8, can be more for rich domains) — don't pad or cut to hit a fixed number. If the count exceeds 4, use the paginated picker pattern (`@~/.claude/forge-cli/references/paginated-picker.md`) so the AskUserQuestion call schedule stays within the platform's `maxItems: 4` cap — selections accumulate across pages.
 
 **Probing depth:**
 - Ask questions until the area's key decisions are resolved

@@ -17,7 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, spawnSync } = require('child_process');
+const { execSync, spawnSync, execFileSync } = require('child_process');
 
 // ============================================================
 // Paths (container-internal)
@@ -50,11 +50,16 @@ function writeResult(result) {
 function setupWorkspace() {
   log('Setting up verification workspace...');
   if (fs.existsSync(WORKSPACE_PATH) && fs.readdirSync(WORKSPACE_PATH).length > 0) {
-    execSync(`rm -rf ${WORKSPACE_PATH}/*`, { cwd: '/', stdio: 'pipe' });
+    // Remove contents in JS — no shell, no glob expansion attack surface.
+    for (const entry of fs.readdirSync(WORKSPACE_PATH)) {
+      try { fs.rmSync(path.join(WORKSPACE_PATH, entry), { recursive: true, force: true }); }
+      catch { /* ignore */ }
+    }
   }
-  execSync(`cp -a ${REPO_PATH}/. ${WORKSPACE_PATH}/`, { cwd: '/', stdio: 'pipe', timeout: 60000 });
-  try { execSync('git config user.email "forge-verifier@localhost"', { cwd: WORKSPACE_PATH, stdio: 'pipe' }); } catch { /* ignore */ }
-  try { execSync('git config user.name "Forge Verifier"', { cwd: WORKSPACE_PATH, stdio: 'pipe' }); } catch { /* ignore */ }
+  execFileSync('cp', ['-a', `${REPO_PATH}/.`, `${WORKSPACE_PATH}/`],
+    { cwd: '/', stdio: 'pipe', timeout: 60000 });
+  try { execFileSync('git', ['config', 'user.email', 'forge-verifier@localhost'], { cwd: WORKSPACE_PATH, stdio: 'pipe' }); } catch { /* ignore */ }
+  try { execFileSync('git', ['config', 'user.name', 'Forge Verifier'], { cwd: WORKSPACE_PATH, stdio: 'pipe' }); } catch { /* ignore */ }
 }
 
 function applyPatches(config) {
