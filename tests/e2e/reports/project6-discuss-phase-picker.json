@@ -1,0 +1,121 @@
+{
+  "name": "project6-discuss-phase-picker",
+  "started_at": "2026-05-18T11:22:07.817Z",
+  "finished_at": "2026-05-18T11:22:08.389Z",
+  "pass": 14,
+  "fail": 0,
+  "steps": [
+    {
+      "name": "scenario:N=2 fast-path",
+      "status": "pass",
+      "detail": "pages=1 options=[Area 1, Area 2]",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.897Z"
+    },
+    {
+      "name": "scenario:N=4 fast-path boundary",
+      "status": "pass",
+      "detail": "pages=1 optionsPerPage=4",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.946Z"
+    },
+    {
+      "name": "scenario:N=5 paginated [3+nav][2]",
+      "status": "pass",
+      "detail": "picked-all=5 order-ok",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:07.995Z"
+    },
+    {
+      "name": "scenario:N=7 [3+nav][2+nav][2] avoids orphan",
+      "status": "pass",
+      "detail": "pages=3 nav-walk-picked=1",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.045Z"
+    },
+    {
+      "name": "scenario:N=10 multi-page mixed",
+      "status": "pass",
+      "detail": "pages=4 pick-all=10 stop-early=1",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.094Z"
+    },
+    {
+      "name": "scenario:N=12 four pages [3+nav]x3 + [3]",
+      "status": "pass",
+      "detail": "pages=4 last=3",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.143Z"
+    },
+    {
+      "name": "scenario:invariant sweep N=5..20",
+      "status": "pass",
+      "detail": "16 N-values OK",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.143Z"
+    },
+    {
+      "name": "scenario:custom nav label",
+      "status": "pass",
+      "detail": "label='Show more areas →' advance=true real=1",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.193Z"
+    },
+    {
+      "name": "scenario:--options @path file input",
+      "status": "pass",
+      "detail": "total=8 pages=3",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.241Z"
+    },
+    {
+      "name": "scenario:error path missing --options",
+      "status": "pass",
+      "detail": "code=1",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.289Z"
+    },
+    {
+      "name": "scenario:error path invalid JSON",
+      "status": "pass",
+      "detail": "code=1",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.339Z"
+    },
+    {
+      "name": "scenario:enhance-requirements rewrites N=9 walk",
+      "status": "pass",
+      "detail": "accumulated=5 across 3 pages",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.339Z"
+    },
+    {
+      "name": "scenario:discuss-phase gray areas (real flow)",
+      "status": "pass",
+      "detail": "selected=Empty state, Loading behavior, Pagination model pages=3",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.389Z"
+    },
+    {
+      "name": "scenario:reference doc + workflow wiring",
+      "status": "pass",
+      "detail": "paginated-picker.md exists; 4 workflows reference it",
+      "stdout": "",
+      "stderr": "",
+      "ts": "2026-05-18T11:22:08.389Z"
+    }
+  ]
+}

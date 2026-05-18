@@ -230,14 +230,66 @@ Let's clarify what's still open.
 (New capabilities belong in other phases.)
 ```
 
-**Then use AskUserQuestion (multiSelect: true):**
-- header: "Discuss"
-- question: "Which areas do you want to discuss for [phase name]?"
-- options: Generate as many phase-specific gray areas as the phase actually needs (typically 2-6), each formatted as:
+**Generate the gray-area list (no upper bound):**
+- Generate as many **phase-specific** gray areas as the phase actually needs.
+  Typical range is 2-8, but it can go higher for rich domains — do not pad,
+  and do not cut to hit a fixed number. Each formatted as:
   - "[Specific area]" (label) — concrete, not generic
   - [1-2 questions this covers] (description)
+- **Do NOT include a "skip" or "you decide" option.** User ran this command to
+  discuss — give them real choices.
 
-**Do NOT include a "skip" or "you decide" option.** User ran this command to discuss — give them real choices.
+**Pick the picker shape based on N (= number of gray areas):**
+
+- If `N <= 4`: single AskUserQuestion (`multiSelect: true`, `header: "Discuss"`,
+  question: "Which areas do you want to discuss for [phase name]?", options: the
+  N areas). Skip the overview step below.
+
+- If `N > 4`: use the **paginated picker pattern** described in
+  `@~/.claude/forge-cli/references/paginated-picker.md` so no AskUserQuestion call
+  exceeds the platform cap. Concretely:
+
+  1. Print a numbered overview of every area as plain text so the user sees the
+     full landscape before clicking:
+     ```
+     I see N gray areas worth discussing for Phase [X]:
+       1. [Area 1] — [description]
+       2. [Area 2] — [description]
+       ...
+       N. [Area N] — [description]
+
+     I'll show them in pages of 3. Pick what you want, then "Show more areas →"
+     to advance. Selections accumulate across pages.
+     ```
+
+  2. Compute pages deterministically:
+     ```bash
+     OPTIONS_JSON='[{"label":"...","description":"..."}, ...]'   # the N areas
+     node ~/.claude/forge-cli/bin/forge-tools.cjs picker paginate \
+       --options "$OPTIONS_JSON" \
+       --nav-label "Show more areas →" \
+       --nav-description "Show more gray areas to choose from"
+     ```
+     The output's `pages[]` is the AskUserQuestion call schedule.
+
+  3. For each page (in order), call AskUserQuestion with:
+     - `header: "Discuss"` (same on every page — never append page numbers)
+     - `question: "Which areas do you want to discuss for [phase name]?"`
+       (same on every page)
+     - `multiSelect: true`
+     - `options: page.options` (≤4 items, may include the "Show more areas →"
+       nav slot as the last entry on non-last pages)
+
+  4. After each non-last page:
+     - Accumulate real selections into the result set (de-duplicate by label).
+     - If "Show more areas →" was selected → advance to the next page.
+     - If it was **not** selected → stop early; the user has finished picking.
+
+  5. After the last page, accumulate selections and finalize.
+
+  6. If the cumulative result is empty after the user is done, ask once:
+     "No areas selected — want to pick at least one, or skip discuss-phase?"
+     (single-select: "Re-open picker" / "Skip discuss-phase").
 
 **Examples by domain:**
 

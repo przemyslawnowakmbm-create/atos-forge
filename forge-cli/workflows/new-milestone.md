@@ -128,10 +128,36 @@ Present features by category:
 
 **If no research:** Gather requirements through conversation. Ask: "What are the main things users need to do with [new features]?" Clarify, probe for related capabilities, group into categories.
 
-**Scope each category** via AskUserQuestion (multiSelect: true, header max 12 chars):
+**Scope each category** via AskUserQuestion (multiSelect: true, header max 12 chars).
+
+Build the option list for the category first — every Table-Stake and
+Differentiator feature in the category, plus a final "None for this milestone"
+escape hatch:
 - "[Feature 1]" — [brief description]
 - "[Feature 2]" — [brief description]
+- ...
 - "None for this milestone" — Defer entire category
+
+If the category has **4 or fewer total options** (features + the "None" escape),
+make a single AskUserQuestion call as before.
+
+If it has **more than 4**, use the paginated picker pattern from
+`@~/.claude/forge-cli/references/paginated-picker.md` so no single
+AskUserQuestion call breaches the platform cap:
+
+1. Print a numbered overview of every option in the category as plain text.
+2. Compute pages with:
+   ```bash
+   node ~/.claude/forge-cli/bin/forge-tools.cjs picker paginate \
+     --options "$OPTIONS_JSON" \
+     --nav-label "Show more features →" \
+     --nav-description "Show more features in this category"
+   ```
+3. Call AskUserQuestion once per page (same header, same question,
+   `multiSelect: true`, `options: page.options`).
+4. Accumulate selections across pages, treating the nav slot as "advance".
+   Place the "None for this milestone" option on the **last** page so the
+   user always sees the escape hatch alongside the final batch of features.
 
 Track: Selected → this milestone. Unselected table stakes → future. Unselected differentiators → out of scope.
 

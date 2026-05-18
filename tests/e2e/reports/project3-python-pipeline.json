@@ -1,7 +1,7 @@
 {
   "name": "project3-python-pipeline",
-  "started_at": "2026-05-15T18:19:37.990Z",
-  "finished_at": "2026-05-15T18:19:38.024Z",
+  "started_at": "2026-05-18T11:22:06.957Z",
+  "finished_at": "2026-05-18T11:22:06.988Z",
   "pass": 5,
   "fail": 0,
   "steps": [
@@ -11,7 +11,7 @@
       "detail": "tools=6 egress=off",
       "stdout": "",
       "stderr": "",
-      "ts": "2026-05-15T18:19:38.023Z"
+      "ts": "2026-05-18T11:22:06.987Z"
     },
     {
       "name": "capabilities:write-path-allowlist",
@@ -19,7 +19,7 @@
       "detail": "src/* allowed, /etc/passwd denied",
       "stdout": "",
       "stderr": "",
-      "ts": "2026-05-15T18:19:38.024Z"
+      "ts": "2026-05-18T11:22:06.988Z"
     },
     {
       "name": "capabilities:reports-unknown",
@@ -27,7 +27,7 @@
       "detail": "",
       "stdout": "",
       "stderr": "",
-      "ts": "2026-05-15T18:19:38.024Z"
+      "ts": "2026-05-18T11:22:06.988Z"
     },
     {
       "name": "scope-env:allowlist-enforced",
@@ -35,7 +35,7 @@
       "detail": "allowlisted survives, non-allowlisted dropped",
       "stdout": "",
       "stderr": "",
-      "ts": "2026-05-15T18:19:38.024Z"
+      "ts": "2026-05-18T11:22:06.988Z"
     },
     {
       "name": "containers:hardened-flags",
@@ -43,7 +43,7 @@
       "detail": "cap-drop ALL + no-new-privileges + read-only + network none",
       "stdout": "",
       "stderr": "",
-      "ts": "2026-05-15T18:19:38.024Z"
+      "ts": "2026-05-18T11:22:06.988Z"
     }
   ]
 }

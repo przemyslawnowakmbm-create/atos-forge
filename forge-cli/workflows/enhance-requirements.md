@@ -222,39 +222,64 @@ Present ALL suggestions to user for acceptance/rejection. Use AskUserQuestion fo
 
 **Rewrites (if any):**
 
-```
-AskUserQuestion([
-  {
-    header: "Rewrites",
-    question: "Which requirement rewrites do you accept?",
-    multiSelect: true,
-    options: [
-      { label: "#1 CONTENT-02", description: "\"User can edit posts\" → \"User can edit title and body of own draft or published posts\"" },
-      { label: "#2 PAY-01", description: "\"Handle payments\" → \"User can purchase subscription via credit card\"" },
-      { label: "Accept all", description: "Apply all suggested rewrites" },
-      { label: "Reject all", description: "Keep current wording" }
-    ]
-  }
-])
-```
+Build the full rewrite list — one option per proposed rewrite, plus the two
+bulk-action options ("Accept all", "Reject all") on the **last** page so they're
+always shown alongside the final batch.
+
+- If `total <= 4` options: single AskUserQuestion call as before, e.g.
+  ```
+  AskUserQuestion([
+    {
+      header: "Rewrites",
+      question: "Which requirement rewrites do you accept?",
+      multiSelect: true,
+      options: [
+        { label: "#1 CONTENT-02", description: "\"User can edit posts\" → \"User can edit title and body of own draft or published posts\"" },
+        { label: "#2 PAY-01", description: "\"Handle payments\" → \"User can purchase subscription via credit card\"" },
+        { label: "Accept all", description: "Apply all suggested rewrites" },
+        { label: "Reject all", description: "Keep current wording" }
+      ]
+    }
+  ])
+  ```
+- If `total > 4` options: use the paginated picker pattern
+  (`@~/.claude/forge-cli/references/paginated-picker.md`). Print a numbered
+  overview of every rewrite, then page through with
+  `forge-tools picker paginate --nav-label "Show more rewrites →"`. Same header
+  ("Rewrites") and same question on every page. Keep "Accept all" and
+  "Reject all" on the **last** page only. If "Accept all" is selected on the
+  final page, treat it as picking every rewrite shown across all pages.
 
 **New requirements (per priority tier):**
 
-```
-AskUserQuestion([
-  {
-    header: "Critical",
-    question: "Which critical gap requirements should be added?",
-    multiSelect: true,
-    options: [
-      { label: "AUTH-04", description: "User receives error message when login fails with wrong password" },
-      { label: "CONTENT-05", description: "User sees loading state while content is being fetched" },
-      { label: "Add all critical", description: "Add all critical gap requirements" },
-      { label: "Skip critical", description: "Don't add any" }
-    ]
-  }
-])
-```
+Build the full per-tier option list (one option per gap requirement, plus the
+two bulk-action options "Add all critical" / "Skip critical" — and the
+equivalents for Important and Nice-to-Have) and pick the picker shape based
+on the total:
+
+- If `total <= 4` options: single AskUserQuestion call, e.g.
+  ```
+  AskUserQuestion([
+    {
+      header: "Critical",
+      question: "Which critical gap requirements should be added?",
+      multiSelect: true,
+      options: [
+        { label: "AUTH-04", description: "User receives error message when login fails with wrong password" },
+        { label: "CONTENT-05", description: "User sees loading state while content is being fetched" },
+        { label: "Add all critical", description: "Add all critical gap requirements" },
+        { label: "Skip critical", description: "Don't add any" }
+      ]
+    }
+  ])
+  ```
+- If `total > 4` options: paginated picker. Print a numbered overview of every
+  gap requirement in the tier, then page through with
+  `forge-tools picker paginate --nav-label "Show more gaps →"`. Same header
+  (`"Critical"` / `"Important"` / `"Nice"`) and same question on every page.
+  Place "Add all <tier>" / "Skip <tier>" on the **last** page only. If
+  "Add all <tier>" is selected on the final page, treat it as picking every
+  requirement shown across all pages.
 
 Repeat for Important and Nice-to-Have tiers.
 

@@ -54,14 +54,14 @@
 <body>
 <h1>Forge — End-to-End Test Report</h1>
 <div class="meta">
-  Generated 2026-05-15T18:19:38.887Z  · forge-cli v1.20.4
+  Generated 2026-05-18T11:22:08.393Z  · forge-cli v1.20.4
 </div>
 
 <div class="summary-card">
   <div><span class="label">Projects</span>
-       <span class="stat">5/5</span></div>
+       <span class="stat">6/6</span></div>
   <div><span class="label">Assertions</span>
-       <span class="stat">35</span></div>
+       <span class="stat">49</span></div>
   <div><span class="label">Failures</span>
        <span class="stat">0</span></div>
   <div><span class="label">Verdict</span>
@@ -74,7 +74,7 @@
     <header>
       <h2>project1-node-lib</h2>
       <span class="badge" style="background:#16a34a">PASS</span><span class="counts">4 pass / 0 fail</span>
-      <span class="dur">83 ms</span>
+      <span class="dur">80 ms</span>
     </header>
     <ol class="steps"><li class="step pass">
       <span class="step-status">PASS</span>
@@ -102,7 +102,7 @@
     <header>
       <h2>project2-rest-api</h2>
       <span class="badge" style="background:#16a34a">PASS</span><span class="counts">7 pass / 0 fail</span>
-      <span class="dur">255 ms</span>
+      <span class="dur">245 ms</span>
     </header>
     <ol class="steps"><li class="step pass">
       <span class="step-status">PASS</span>
@@ -145,7 +145,7 @@
     <header>
       <h2>project3-python-pipeline</h2>
       <span class="badge" style="background:#16a34a">PASS</span><span class="counts">5 pass / 0 fail</span>
-      <span class="dur">34 ms</span>
+      <span class="dur">31 ms</span>
     </header>
     <ol class="steps"><li class="step pass">
       <span class="step-status">PASS</span>
@@ -178,7 +178,7 @@
     <header>
       <h2>project4-ts-web-app</h2>
       <span class="badge" style="background:#16a34a">PASS</span><span class="counts">5 pass / 0 fail</span>
-      <span class="dur">36 ms</span>
+      <span class="dur">35 ms</span>
     </header>
     <ol class="steps"><li class="step pass">
       <span class="step-status">PASS</span>
@@ -211,7 +211,7 @@
     <header>
       <h2>project5-polyglot-ops</h2>
       <span class="badge" style="background:#16a34a">PASS</span><span class="counts">14 pass / 0 fail</span>
-      <span class="dur">813 ms</span>
+      <span class="dur">781 ms</span>
     </header>
     <ol class="steps"><li class="step pass">
       <span class="step-status">PASS</span>
@@ -266,7 +266,7 @@
     </li><li class="step pass">
       <span class="step-status">PASS</span>
       <span class="step-name">skills:add-file-ref</span>
-      <div class="detail">installed: forge-test-skill → /private/var/folders/jn/hlrfc41x2dq2z9fdbmqr3xh80000gp/T/forge-e2e-polyglot-ops-Y9WTar/.forge/skills/forge-test-skill</div>
+      <div class="detail">installed: forge-test-skill → /private/var/folders/jn/hlrfc41x2dq2z9fdbmqr3xh80000gp/T/forge-e2e-polyglot-ops-TmykFs/.forge/skills/forge-test-skill</div>
       
     </li><li class="step pass">
       <span class="step-status">PASS</span>
@@ -285,7 +285,85 @@
       
     </li></ol>
   </section>
+<section class="project pass">
+    <header>
+      <h2>project6-discuss-phase-picker</h2>
+      <span class="badge" style="background:#16a34a">PASS</span><span class="counts">14 pass / 0 fail</span>
+      <span class="dur">572 ms</span>
+    </header>
+    <ol class="steps"><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:N=2 fast-path</span>
+      <div class="detail">pages=1 options=[Area 1, Area 2]</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:N=4 fast-path boundary</span>
+      <div class="detail">pages=1 optionsPerPage=4</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:N=5 paginated [3+nav][2]</span>
+      <div class="detail">picked-all=5 order-ok</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:N=7 [3+nav][2+nav][2] avoids orphan</span>
+      <div class="detail">pages=3 nav-walk-picked=1</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:N=10 multi-page mixed</span>
+      <div class="detail">pages=4 pick-all=10 stop-early=1</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:N=12 four pages [3+nav]x3 + [3]</span>
+      <div class="detail">pages=4 last=3</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:invariant sweep N=5..20</span>
+      <div class="detail">16 N-values OK</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:custom nav label</span>
+      <div class="detail">label='Show more areas →' advance=true real=1</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:--options @path file input</span>
+      <div class="detail">total=8 pages=3</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:error path missing --options</span>
+      <div class="detail">code=1</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:error path invalid JSON</span>
+      <div class="detail">code=1</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:enhance-requirements rewrites N=9 walk</span>
+      <div class="detail">accumulated=5 across 3 pages</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:discuss-phase gray areas (real flow)</span>
+      <div class="detail">selected=Empty state, Loading behavior, Pagination model pages=3</div>
+      
+    </li><li class="step pass">
+      <span class="step-status">PASS</span>
+      <span class="step-name">scenario:reference doc + workflow wiring</span>
+      <div class="detail">paginated-picker.md exists; 4 workflows reference it</div>
+      
+    </li></ol>
+  </section>
 
-<footer>Forge E2E suite · 2026-05-15T18:19:38.887Z</footer>
+<footer>Forge E2E suite · 2026-05-18T11:22:08.393Z</footer>
 </body>
 </html>

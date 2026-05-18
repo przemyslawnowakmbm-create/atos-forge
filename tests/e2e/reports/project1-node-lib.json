@@ -1,7 +1,7 @@
 {
   "name": "project1-node-lib",
-  "started_at": "2026-05-15T18:19:37.643Z",
-  "finished_at": "2026-05-15T18:19:37.726Z",
+  "started_at": "2026-05-18T11:22:06.622Z",
+  "finished_at": "2026-05-18T11:22:06.702Z",
   "pass": 4,
   "fail": 0,
   "steps": [
@@ -11,7 +11,7 @@
       "detail": "code=0",
       "stdout": "Wrote SBOM: sbom.cdx.json  (1 components)\n",
       "stderr": "",
-      "ts": "2026-05-15T18:19:37.720Z"
+      "ts": "2026-05-18T11:22:06.696Z"
     },
     {
       "name": "sbom:verify-shape",
@@ -19,7 +19,7 @@
       "detail": "components=1",
       "stdout": "",
       "stderr": "",
-      "ts": "2026-05-15T18:19:37.720Z"
+      "ts": "2026-05-18T11:22:06.697Z"
     },
     {
       "name": "logger:redacts-secrets",
@@ -27,7 +27,7 @@
       "detail": "secret never leaked",
       "stdout": "",
       "stderr": "",
-      "ts": "2026-05-15T18:19:37.725Z"
+      "ts": "2026-05-18T11:22:06.701Z"
     },
     {
       "name": "exec:rejects-missing-binary",
@@ -35,7 +35,7 @@
       "detail": "",
       "stdout": "",
       "stderr": "",
-      "ts": "2026-05-15T18:19:37.726Z"
+      "ts": "2026-05-18T11:22:06.702Z"
     }
   ]
 }
